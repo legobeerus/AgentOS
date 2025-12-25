@@ -21,7 +21,11 @@ module.exports = {
             option
                 .setName("verdict")
                 .setDescription("The verdict of the case")
-                .setRequired(true),
+                .setRequired(true)
+                .addChoices(
+                    { name: "Guilty", value: "guilty" },
+                    { name: "Not Guilty", value: "not_guilty" }
+                ),
         )
         .addStringOption(option =>
             option
@@ -51,25 +55,28 @@ module.exports = {
                 { name: "Verdict", value: `${verdict}`, inline: false }
             )
             .setColor(0x00aff1)
-            .setFooter({ text: `Submitted at` })
             .setTimestamp();
         
-        const approveButton = new ButtonBuilder()
-            .setCustomId("approve_request")
-            .setLabel("Approve")
-            .setStyle(ButtonStyle.Success);
+        let components = []; // default: no button
 
-        const row = new ActionRowBuilder().addComponents(approveButton);
+        if (verdict !== "not_approvable") { // replace with the value(s) where the button should NOT appear
+            const approveButton = new ButtonBuilder()
+                .setCustomId("approve_request")
+                .setLabel("Approve")
+                .setStyle(ButtonStyle.Success);
+
+            const row = new ActionRowBuilder().addComponents(approveButton);
+            components.push(row);
 
         await interaction.editReply({
             embeds: [embed],
-            components: [row]
+            components: components
         });
 
-
-    } catch (err) {
-        console.error(err);
-        await interaction.editReply("⚠️ Something went wrong.");
+        }
+        } catch (err) {
+                console.error(err);
+                await interaction.editReply("⚠️ Something went wrong.");
+        }
     }
-  }
 };

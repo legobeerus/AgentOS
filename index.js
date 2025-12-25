@@ -37,6 +37,8 @@ client.on("interactionCreate", async interaction => {
 
     if (interaction.customId !== "approve_request") return;
 
+    await interaction.deferUpdate();
+
     // ROLE CHECK
     const REQUIRED_ROLE_ID = "1449861438012133566";
     if (!interaction.member.roles.cache.has(REQUIRED_ROLE_ID)) {
