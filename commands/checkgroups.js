@@ -1,7 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
 const axios = require("axios");
 
-// Define your categories and the group IDs in each
+// Define categories and the group IDs in each
 const GROUP_CATEGORIES = {
   "DIVISIONS": [
     6762663,  // SGC
