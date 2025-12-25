@@ -22,8 +22,9 @@ client.once("ready", () => {
 });
 
 client.on("interactionCreate", async interaction => {
-  if (!interaction.isChatInputCommand()) return;
 
+  // ─── SLASH COMMANDS ─────────────────────────
+  if (interaction.isChatInputCommand()) {
     const command = client.commands.get(interaction.commandName);
     if (!command) return;
 
@@ -31,10 +32,14 @@ client.on("interactionCreate", async interaction => {
       await command.execute(interaction);
     } catch (error) {
       console.error(error);
-      await interaction.reply({ content: "Error executing command.", ephemeral: true });
-  
-  if (!interaction.isButton()) return;
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({ content: "Error executing command.", ephemeral: true });
+      }
+    }
+  }
 
+  // ─── BUTTONS ─────────────────────────────────
+  if (interaction.isButton()) {
     if (interaction.customId !== "approve_request") return;
 
     await interaction.deferUpdate();
@@ -42,24 +47,23 @@ client.on("interactionCreate", async interaction => {
     // ROLE CHECK
     const REQUIRED_ROLE_ID = "1449861438012133566";
     if (!interaction.member.roles.cache.has(REQUIRED_ROLE_ID)) {
-      return interaction.reply({
+      return interaction.followUp({
         content: "❌ You do not have permission to approve this.",
         ephemeral: true
-    });
-  }
+      });
+    }
 
-    // Send message
     const TARGET_CHANNEL_ID = "1449832209316839455";
-    const channel = await client.channels.fetch(TARGET_CHANNEL_ID);
+    const channel = await interaction.guild.channels.fetch(TARGET_CHANNEL_ID);
+
     const messageLink = `https://discord.com/channels/${interaction.guildId}/${interaction.channelId}/${interaction.message.id}`;
 
     const msg = await channel.send({
-      content: `@1041577710067138561 [${casenumber}] ${messageLink}`
+      content: `Punishment Discussion - ${messageLink}`
     });
 
-    // Start a thread
     await msg.startThread({
-      name: `${casenumber}`,
+      name: "Case Review"
     });
 
     // Disable the button
@@ -67,10 +71,9 @@ client.on("interactionCreate", async interaction => {
       ButtonBuilder.from(interaction.component).setDisabled(true)
     );
 
-    await interaction.update({
+    await interaction.message.edit({
       components: [disabledRow]
     });
-  
   }
 });
 

@@ -23,8 +23,8 @@ module.exports = {
                 .setDescription("The verdict of the case")
                 .setRequired(true)
                 .addChoices(
-                    { name: "Guilty", value: "guilty" },
-                    { name: "Not Guilty", value: "not_guilty" }
+                    { name: "Guilty", value: "Guilty" },
+                    { name: "Innocent", value: "Innocent" }
                 ),
         )
         .addStringOption(option =>
@@ -59,21 +59,21 @@ module.exports = {
         
         let components = []; // default: no button
 
-        if (verdict !== "not_approvable") { // replace with the value(s) where the button should NOT appear
+        if (verdict === "Guilty") {
             const approveButton = new ButtonBuilder()
-                .setCustomId("approve_request")
-                .setLabel("Approve")
-                .setStyle(ButtonStyle.Success);
+            .setCustomId("approve_request")
+            .setLabel("Approve")
+            .setStyle(ButtonStyle.Success);
 
-            const row = new ActionRowBuilder().addComponents(approveButton);
-            components.push(row);
+            components.push(new ActionRowBuilder().addComponents(approveButton));
+            }
 
-        await interaction.editReply({
-            embeds: [embed],
-            components: components
-        });
+            await interaction.editReply({
+                embeds: [embed],
+                components
+            });
 
-        }
+        
         } catch (err) {
                 console.error(err);
                 await interaction.editReply("⚠️ Something went wrong.");
