@@ -10,19 +10,25 @@ module.exports = {
                 .setName("link")
                 .setDescription("Link to the case file")
                 .setRequired(true),
+        )
+        .addStringOption(option =>
             option
                 .setName("casenumber")
                 .setDescription("The identifying number of the case")
                 .setRequired(true),
+        )
+        .addStringOption(option =>
             option
                 .setName("verdict")
                 .setDescription("The verdict of the case")
                 .setRequired(true),
+        )
+        .addStringOption(option =>
             option
                 .setName("suspect")
                 .setDescription("Username of the suspect")
                 .setRequired(true),
-    ),
+        ),
 
     // gets the inputs in the command
     async execute(interaction) {
