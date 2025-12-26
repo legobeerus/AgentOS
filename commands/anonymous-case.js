@@ -19,7 +19,7 @@ module.exports = {
     ),
 
   async execute(interaction) {
-    const channel = "1449832209316839455";
+    const channel = "1449830431171149885";
     await interaction.deferReply();
 
     try {
