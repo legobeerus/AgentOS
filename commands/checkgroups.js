@@ -39,7 +39,7 @@ module.exports = {
     await interaction.deferReply();
 
     try {
-      // 1. Get Roblox userId
+      // Get userId
       const userRes = await axios.post(
         "https://users.roblox.com/v1/usernames/users",
         { usernames: [username], excludeBannedUsers: true }
@@ -49,20 +49,20 @@ module.exports = {
       if (!robloxUser) return interaction.editReply("❌ Roblox user not found.");
       const userId = robloxUser.id;
 
-      // 2. Get group memberships
+      // Get groups
       const groupsRes = await axios.get(
         `https://groups.roblox.com/v2/users/${userId}/groups/roles`
       );
       const groups = groupsRes.data.data;
 
-      // 3. Organize groups by category
+      // Organize groups
       const categorizedMatches = {};
 
       for (const [category, ids] of Object.entries(GROUP_CATEGORIES)) {
         categorizedMatches[category] = groups.filter(g => ids.includes(g.group.id));
       }
 
-      // 4. Build the embed
+      // Embed builder
       const embed = new EmbedBuilder()
         .setTitle(`Roblox Groups for ${username}`)
         .setColor(0x00aff1)

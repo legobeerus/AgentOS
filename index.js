@@ -58,12 +58,16 @@ client.on("interactionCreate", async interaction => {
 
     const messageLink = `https://discord.com/channels/${interaction.guildId}/${interaction.channelId}/${interaction.message.id}`;
 
+    const embed = interaction.message.embeds[0];
+    const caseField = embed.fields.find(f => f.name === "Case Number");
+    const casenumber = caseField?.value ?? "Unknown";
+
     const msg = await channel.send({
-      content: `Punishment Discussion - ${messageLink}`
+      content: `@1041577710067138561 | ${caseField} | ${messageLink}`
     });
 
     await msg.startThread({
-      name: "Case Review"
+      name: "Punishment Discussion"
     });
 
     // Disable the button
