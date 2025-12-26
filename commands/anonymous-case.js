@@ -36,6 +36,7 @@ module.exports = {
         .setTimestamp();
 
         await channel.send({ embeds: [embed] });
+        await interaction.editReply("✅ Submitted successfully.");
 
     } catch (err) {
       console.error(err);
