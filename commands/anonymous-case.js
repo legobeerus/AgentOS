@@ -19,7 +19,9 @@ module.exports = {
     ),
 
   async execute(interaction) {
-    const channel = "sealed-case-files";
+    const channel = "1449830431171149885";
+    const link = interaction.options.getString("link");
+    const casenumber = interaction.options.getString("casenumber");
     await interaction.deferReply();
 
     try {
