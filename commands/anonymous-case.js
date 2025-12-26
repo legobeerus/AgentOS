@@ -1,5 +1,4 @@
 const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
-const axios = require("axios");
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -19,12 +18,13 @@ module.exports = {
     ),
 
   async execute(interaction) {
-    const channel = "1449830431171149885";
     const link = interaction.options.getString("link");
     const casenumber = interaction.options.getString("casenumber");
     await interaction.deferReply();
 
     try {
+
+    const channel = await interaction.guild.channels.fetch("1449830431171149885");
     
     const embed = new EmbedBuilder()
         .setTitle(`Sealed Case File #${casenumber}`)

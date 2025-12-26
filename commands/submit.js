@@ -1,5 +1,4 @@
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
-const axios = require("axios");
 
 module.exports = {
     data: new SlashCommandBuilder()
