@@ -63,7 +63,7 @@ client.on("interactionCreate", async interaction => {
     const casenumber = caseField?.value ?? "Unknown";
 
     const msg = await channel.send({
-      content: `<@&1041577710067138561> | ${caseField} | ${messageLink}`
+      content: `<@&1041577710067138561> | ${casenumber} | ${messageLink}`
     });
 
     await msg.startThread({
