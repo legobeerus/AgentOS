@@ -44,6 +44,13 @@ client.on("interactionCreate", async interaction => {
 
     await interaction.deferUpdate();
 
+    if (interaction.message.components[0].components[0].disabled) {
+      return interaction.followUp({
+      content: "⚠️ This case has already been approved.",
+      ephemeral: true
+  });
+}
+
     // ROLE CHECK
     const REQUIRED_ROLE_ID = "1449861438012133566";
     if (!interaction.member.roles.cache.has(REQUIRED_ROLE_ID)) {
