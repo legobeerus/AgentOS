@@ -19,7 +19,7 @@ module.exports = {
     ),
 
   async execute(interaction) {
-    const channel = "1449830431171149885";
+    const channel = "sealed-case-files";
     await interaction.deferReply();
 
     try {
