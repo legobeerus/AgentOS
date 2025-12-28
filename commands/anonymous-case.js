@@ -17,6 +17,8 @@ module.exports = {
             .setRequired(true),
     ),
 
+    guildOnly: "1041577710067138560",
+
   async execute(interaction) {
     const link = interaction.options.getString("link");
     const casenumber = interaction.options.getString("casenumber");

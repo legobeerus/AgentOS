@@ -33,6 +33,8 @@ module.exports = {
                 .setRequired(true),
         ),
 
+        guildOnly: "1041577710067138560",
+
     // gets the inputs in the command
     async execute(interaction) {
         const link = interaction.options.getString("link");

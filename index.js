@@ -28,6 +28,13 @@ client.on("interactionCreate", async interaction => {
     const command = client.commands.get(interaction.commandName);
     if (!command) return;
 
+    if (command.guildOnly && interaction.guildId !== command.guildOnly) {
+      return interaction.reply({
+      content: "❌ This command is not available in this server.",
+      ephemeral: true
+      });
+    }
+
     try {
       await command.execute(interaction);
     } catch (error) {
