@@ -1,7 +1,8 @@
 require("dotenv").config();
-const { Client, Collection, GatewayIntentBits } = require("discord.js");
+const { Client, Collection, GatewayIntentBits, ActionRowBuilder, ButtonBuilder } = require("discord.js");
 const fs = require("fs");
 const path = require("path");
+const config = require("./config");
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds]
@@ -47,18 +48,9 @@ client.on("interactionCreate", async interaction => {
 
   // ─── BUTTONS ─────────────────────────────────
   if (interaction.isButton()) {
+    if (interaction.customId !== "approve_request") return;
 
     await interaction.deferUpdate();
-
-    if (interaction.customId === "approve_request") {
-      const disabledRow = new ActionRowBuilder().addComponents(
-      ButtonBuilder.from(interaction.component).setDisabled(true)
-      );
-
-      await interaction.update({
-        components: [disabledRow],
-      });
-    }
 
     if (interaction.message.components[0].components[0].disabled) {
       return interaction.followUp({
@@ -67,17 +59,15 @@ client.on("interactionCreate", async interaction => {
   });
 }
 
-    // ROLE CHECK
-    const REQUIRED_ROLE_ID = "1449861438012133566";
-    if (!interaction.member.roles.cache.has(REQUIRED_ROLE_ID)) {
+    // ROLE CHECK (from config)
+    if (!interaction.member.roles.cache.has(config.REQUIRED_ROLE_ID)) {
       return interaction.followUp({
         content: "❌ You do not have permission to approve this.",
         ephemeral: true
       });
     }
 
-    const TARGET_CHANNEL_ID = "1449832209316839455";
-    const channel = await interaction.guild.channels.fetch(TARGET_CHANNEL_ID);
+    const channel = await interaction.guild.channels.fetch(config.TARGET_CHANNEL_ID);
 
     const messageLink = `https://discord.com/channels/${interaction.guildId}/${interaction.channelId}/${interaction.message.id}`;
 
@@ -86,11 +76,20 @@ client.on("interactionCreate", async interaction => {
     const casenumber = caseField?.value ?? "Unknown";
 
     const msg = await channel.send({
-      content: `<@--NO-PING--&1041577710067138561> | [${casenumber}] | ${messageLink}`
+      content: `<@&${config.PING_ROLE_ID}> | [${casenumber}] | ${messageLink}`
     });
 
     await msg.startThread({
       name: "Punishment Discussion"
+    });
+
+    // Disable the button
+    const disabledRow = new ActionRowBuilder().addComponents(
+      ButtonBuilder.from(interaction.component).setDisabled(true)
+    );
+
+    await interaction.message.edit({
+      components: [disabledRow]
     });
   }
 });
