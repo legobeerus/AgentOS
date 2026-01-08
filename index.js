@@ -47,9 +47,18 @@ client.on("interactionCreate", async interaction => {
 
   // ─── BUTTONS ─────────────────────────────────
   if (interaction.isButton()) {
-    if (interaction.customId !== "approve_request") return;
 
     await interaction.deferUpdate();
+
+    if (interaction.customId === "approve_request") {
+      const disabledRow = new ActionRowBuilder().addComponents(
+      ButtonBuilder.from(interaction.component).setDisabled(true)
+      );
+
+      await interaction.update({
+        components: [disabledRow],
+      });
+    }
 
     if (interaction.message.components[0].components[0].disabled) {
       return interaction.followUp({
@@ -77,20 +86,11 @@ client.on("interactionCreate", async interaction => {
     const casenumber = caseField?.value ?? "Unknown";
 
     const msg = await channel.send({
-      content: `<@&1041577710067138561> | [${casenumber}] | ${messageLink}`
+      content: `<@--NO-PING--&1041577710067138561> | [${casenumber}] | ${messageLink}`
     });
 
     await msg.startThread({
       name: "Punishment Discussion"
-    });
-
-    // Disable the button
-    const disabledRow = new ActionRowBuilder().addComponents(
-      ButtonBuilder.from(interaction.component).setDisabled(true)
-    );
-
-    await interaction.message.edit({
-      components: [disabledRow]
     });
   }
 });
