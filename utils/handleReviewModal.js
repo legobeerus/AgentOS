@@ -5,10 +5,23 @@
 async function handleReviewModal(interaction) {
   if (!interaction.customId.startsWith("feedback_")) return;
 
-  const approved = interaction.customId === "feedback_approve";
+  // customId format: feedback_<approve|deny>_<messageId>
+  const parts = interaction.customId.split("_");
+  const action = parts[1];
+  const messageId = parts.slice(2).join("_");
+  const approved = action === "approve";
   const feedback = interaction.fields.getTextInputValue("feedback");
 
-  const message = interaction.message; // original embed message
+  // Try to fetch the original message using the messageId embedded in the modal id
+  let message;
+  try {
+    message = await interaction.channel.messages.fetch(messageId);
+  } catch (err) {
+    console.error("Could not fetch original message for review modal:", err);
+    await interaction.reply({ content: "⚠️ Could not find the original message to update.", ephemeral: true });
+    return;
+  }
+
   const embed = message.embeds[0];
 
   // Extract applicant username

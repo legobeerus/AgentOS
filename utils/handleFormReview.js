@@ -15,8 +15,10 @@ async function handleFormReview(interaction) {
 
   if (!isApprove && !isDeny) return;
 
+  // Include the originating message ID in the modal customId so the submit handler
+  // can locate and update the original embed message when the modal is submitted.
   const modal = new ModalBuilder()
-    .setCustomId(`feedback_${interaction.customId}`)
+    .setCustomId(`feedback_${interaction.customId}_${interaction.message.id}`)
     .setTitle(isApprove ? "Approval Feedback" : "Denial Feedback");
 
   const feedbackInput = new TextInputBuilder()
