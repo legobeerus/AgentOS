@@ -4,5 +4,9 @@ module.exports = {
   // Channel where approved cases are posted
   TARGET_CHANNEL_ID: process.env.TARGET_CHANNEL_ID || "1449832209316839455",
   // Role to ping when posting approved cases
-  PING_ROLE_ID: process.env.PING_ROLE_ID || "1041577710067138561"
+  PING_ROLE_ID: process.env.PING_ROLE_ID || "1041577710067138561",
+
+  VOTING_CHANNEL_ID: process.env.VOTING_CHANNEL_ID || "1060495855817334887",
+  RESULT_CHANNEL_ID: process.env.RESULT_CHANNEL_ID || "1060501671639273472",
+  LOG_CHANNEL_ID: process.env.LOG_CHANNEL_ID || "1433763933579251732"
 };

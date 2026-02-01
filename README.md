@@ -4,3 +4,9 @@ This is a minor project for an investigative division for a Roblox roleplay comm
 
 NOTE:
 Version history officially begins logging after a few patches to the initial bot. Patches previous to this can be considered irrelevant.
+
+2.0.0 CHANGELOG:
+
+- Added checksecurity command
+- Testing new formreview feature
+- major improvements on the backend
