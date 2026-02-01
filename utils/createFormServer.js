@@ -10,6 +10,12 @@ function createFormServer(client) {
   const app = express();
   app.use(express.json());
 
+  // Log all incoming requests
+  app.use((req, res, next) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+    next();
+  });
+
   /**
    * POST /form-submission
    * Receives form data from Google Apps Script and posts it to Discord
@@ -24,6 +30,7 @@ function createFormServer(client) {
    * }
    */
   app.post("/form-submission", async (req, res) => {
+    console.log("📨 Form submission received:", req.body);
     try {
       const { channelId, title, fields, color } = req.body;
 
@@ -75,7 +82,14 @@ function createFormServer(client) {
 
   // Health check endpoint
   app.get("/health", (req, res) => {
+    console.log("✅ Health check received");
     res.status(200).json({ status: "ok" });
+  });
+
+  // Catch-all 404 handler
+  app.use((req, res) => {
+    console.warn(`⚠️ 404: ${req.method} ${req.path} - route not found`);
+    res.status(404).json({ error: "Route not found" });
   });
 
   return app;
