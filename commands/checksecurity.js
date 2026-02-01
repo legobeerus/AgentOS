@@ -22,7 +22,11 @@ const ALLOWED_ROLE_IDS = [
   1344664234641850441, // MATCOM Oversight
   1193616594455253072, // MATCOM HC
   1263502187208638534 // MATCOM CoS
+];
 
+// User IDs that are allowed to use this command (for testing/debugging)
+const ALLOWED_USER_IDS = [
+  716248402513494027 // UID for testing
 ];
 
 module.exports = {
@@ -37,16 +41,21 @@ module.exports = {
     ),
 
   async execute(interaction) {
-    // Role check
-    const hasRole = ALLOWED_ROLE_IDS.some(roleId =>
-      interaction.member.roles.cache.has(roleId)
-    );
+    // User check (for testing/debugging)
+    if (ALLOWED_USER_IDS.includes(interaction.user.id)) {
+      // Skip all permission checks for whitelisted users
+    } else {
+      // Role check
+      const hasRole = ALLOWED_ROLE_IDS.some(roleId =>
+        interaction.member.roles.cache.has(roleId)
+      );
 
-    if (!hasRole) {
-      return interaction.reply({
-        content: "❌ You do not have permission to use this command.",
-        ephemeral: true
-      });
+      if (!hasRole) {
+        return interaction.reply({
+          content: "❌ You do not have permission to use this command.",
+          ephemeral: true
+        });
+      }
     }
 
     const groupId = interaction.options.getInteger("groupid");
