@@ -5,7 +5,11 @@ const { handleInteraction } = require("./utils/handleInteraction");
 const { createFormServer } = require("./utils/createFormServer");
 
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds]
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.DirectMessages,
+    GatewayIntentBits.MessageContent
+  ]
 });
 
 // Load all commands

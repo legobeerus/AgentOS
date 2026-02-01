@@ -24,6 +24,12 @@ async function handleReviewModal(interaction) {
 
   const embed = message.embeds[0];
 
+  if (!embed) {
+    console.error("No embed found in the message");
+    await interaction.reply({ content: "⚠️ Could not find embed in message.", ephemeral: true });
+    return;
+  }
+
   // Extract applicant username
   const applicantField = embed.fields.find(f => f.name === "Discord Username (ex: animatedgreat)");
   const applicantUsername = applicantField?.value;
@@ -31,9 +37,21 @@ async function handleReviewModal(interaction) {
   // Try to find the user
   let applicantUser = null;
   if (applicantUsername) {
+    // First try: exact username match (modern Discord)
     applicantUser = interaction.client.users.cache.find(
-      u => `${u.username}#${u.discriminator}` === applicantUsername
+      u => u.username === applicantUsername
     );
+
+    // Fallback: try username#discriminator format (legacy Discord)
+    if (!applicantUser && applicantUsername.includes("#")) {
+      applicantUser = interaction.client.users.cache.find(
+        u => `${u.username}#${u.discriminator}` === applicantUsername
+      );
+    }
+
+    if (!applicantUser) {
+      console.warn(`Could not find user in cache: ${applicantUsername}`);
+    }
   }
 
   // Update embed
@@ -58,12 +76,16 @@ async function handleReviewModal(interaction) {
   await message.edit({
     embeds: [updatedEmbed],
     components: []
+  }).catch(err => {
+    console.error("Failed to edit message:", err);
   });
 
   // Ping applicant
   if (applicantUser) {
     await message.channel.send({
       content: `${applicantUser}, your application has been **${approved ? "approved" : "denied"}**.\n\n**Feedback:**\n${feedback}`
+    }).catch(err => {
+      console.error("Failed to send applicant notification:", err);
     });
   }
 
