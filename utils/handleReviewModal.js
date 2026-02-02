@@ -104,7 +104,29 @@ async function handleReviewModal(interaction) {
 
     if (applicantUsername) {
       console.warn(`Falling back to username lookup for: ${applicantUsername}`);
+      
+      // First try: bot's user cache (may not have user if they haven't interacted recently)
       applicantUser = interaction.client.users.cache.find(u => u.username === applicantUsername);
+      
+      // Second try: search guild members (more reliable for guild-specific users)
+      if (!applicantUser && interaction.guild) {
+        try {
+          const guildMembers = await interaction.guild.members.fetch().catch(() => null);
+          if (guildMembers) {
+            const member = guildMembers.find(m => m.user.username === applicantUsername);
+            if (member) {
+              applicantUser = member.user;
+              console.log(`Found user in guild members: ${applicantUser.username} (${applicantUser.id})`);
+            }
+          }
+        } catch (err) {
+          console.warn("Could not fetch guild members:", err);
+        }
+      }
+      
+      if (!applicantUser) {
+        console.warn(`Could not resolve username ${applicantUsername} to a user`);
+      }
     }
   }
 
