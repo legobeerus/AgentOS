@@ -33,20 +33,33 @@ async function handleReviewModal(interaction) {
   }
 
   // Extract applicant user ID from embed fields (priority: user ID, then fallback to username)
-  // Look for field names that suggest Discord user ID
+  // Look for field names that suggest Discord user ID (flexible matching)
   const idCandidateKeys = [
     "Enter your Discord User ID",
     "User ID",
     "Discord ID",
-    "Applicant ID"
+    "Applicant ID",
+    "Discord User ID"
   ];
 
   let applicantUserId = null;
+  console.log("Embed fields available:", embed.fields.map(f => f.name)); // Debug: log all field names
+
   for (const key of idCandidateKeys) {
     const idField = embed.fields.find(f => f.name && f.name.toLowerCase() === key.toLowerCase());
     if (idField) {
       applicantUserId = idField.value?.toString().trim();
+      console.log(`Found user ID field "${key}": ${applicantUserId}`);
       break;
+    }
+  }
+
+  // Fallback: search for any field with "id" in the name (case-insensitive)
+  if (!applicantUserId) {
+    const idField = embed.fields.find(f => /\bid\b/i.test(f.name));
+    if (idField) {
+      applicantUserId = idField.value?.toString().trim();
+      console.log(`Found user ID via regex match on "${idField.name}": ${applicantUserId}`);
     }
   }
 
@@ -60,6 +73,11 @@ async function handleReviewModal(interaction) {
 
     try {
       applicantUser = await interaction.client.users.fetch(userId).catch(() => null);
+      if (applicantUser) {
+        console.log(`Successfully fetched user: ${applicantUser.username} (${applicantUser.id})`);
+      } else {
+        console.warn(`Could not fetch user by ID ${userId}`);
+      }
     } catch (err) {
       console.warn(`Could not fetch user by ID ${userId}:`, err);
     }
@@ -71,13 +89,15 @@ async function handleReviewModal(interaction) {
       "Enter your Discord Username (not your display name)",
       "Discord Username",
       "Applicant",
-      "Username"
+      "Username",
+      "Discord User"
     ];
 
     for (const key of usernameCandidateKeys) {
       const usernameField = embed.fields.find(f => f.name && f.name.toLowerCase() === key.toLowerCase());
       if (usernameField) {
         applicantUsername = usernameField.value?.toString().trim();
+        console.log(`Found username field "${key}": ${applicantUsername}`);
         break;
       }
     }
