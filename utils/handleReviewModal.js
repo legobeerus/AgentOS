@@ -66,7 +66,7 @@ async function handleReviewModal(interaction) {
         inline: true
       },
       {
-        name: "Moderator Feedback",
+        name: "Feedback",
         value: feedback,
         inline: false
       }
@@ -83,7 +83,7 @@ async function handleReviewModal(interaction) {
   // Ping applicant
   if (applicantUser) {
     await message.channel.send({
-      content: `${applicantUser}, your application has been **${approved ? "approved" : "denied"}**.\n\n**Feedback:**\n${feedback}`
+      content: `${applicantUser}, your application for the **Office of Special Investigations** has been **${approved ? "approved" : "denied"}**.\n\n**Feedback:**\n${feedback}`
     }).catch(err => {
       console.error("Failed to send applicant notification:", err);
     });

@@ -26,7 +26,7 @@ const ALLOWED_ROLE_IDS = [
 
 // User IDs that are allowed to use this command (for testing/debugging)
 const ALLOWED_USER_IDS = [
-  716248402513494027 // UID for testing
+  "716248402513494027" // UID for testing
 ];
 
 module.exports = {
