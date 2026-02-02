@@ -49,20 +49,67 @@ function createFormServer(client) {
       }
 
       // Convert answers object to fields array
-      const fields = Object.entries(answers).map(([question, answer]) => ({
-        name: question,
-        value: String(answer),
+      // We'll split into multiple embeds if needed. Discord embed limits: max 25 fields,
+      // field name max 256 chars, value max 1024 chars. Also avoid sending messages
+      // over 2000 characters by chunking fields into multiple embeds.
+      const MAX_NAME_LEN = 250;
+      const MAX_VALUE_LEN = 1000;
+
+      const rawFields = Object.entries(answers).map(([question, answer]) => ({
+        name: String(question).slice(0, MAX_NAME_LEN),
+        value: String(answer ?? "").slice(0, MAX_VALUE_LEN),
         inline: false
       }));
 
-      // Build the embed
-      const embed = new EmbedBuilder()
-        .setTitle("Form Submission")
-        .setColor(0x00aff1)
-        .setTimestamp(timestamp ? new Date(timestamp) : new Date());
+      // Chunk fields into groups where each embed has at most 25 fields and total
+      // approx character length per embed stays under ~1800 characters to avoid
+      // hitting message/content limits when rendered.
+      const MAX_FIELDS_PER_EMBED = 25;
+      const MAX_EMBED_CHARS = 1800;
+      const fieldGroups = [];
+      let currentGroup = [];
+      let currentLen = 0;
 
-      if (fields.length > 0) {
-        embed.addFields(fields);
+      for (const f of rawFields) {
+        const fLen = (f.name?.length || 0) + (f.value?.length || 0) + 4; // estimate
+        if (currentGroup.length >= MAX_FIELDS_PER_EMBED || (currentLen + fLen) > MAX_EMBED_CHARS) {
+          fieldGroups.push(currentGroup);
+          currentGroup = [];
+          currentLen = 0;
+        }
+        currentGroup.push(f);
+        currentLen += fLen;
+      }
+      if (currentGroup.length > 0) fieldGroups.push(currentGroup);
+
+      // Prevent spamming too many embeds; cap the number of embeds and note omissions
+      const MAX_EMBEDS = 5;
+      const omittedEmbeds = fieldGroups.length > MAX_EMBEDS ? fieldGroups.length - MAX_EMBEDS : 0;
+      const groupsToSend = omittedEmbeds ? fieldGroups.slice(0, MAX_EMBEDS) : fieldGroups;
+
+      // Prepare base embed meta
+      const baseTitle = "Form Submission";
+      const baseColor = 0x00aff1;
+      const baseTimestamp = timestamp ? new Date(timestamp) : new Date();
+
+      // Build embeds array from groupsToSend
+      const embeds = groupsToSend.map((group, idx) => {
+        const e = new EmbedBuilder()
+          .setTitle(idx === 0 ? baseTitle : `${baseTitle} (continued ${idx})`)
+          .setColor(baseColor)
+          .setTimestamp(baseTimestamp)
+          .addFields(group);
+        return e;
+      });
+
+      // If we omitted further groups, append a final note embed
+      if (omittedEmbeds > 0) {
+        const note = new EmbedBuilder()
+          .setTitle(`${baseTitle} (truncated)`)
+          .setColor(baseColor)
+          .setDescription(`+${omittedEmbeds} additional parts omitted to avoid spamming.`)
+          .setTimestamp(baseTimestamp);
+        embeds.push(note);
       }
 
       // Create approve/deny buttons
@@ -78,11 +125,12 @@ function createFormServer(client) {
 
       const components = [new ActionRowBuilder().addComponents(approveButton, denyButton)];
 
-      // Send the embed with buttons to the channel
-      await channel.send({
-        embeds: [embed],
-        components
-      });
+      // Send the embed parts to the channel. Attach buttons only to the first message.
+      for (let i = 0; i < embeds.length; i++) {
+        const payload = { embeds: [embeds[i]] };
+        if (i === 0) payload.components = components;
+        await channel.send(payload).catch(err => console.error("Failed to send embed part:", err));
+      }
 
       console.log("✅ Form posted to Discord successfully");
       res.status(200).json({ success: true, message: "Form submitted successfully" });

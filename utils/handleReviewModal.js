@@ -23,6 +23,8 @@ async function handleReviewModal(interaction) {
   }
 
   const embed = message.embeds[0];
+  const config = require("../config");
+  const { EmbedBuilder, ChannelType } = require("discord.js");
 
   if (!embed) {
     console.error("No embed found in the message");
@@ -80,13 +82,31 @@ async function handleReviewModal(interaction) {
     console.error("Failed to edit message:", err);
   });
 
-  // Ping applicant
-  if (applicantUser) {
-    await message.channel.send({
-      content: `${applicantUser}, your application for the **Office of Special Investigations** has been **${approved ? "approved" : "denied"}**.\n\n**Feedback:**\n${feedback}`
-    }).catch(err => {
-      console.error("Failed to send applicant notification:", err);
-    });
+  // Post compact result to configured RESULT_CHANNEL_ID (no application contents)
+  try {
+    const resultChannelId = config.RESULT_CHANNEL_ID;
+    if (resultChannelId) {
+      const resultChannel = await interaction.client.channels.fetch(resultChannelId).catch(() => null);
+      if (resultChannel && (resultChannel.type === ChannelType.GuildText || resultChannel.type === 0)) {
+        const applicantDisplay = applicantUsername || "Unknown";
+        const resultEmbed = new EmbedBuilder()
+          .setTitle("OSI Application Result")
+          .setColor(0x00aff1)
+          .addFields(
+            { name: "Applicant", value: applicantDisplay, inline: true },
+            { name: "Result", value: approved ? "✅ Approved" : "❌ Denied", inline: true },
+            { name: "Feedback", value: feedback || "(no feedback)", inline: false }
+          )
+          .setTimestamp(new Date());
+
+        const mention = applicantUser ? `<@${applicantUser.id}>` : applicantDisplay;
+        await resultChannel.send({ content: `${mention}`, embeds: [resultEmbed] });
+      } else {
+        console.warn(`Result channel ${resultChannelId} not found or not a text channel`);
+      }
+    }
+  } catch (err) {
+    console.error("Failed to post result to result channel:", err);
   }
 
   await interaction.reply({

@@ -14,7 +14,6 @@ const GROUP_CATEGORIES = {
 
   "HOSTILE FACTIONS": [
     34810794,  // Ori
-    14153848,  // RNID
     35686873   // Sodan
   ],
 
