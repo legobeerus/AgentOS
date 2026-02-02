@@ -33,7 +33,7 @@ async function handleReviewModal(interaction) {
   }
 
   // Extract applicant username
-  const applicantField = embed.fields.find(f => f.name === "Discord Username (ex: animatedgreat)");
+  const applicantField = embed.fields.find(f => f.name === "Enter your Discord Username (not your display name)");
   const applicantUsername = applicantField?.value;
 
   // Try to find the user
