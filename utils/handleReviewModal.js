@@ -113,6 +113,32 @@ async function handleReviewModal(interaction) {
     console.error("Failed to edit message:", err);
   });
 
+  // Log the decision to LOG_CHANNEL_ID and delete from voting channel to keep it clean
+  try {
+    const logChannelId = config.LOG_CHANNEL_ID;
+    if (logChannelId) {
+      const logChannel = await interaction.client.channels.fetch(logChannelId).catch(() => null);
+      if (logChannel && (logChannel.type === ChannelType.GuildText || logChannel.type === 0)) {
+        // Send the final decision embed to the log channel
+        const logEmbed = new EmbedBuilder(updatedEmbed)
+          .setFooter({ text: `Decision logged by ${interaction.user.username}` });
+        
+        await logChannel.send({ embeds: [logEmbed] }).catch(err => {
+          console.error("Failed to post to log channel:", err);
+        });
+
+        // Delete the original message from voting channel to keep it clean
+        await message.delete().catch(err => {
+          console.error("Failed to delete original voting message:", err);
+        });
+      } else {
+        console.warn(`Log channel ${logChannelId} not found or not a text channel`);
+      }
+    }
+  } catch (err) {
+    console.error("Error archiving decision to log channel:", err);
+  }
+
   // Post compact result to configured RESULT_CHANNEL_ID (no application contents)
   try {
     const resultChannelId = config.RESULT_CHANNEL_ID;
