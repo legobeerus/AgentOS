@@ -188,7 +188,7 @@ async function handleReviewModal(interaction) {
     if (resultChannelId) {
       const resultChannel = await interaction.client.channels.fetch(resultChannelId).catch(() => null);
       if (resultChannel && (resultChannel.type === ChannelType.GuildText || resultChannel.type === 0)) {
-        const applicantDisplay = applicantUsername || "Unknown";
+        const applicantDisplay = applicantUser ? `<@${applicantUser.id}>` : applicantUsername || "Unknown";
         const resultEmbed = new EmbedBuilder()
           .setTitle("OSI Application Result")
           .setColor(0x00aff1)
