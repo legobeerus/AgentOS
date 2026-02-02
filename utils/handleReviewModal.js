@@ -52,6 +52,8 @@ async function handleReviewModal(interaction) {
 
   // Try to fetch user by ID (most reliable)
   let applicantUser = null;
+  let applicantUsername = null; // Define here so it's available throughout the function
+
   if (applicantUserId) {
     const idMatch = applicantUserId.match(/^<@!?(\d+)>$|^(\d{16,20})$/);
     const userId = idMatch ? (idMatch[1] || idMatch[2]) : applicantUserId;
@@ -72,7 +74,6 @@ async function handleReviewModal(interaction) {
       "Username"
     ];
 
-    let applicantUsername = null;
     for (const key of usernameCandidateKeys) {
       const usernameField = embed.fields.find(f => f.name && f.name.toLowerCase() === key.toLowerCase());
       if (usernameField) {
