@@ -5,7 +5,16 @@ This is a minor project for an investigative division for a Roblox roleplay comm
 NOTE:
 Version history officially begins logging after a few patches to the initial bot. Patches previous to this can be considered irrelevant.
 
-2.1.1 CHANGELOG:
+MOST RECENT UPDATE:
+
+2.1.4
+
+- Fixed the ReviewModal, bug with pinging applicants should no longer be present.
+- Added information to accepted applications.
+
+MOST RECENT MAJOR UPDATE:
+
+2.1.0
 
 - Finished checksecurity command
 - Finished formreview feature

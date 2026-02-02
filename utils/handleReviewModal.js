@@ -32,27 +32,58 @@ async function handleReviewModal(interaction) {
     return;
   }
 
-  // Extract applicant username
-  const applicantField = embed.fields.find(f => f.name === "Enter your Discord Username (not your display name)");
-  const applicantUsername = applicantField?.value;
+  // Extract applicant user ID from embed fields (priority: user ID, then fallback to username)
+  // Look for field names that suggest Discord user ID
+  const idCandidateKeys = [
+    "Enter your Discord User ID",
+    "User ID",
+    "Discord ID",
+    "Applicant ID"
+  ];
 
-  // Try to find the user
+  let applicantUserId = null;
+  for (const key of idCandidateKeys) {
+    const idField = embed.fields.find(f => f.name && f.name.toLowerCase() === key.toLowerCase());
+    if (idField) {
+      applicantUserId = idField.value?.toString().trim();
+      break;
+    }
+  }
+
+  // Try to fetch user by ID (most reliable)
   let applicantUser = null;
-  if (applicantUsername) {
-    // First try: exact username match (modern Discord)
-    applicantUser = interaction.client.users.cache.find(
-      u => u.username === applicantUsername
-    );
+  if (applicantUserId) {
+    const idMatch = applicantUserId.match(/^<@!?(\d+)>$|^(\d{16,20})$/);
+    const userId = idMatch ? (idMatch[1] || idMatch[2]) : applicantUserId;
 
-    // Fallback: try username#discriminator format (legacy Discord)
-    if (!applicantUser && applicantUsername.includes("#")) {
-      applicantUser = interaction.client.users.cache.find(
-        u => `${u.username}#${u.discriminator}` === applicantUsername
-      );
+    try {
+      applicantUser = await interaction.client.users.fetch(userId).catch(() => null);
+    } catch (err) {
+      console.warn(`Could not fetch user by ID ${userId}:`, err);
+    }
+  }
+
+  // Fallback: try to find by username if ID lookup failed (not recommended, but kept as backup)
+  if (!applicantUser) {
+    const usernameCandidateKeys = [
+      "Enter your Discord Username (not your display name)",
+      "Discord Username",
+      "Applicant",
+      "Username"
+    ];
+
+    let applicantUsername = null;
+    for (const key of usernameCandidateKeys) {
+      const usernameField = embed.fields.find(f => f.name && f.name.toLowerCase() === key.toLowerCase());
+      if (usernameField) {
+        applicantUsername = usernameField.value?.toString().trim();
+        break;
+      }
     }
 
-    if (!applicantUser) {
-      console.warn(`Could not find user in cache: ${applicantUsername}`);
+    if (applicantUsername) {
+      console.warn(`Falling back to username lookup for: ${applicantUsername}`);
+      applicantUser = interaction.client.users.cache.find(u => u.username === applicantUsername);
     }
   }
 
@@ -98,6 +129,15 @@ async function handleReviewModal(interaction) {
             { name: "Feedback", value: feedback || "(no feedback)", inline: false }
           )
           .setTimestamp(new Date());
+
+        // Add note if approved
+        if (approved) {
+          resultEmbed.addFields({
+            name: "Notice",
+            value: "Expect to be DMed with further instructions shortly",
+            inline: false
+          });
+        }
 
         const mention = applicantUser ? `<@${applicantUser.id}>` : applicantDisplay;
         await resultChannel.send({ content: `${mention}`, embeds: [resultEmbed] });
