@@ -21,7 +21,8 @@ const ALLOWED_ROLE_IDS = [
   "1263502224181694467", // OSI CoS
   "1344664234641850441", // MATCOM Oversight
   "1193616594455253072", // MATCOM HC
-  "1263502187208638534" // MATCOM CoS
+  "1263502187208638534", // MATCOM CoS
+  "994285075678109759" // SGC Officers
 ];
 
 // User IDs that are allowed to use this command (for testing/debugging)
