@@ -67,13 +67,31 @@ module.exports = {
         `https://groups.roblox.com/v1/groups/${groupId}`
       );
       const groupName = groupRes.data.name;
-      const groupIcon = groupRes.data.avatar.imageUrl;
+      const groupIcon = groupRes.data.icon || "https://www.roblox.com/Thumbs/Avatar.ashx?x=150&y=150&Format=Png"; // Fallback icon
 
-      // Get group members (this may take a while for large groups)
-      const membersRes = await axios.get(
-        `https://groups.roblox.com/v1/groups/${groupId}/users?limit=100&sortOrder=Desc`
-      );
-      const members = membersRes.data.data;
+      // Get group members with pagination (max 500 members to avoid excessive API calls)
+      const allMembers = [];
+      let cursor = null;
+      const maxMembers = 500;
+
+      do {
+        const url = cursor
+          ? `https://groups.roblox.com/v1/groups/${groupId}/users?limit=100&sortOrder=Desc&cursor=${cursor}`
+          : `https://groups.roblox.com/v1/groups/${groupId}/users?limit=100&sortOrder=Desc`;
+
+        const membersRes = await axios.get(url);
+        allMembers.push(...membersRes.data.data);
+        cursor = membersRes.data.nextPageCursor;
+
+        // Stop if we've reached max members or no more pages
+        if (allMembers.length >= maxMembers) {
+          allMembers.length = maxMembers;
+          break;
+        }
+      } while (cursor);
+
+      const members = allMembers;
+      const checkedMemberCount = members.length;
 
       const suspiciousMembers = [];
 
@@ -110,7 +128,7 @@ module.exports = {
         .setTitle(`Security Report: ${groupName}`)
         .setColor(suspiciousMembers.length > 0 ? 0xed4245 : 0x57F287)
         .setThumbnail(groupIcon)
-        .setFooter({ text: `Checked ${members.length} members` });
+        .setFooter({ text: `Checked ${checkedMemberCount} members (limited to first 500)` });
 
       if (suspiciousMembers.length === 0) {
         embed.setDescription("✅ No members found in hostile or blacklisted groups.");
