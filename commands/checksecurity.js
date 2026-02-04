@@ -37,7 +37,7 @@ module.exports = {
     .addIntegerOption(option =>
       option
         .setName("groupid")
-        .setDescription("Roblox group ID to check - MAX 100 MEMBERS")
+        .setDescription("Roblox group ID to check")
         .setRequired(true)
     ),
 
