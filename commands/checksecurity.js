@@ -11,6 +11,7 @@ const RESTRICTED_GROUPS = {
 
   "BLACKLISTED GROUPS": [
     765802690, // SGW NID
+    16140130 // Kaddin Empire Group
   ]
 };
 
@@ -37,7 +38,7 @@ module.exports = {
     .addIntegerOption(option =>
       option
         .setName("groupid")
-        .setDescription("Roblox group ID to check - MAX 100 MEMBERS")
+        .setDescription("Roblox group ID to check")
         .setRequired(true)
     ),
 

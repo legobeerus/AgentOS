@@ -6,6 +6,7 @@ const GROUP_CATEGORIES = {
   "DIVISIONS": [
     6762663,  // SGC
     7001767,  // DoW
+    16348435, // NID
     32481660, // R&D
     16242678, // MATCOM
     16242644, // SGSOC
@@ -19,6 +20,7 @@ const GROUP_CATEGORIES = {
 
   "BLACKLISTED GROUPS": [
     765802690, // SGW NID
+    16140130 // Kaddin Empire Group
   ]
 };
 
