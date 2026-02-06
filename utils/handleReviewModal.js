@@ -225,7 +225,7 @@ async function handleReviewModal(interaction) {
   }
 
   await interaction.reply({
-    content: "✅ Decision recorded.",
+    content: "✅ Decision recorded",
     ephemeral: true
   });
 }

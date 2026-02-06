@@ -194,7 +194,7 @@ function createFormServer(client) {
         await channel.send(payload).catch(err => console.error("Failed to send embed part:", err));
       }
 
-      console.log("✅ Form posted to Discord successfully");
+      console.log("✅ Form posted to Discord successfully.");
       res.status(200).json({ success: true, message: "Form submitted successfully" });
     } catch (error) {
       console.error("Error handling form submission:", error);
