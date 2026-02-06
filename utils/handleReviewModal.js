@@ -188,60 +188,6 @@ async function handleReviewModal(interaction) {
     console.error("Error archiving decision to log channel:", err);
   }
 
-  // Background check: Roblox hostile/blacklisted groups and SGC rank
-  let backgroundCheckText = "";
-  try {
-    // Find Roblox username field
-    const robloxField = embed.fields.find(f => f.name && f.name.toLowerCase().includes("roblox"));
-    const robloxUsername = robloxField ? robloxField.value?.toString().trim() : null;
-    if (robloxUsername) {
-      const axios = require("axios");
-      // Get Roblox userId
-      const userRes = await axios.post(
-        "https://users.roblox.com/v1/usernames/users",
-        { usernames: [robloxUsername], excludeBannedUsers: true }
-      );
-      const robloxUser = userRes.data.data[0];
-      if (robloxUser) {
-        const userId = robloxUser.id;
-        // Get groups
-        const groupsRes = await axios.get(
-          `https://groups.roblox.com/v2/users/${userId}/groups/roles`
-        );
-        const groups = groupsRes.data.data;
-        // Hostile/blacklisted group IDs
-        const HOSTILE_IDS = [34810794, 35686873];
-        const BLACKLISTED_IDS = [765802690];
-        const SGC_ID = 6762663;
-        // Check for hostile groups
-        const hostile = groups.filter(g => HOSTILE_IDS.includes(g.group.id));
-        const blacklisted = groups.filter(g => BLACKLISTED_IDS.includes(g.group.id));
-        const sgc = groups.find(g => g.group.id === SGC_ID);
-        backgroundCheckText += `Roblox background check for **${robloxUsername}**\n`;
-        if (hostile.length > 0) {
-          backgroundCheckText += `❌ Hostile groups: ${hostile.map(g => g.group.name).join(", ")}\n`;
-        }
-        if (blacklisted.length > 0) {
-          backgroundCheckText += `❌ Blacklisted groups: ${blacklisted.map(g => g.group.name).join(", ")}\n`;
-        }
-        if (sgc) {
-          backgroundCheckText += `SGC rank: **${sgc.role.name}** (Rank ${sgc.role.rank})\n`;
-        } else {
-          backgroundCheckText += `SGC rank: Not in SGC\n`;
-        }
-        if (hostile.length === 0 && blacklisted.length === 0) {
-          backgroundCheckText += `✅ No hostile or blacklisted groups found\n`;
-        }
-      } else {
-        backgroundCheckText += `Roblox user not found.\n`;
-      }
-    } else {
-      backgroundCheckText += `Roblox username not found in application.\n`;
-    }
-  } catch (err) {
-    backgroundCheckText += `⚠️ Background check failed.\n`;
-    console.error("Background check error:", err);
-  }
 
   // Post compact result to configured RESULT_CHANNEL_ID (no application contents)
   try {

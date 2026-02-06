@@ -61,6 +61,65 @@ function createFormServer(client) {
         inline: false
       }));
 
+        // Attempt to extract Roblox username or userId from answers
+        let robloxUsername = null;
+        let robloxUserId = null;
+        for (const [key, value] of Object.entries(answers)) {
+          if (/roblox.*username/i.test(key)) robloxUsername = value;
+          if (/roblox.*user.?id/i.test(key)) robloxUserId = value;
+        }
+
+        // If only username is present, fetch userId
+        if (!robloxUserId && robloxUsername) {
+          try {
+            const userRes = await require("axios").post(
+              "https://users.roblox.com/v1/usernames/users",
+              { usernames: [robloxUsername], excludeBannedUsers: true }
+            );
+            if (userRes.data.data[0]) robloxUserId = userRes.data.data[0].id;
+          } catch (err) {
+            console.warn("Failed to fetch Roblox userId for BGC", err);
+          }
+        }
+
+        // Prepare BGC info
+        let bgcEmbed = null;
+        if (robloxUserId) {
+          try {
+            // Check groups
+            const groupsRes = await require("axios").get(
+              `https://groups.roblox.com/v2/users/${robloxUserId}/groups/roles`
+            );
+            const groups = groupsRes.data.data;
+            // Hostile/blacklisted group IDs
+            const HOSTILE = [34810794, 35686873];
+            const BLACKLISTED = [765802690, 16140130];
+            const SGC_ID = 6762663;
+            let hostileGroups = groups.filter(g => HOSTILE.includes(g.group.id));
+            let blacklistedGroups = groups.filter(g => BLACKLISTED.includes(g.group.id));
+            let sgc = groups.find(g => g.group.id === SGC_ID);
+
+            bgcEmbed = new (require("discord.js").EmbedBuilder)()
+              .setTitle("Roblox Background Check")
+              .setColor(0x00aff1)
+              .setFooter({ text: `User ID: ${robloxUserId}` });
+
+            if (hostileGroups.length)
+              bgcEmbed.addFields({ name: "Hostile Factions", value: hostileGroups.map(g => `**${g.group.name}**\nRole: ${g.role.name}\nRank: ${g.role.rank}`).join("\n\n"), inline: false });
+            if (blacklistedGroups.length)
+              bgcEmbed.addFields({ name: "Blacklisted Groups", value: blacklistedGroups.map(g => `**${g.group.name}**\nRole: ${g.role.name}\nRank: ${g.role.rank}`).join("\n\n"), inline: false });
+            if (sgc)
+              bgcEmbed.addFields({ name: "SGC Rank", value: `Role: ${sgc.role.name}\nRank: ${sgc.role.rank}`, inline: false });
+            if (!hostileGroups.length && !blacklistedGroups.length && !sgc)
+              bgcEmbed.setDescription("✅ No hostile/blacklisted groups or SGC rank found.");
+          } catch (err) {
+            bgcEmbed = new (require("discord.js").EmbedBuilder)()
+              .setTitle("Roblox Background Check")
+              .setColor(0xed4245)
+              .setDescription("⚠️ Could not fetch group info.");
+          }
+        }
+
       // Chunk fields into groups where each embed has at most 25 fields and total
       // approx character length per embed stays under ~1800 characters to avoid
       // hitting message/content limits when rendered.
@@ -128,7 +187,10 @@ function createFormServer(client) {
       // Send the embed parts to the channel. Attach buttons only to the first message.
       for (let i = 0; i < embeds.length; i++) {
         const payload = { embeds: [embeds[i]] };
-        if (i === 0) payload.components = components;
+        if (i === 0) {
+          payload.components = components;
+          if (bgcEmbed) payload.embeds.push(bgcEmbed);
+        }
         await channel.send(payload).catch(err => console.error("Failed to send embed part:", err));
       }
 
