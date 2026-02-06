@@ -7,7 +7,9 @@ Version history officially begins logging after a few patches to the initial bot
 
 MOST RECENT UPDATE:
 
-2.2.0
+2.2.1
+
+- Minor bugfix
 
 MOST RECENT MAJOR UPDATE:
 
