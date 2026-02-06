@@ -150,19 +150,10 @@ async function handleReviewModal(interaction) {
   };
 
   // Delete excess embeds if present (for long applications)
-  if (message.embeds.length > 1) {
-    await message.edit({ embeds: [updatedEmbed], components: [] }).catch(err => {
-      console.error("Failed to edit message:", err);
-    });
-    // Remove all but the first embed
-    await message.edit({ embeds: [updatedEmbed], components: [] }).catch(err => {
-      console.error("Failed to clean up excess embeds:", err);
-    });
-  } else {
-    await message.edit({ embeds: [updatedEmbed], components: [] }).catch(err => {
-      console.error("Failed to edit message:", err);
-    });
-  }
+  // Always replace with only the updated embed and clear components
+  await message.edit({ embeds: [updatedEmbed], components: [] }).catch(err => {
+    console.error("Failed to edit message:", err);
+  });
 
   // Log the decision to LOG_CHANNEL_ID and delete from voting channel to keep it clean
   try {
@@ -202,8 +193,7 @@ async function handleReviewModal(interaction) {
           .addFields(
             { name: "Applicant", value: applicantDisplay, inline: true },
             { name: "Result", value: approved ? "✅ Approved" : "❌ Denied", inline: true },
-            { name: "Feedback", value: feedback || "(no feedback)", inline: false },
-            { name: "Background Check", value: backgroundCheckText, inline: false }
+            { name: "Feedback", value: feedback || "(no feedback)", inline: false }
           )
           .setTimestamp(new Date());
         // Add note if approved
