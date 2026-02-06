@@ -7,10 +7,9 @@ Version history officially begins logging after a few patches to the initial bot
 
 MOST RECENT UPDATE:
 
-2.1.9
+2.1.13
 
-- Fixed the ReviewModal, bug with pinging applicants should no longer be present.
-- Added information to accepted applications.
+- Added a new group to the checkgroups registry
 
 MOST RECENT MAJOR UPDATE:
 
