@@ -7,16 +7,11 @@ Version history officially begins logging after a few patches to the initial bot
 
 MOST RECENT UPDATE:
 
-2.1.4
-
-- Fixed the ReviewModal, bug with pinging applicants should no longer be present.
-- Added information to accepted applications.
+2.2.0
 
 MOST RECENT MAJOR UPDATE:
 
-2.1.0
+2.2.0
 
-- Finished checksecurity command
-- Finished formreview feature
-- major improvements on the backend
-- Removed RNID from checkgroups
+- Added background checks to reviewmodal
+- Fixed issue with deleting excess applications
