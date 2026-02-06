@@ -19,6 +19,7 @@ const GROUP_CATEGORIES = {
 
   "BLACKLISTED GROUPS": [
     765802690, // SGW NID
+    16140130 // Kaddin Empire Group
   ]
 };
 
