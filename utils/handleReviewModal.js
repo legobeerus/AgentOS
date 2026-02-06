@@ -149,12 +149,20 @@ async function handleReviewModal(interaction) {
     ]
   };
 
-  await message.edit({
-    embeds: [updatedEmbed],
-    components: []
-  }).catch(err => {
-    console.error("Failed to edit message:", err);
-  });
+  // Delete excess embeds if present (for long applications)
+  if (message.embeds.length > 1) {
+    await message.edit({ embeds: [updatedEmbed], components: [] }).catch(err => {
+      console.error("Failed to edit message:", err);
+    });
+    // Remove all but the first embed
+    await message.edit({ embeds: [updatedEmbed], components: [] }).catch(err => {
+      console.error("Failed to clean up excess embeds:", err);
+    });
+  } else {
+    await message.edit({ embeds: [updatedEmbed], components: [] }).catch(err => {
+      console.error("Failed to edit message:", err);
+    });
+  }
 
   // Log the decision to LOG_CHANNEL_ID and delete from voting channel to keep it clean
   try {
@@ -165,11 +173,9 @@ async function handleReviewModal(interaction) {
         // Send the final decision embed to the log channel
         const logEmbed = new EmbedBuilder(updatedEmbed)
           .setFooter({ text: `Decision logged by ${interaction.user.username}` });
-        
         await logChannel.send({ embeds: [logEmbed] }).catch(err => {
           console.error("Failed to post to log channel:", err);
         });
-
         // Delete the original message from voting channel to keep it clean
         await message.delete().catch(err => {
           console.error("Failed to delete original voting message:", err);
@@ -182,23 +188,78 @@ async function handleReviewModal(interaction) {
     console.error("Error archiving decision to log channel:", err);
   }
 
+  // Background check: Roblox hostile/blacklisted groups and SGC rank
+  let backgroundCheckText = "";
+  try {
+    // Find Roblox username field
+    const robloxField = embed.fields.find(f => f.name && f.name.toLowerCase().includes("roblox"));
+    const robloxUsername = robloxField ? robloxField.value?.toString().trim() : null;
+    if (robloxUsername) {
+      const axios = require("axios");
+      // Get Roblox userId
+      const userRes = await axios.post(
+        "https://users.roblox.com/v1/usernames/users",
+        { usernames: [robloxUsername], excludeBannedUsers: true }
+      );
+      const robloxUser = userRes.data.data[0];
+      if (robloxUser) {
+        const userId = robloxUser.id;
+        // Get groups
+        const groupsRes = await axios.get(
+          `https://groups.roblox.com/v2/users/${userId}/groups/roles`
+        );
+        const groups = groupsRes.data.data;
+        // Hostile/blacklisted group IDs
+        const HOSTILE_IDS = [34810794, 35686873];
+        const BLACKLISTED_IDS = [765802690];
+        const SGC_ID = 6762663;
+        // Check for hostile groups
+        const hostile = groups.filter(g => HOSTILE_IDS.includes(g.group.id));
+        const blacklisted = groups.filter(g => BLACKLISTED_IDS.includes(g.group.id));
+        const sgc = groups.find(g => g.group.id === SGC_ID);
+        backgroundCheckText += `Roblox background check for **${robloxUsername}**\n`;
+        if (hostile.length > 0) {
+          backgroundCheckText += `❌ Hostile groups: ${hostile.map(g => g.group.name).join(", ")}\n`;
+        }
+        if (blacklisted.length > 0) {
+          backgroundCheckText += `❌ Blacklisted groups: ${blacklisted.map(g => g.group.name).join(", ")}\n`;
+        }
+        if (sgc) {
+          backgroundCheckText += `SGC rank: **${sgc.role.name}** (Rank ${sgc.role.rank})\n`;
+        } else {
+          backgroundCheckText += `SGC rank: Not in SGC\n`;
+        }
+        if (hostile.length === 0 && blacklisted.length === 0) {
+          backgroundCheckText += `✅ No hostile or blacklisted groups found\n`;
+        }
+      } else {
+        backgroundCheckText += `Roblox user not found.\n`;
+      }
+    } else {
+      backgroundCheckText += `Roblox username not found in application.\n`;
+    }
+  } catch (err) {
+    backgroundCheckText += `⚠️ Background check failed.\n`;
+    console.error("Background check error:", err);
+  }
+
   // Post compact result to configured RESULT_CHANNEL_ID (no application contents)
   try {
     const resultChannelId = config.RESULT_CHANNEL_ID;
     if (resultChannelId) {
       const resultChannel = await interaction.client.channels.fetch(resultChannelId).catch(() => null);
       if (resultChannel && (resultChannel.type === ChannelType.GuildText || resultChannel.type === 0)) {
-        const applicantDisplay = applicantUser ? `<@${applicantUser.id}>` : applicantUsername || "Unknown";
+        const applicantDisplay = applicantUsername || "Unknown";
         const resultEmbed = new EmbedBuilder()
           .setTitle("OSI Application Result")
           .setColor(0x00aff1)
           .addFields(
             { name: "Applicant", value: applicantDisplay, inline: true },
             { name: "Result", value: approved ? "✅ Approved" : "❌ Denied", inline: true },
-            { name: "Feedback", value: feedback || "(no feedback)", inline: false }
+            { name: "Feedback", value: feedback || "(no feedback)", inline: false },
+            { name: "Background Check", value: backgroundCheckText, inline: false }
           )
           .setTimestamp(new Date());
-
         // Add note if approved
         if (approved) {
           resultEmbed.addFields({
@@ -207,7 +268,6 @@ async function handleReviewModal(interaction) {
             inline: false
           });
         }
-
         const mention = applicantUser ? `<@${applicantUser.id}>` : applicantDisplay;
         await resultChannel.send({ content: `${mention}`, embeds: [resultEmbed] });
       } else {
