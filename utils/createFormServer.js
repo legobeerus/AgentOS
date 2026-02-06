@@ -152,12 +152,15 @@ function createFormServer(client) {
       const baseTimestamp = timestamp ? new Date(timestamp) : new Date();
 
       // Build embeds array from groupsToSend
+      // Generate a unique application identifier (timestamp or UUID)
+      const appId = timestamp ? String(timestamp) : String(Date.now());
       const embeds = groupsToSend.map((group, idx) => {
         const e = new EmbedBuilder()
           .setTitle(idx === 0 ? baseTitle : `${baseTitle} (continued ${idx})`)
           .setColor(baseColor)
           .setTimestamp(baseTimestamp)
-          .addFields(group);
+          .addFields(group)
+          .setFooter({ text: `AppID: ${appId}` });
         return e;
       });
 
@@ -190,6 +193,7 @@ function createFormServer(client) {
         if (i === 0) {
           payload.components = components;
           if (bgcEmbed) payload.embeds.push(bgcEmbed);
+                  if (bgcEmbed) bgcEmbed.setFooter({ text: `AppID: ${appId}` });
         }
         await channel.send(payload).catch(err => console.error("Failed to send embed part:", err));
       }

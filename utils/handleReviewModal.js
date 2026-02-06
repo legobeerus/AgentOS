@@ -167,6 +167,20 @@ async function handleReviewModal(interaction) {
         await logChannel.send({ embeds: [logEmbed] }).catch(err => {
           console.error("Failed to post to log channel:", err);
         });
+        // Identify application ID from embed footer
+        const appId = embed.footer?.text?.includes("AppID:") ? embed.footer.text.split("AppID:")[1].trim() : null;
+        if (appId) {
+          // Fetch recent messages in the channel and delete all with matching AppID
+          const messages = await interaction.channel.messages.fetch({ limit: 50 });
+          const toDelete = messages.filter(m => m.embeds.some(e => e.footer && e.footer.text && e.footer.text.includes(`AppID: ${appId}`)));
+          for (const msg of toDelete.values()) {
+            if (msg.id !== message.id) {
+              await msg.delete().catch(err => {
+                console.error("Failed to delete excess embed message:", err);
+              });
+            }
+          }
+        }
         // Delete the original message from voting channel to keep it clean
         await message.delete().catch(err => {
           console.error("Failed to delete original voting message:", err);
@@ -176,7 +190,7 @@ async function handleReviewModal(interaction) {
       }
     }
   } catch (err) {
-    console.error("Error archiving decision to log channel:", err);
+    console.error("Error archiving decision to log channel or cleaning up excess embeds:", err);
   }
 
 
