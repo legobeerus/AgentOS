@@ -75,6 +75,7 @@ async function handleReviewModal(interaction) {
       applicantUser = await interaction.client.users.fetch(userId).catch(() => null);
       if (applicantUser) {
         console.log(`Successfully fetched user: ${applicantUser.username} (${applicantUser.id})`);
+        applicantUsername = applicantUser.tag || applicantUser.username;
       } else {
         console.warn(`Could not fetch user by ID ${userId}`);
       }
@@ -116,6 +117,7 @@ async function handleReviewModal(interaction) {
             const member = guildMembers.find(m => m.user.username === applicantUsername);
             if (member) {
               applicantUser = member.user;
+              applicantUsername = applicantUser.tag || applicantUser.username;
               console.log(`Found user in guild members: ${applicantUser.username} (${applicantUser.id})`);
             }
           }
