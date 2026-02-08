@@ -7,7 +7,6 @@ Version history officially begins logging after a few patches to the initial bot
 
 MOST RECENT MAJOR UPDATE:
 
-2.3.0
+2.5.0
 
-- Added an application blacklist roster, with two new commands
-- Updated createFormServer to block applications that are sent from blacklisted users
+- Arrests now automatically log on the Suspensions Trello

@@ -4,6 +4,10 @@ const WATCH_CHANNEL_ID = process.env.TRELLO_INGEST_CHANNEL_ID || "12212240454299
 const TRELLO_LIST_ID = process.env.TRELLO_CREATE_LIST_ID || "6940345b7ed679287366e82b";
 const TRELLO_KEY = process.env.TRELLO_KEY;
 const TRELLO_TOKEN = process.env.TRELLO_TOKEN;
+const TRELLO_LABEL_NAME = process.env.TRELLO_LABEL_NAME || "OSI Approved";
+const TRELLO_LABEL_COLOR = process.env.TRELLO_LABEL_COLOR || "blue";
+
+let cachedLabelId = null;
 
 function parseMessage(content) {
   const pattern = /Suspect:\s*([\s\S]*?)\s*Incident Summary:\s*([\s\S]*?)\s*Charge\(s\):\s*([\s\S]*?)\s*Sentence:\s*([\s\S]*?)\s*Proof:\s*([\s\S]*)/i;
@@ -19,6 +23,39 @@ function parseMessage(content) {
   };
 }
 
+async function getLabelIdByName() {
+  if (cachedLabelId) return cachedLabelId;
+  if (!TRELLO_LABEL_NAME) return null;
+
+  const listRes = await axios.get(`https://api.trello.com/1/lists/${TRELLO_LIST_ID}`, {
+    params: { key: TRELLO_KEY, token: TRELLO_TOKEN, fields: "idBoard" }
+  });
+  const boardId = listRes.data?.idBoard;
+  if (!boardId) return null;
+
+  const labelsRes = await axios.get(`https://api.trello.com/1/boards/${boardId}/labels`, {
+    params: { key: TRELLO_KEY, token: TRELLO_TOKEN, fields: "name,color", limit: 1000 }
+  });
+  const labels = Array.isArray(labelsRes.data) ? labelsRes.data : [];
+  const label = labels.find(l => String(l.name || "").toLowerCase() === TRELLO_LABEL_NAME.toLowerCase());
+  if (label?.id) {
+    cachedLabelId = label.id;
+    return cachedLabelId;
+  }
+
+  const createRes = await axios.post("https://api.trello.com/1/labels", null, {
+    params: {
+      key: TRELLO_KEY,
+      token: TRELLO_TOKEN,
+      idBoard: boardId,
+      name: TRELLO_LABEL_NAME,
+      color: TRELLO_LABEL_COLOR
+    }
+  });
+  cachedLabelId = createRes.data?.id || null;
+  return cachedLabelId;
+}
+
 async function createTrelloCard(parsed, message) {
   const name = parsed.suspect;
   const desc = [
@@ -29,11 +66,14 @@ async function createTrelloCard(parsed, message) {
     `Source: ${message.url}`
   ].join("\n");
 
+  const labelId = await getLabelIdByName();
+
   await axios.post("https://api.trello.com/1/cards", null, {
     params: {
       idList: TRELLO_LIST_ID,
       name,
       desc,
+      idLabels: labelId ? labelId : undefined,
       key: TRELLO_KEY,
       token: TRELLO_TOKEN
     }
