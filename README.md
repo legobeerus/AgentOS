@@ -5,15 +5,9 @@ This is a minor project for an investigative division for a Roblox roleplay comm
 NOTE:
 Version history officially begins logging after a few patches to the initial bot. Patches previous to this can be considered irrelevant.
 
-MOST RECENT UPDATE:
-
-2.2.1
-
-- Minor bugfix
-
 MOST RECENT MAJOR UPDATE:
 
-2.2.0
+2.3.0
 
-- Added background checks to reviewmodal
-- Fixed issue with deleting excess applications
+- Added an application blacklist roster, with two new commands
+- Updated createFormServer to block applications that are sent from blacklisted users

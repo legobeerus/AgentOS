@@ -1,6 +1,7 @@
 const express = require("express");
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType } = require("discord.js");
 const config = require("../config");
+const { hasUsername } = require("../utils/blacklistStore");
 
 /**
  * Creates an Express server to handle form submissions from Google Apps Script
@@ -67,6 +68,18 @@ function createFormServer(client) {
         for (const [key, value] of Object.entries(answers)) {
           if (/roblox.*username/i.test(key)) robloxUsername = value;
           if (/roblox.*user.?id/i.test(key)) robloxUserId = value;
+        }
+
+        // Fallback: find a generic username field (avoid Discord username)
+        if (!robloxUsername) {
+          const usernameEntry = Object.entries(answers).find(([key]) => /username/i.test(key) && !/discord/i.test(key));
+          if (usernameEntry) robloxUsername = usernameEntry[1];
+        }
+
+        // Block submissions from blacklisted usernames
+        if (robloxUsername && hasUsername(robloxUsername)) {
+          console.warn(`Blocked application from blacklisted username: ${robloxUsername}`);
+          return res.status(200).json({ success: false, message: "Blocked by blacklist" });
         }
 
         // If only username is present, fetch userId
