@@ -76,8 +76,67 @@ function createFormServer(client) {
           if (usernameEntry) robloxUsername = usernameEntry[1];
         }
 
-        // Block submissions from blacklisted usernames
+        // Block submissions from blacklisted usernames and DM applicant if possible
         if (robloxUsername && hasUsername(robloxUsername)) {
+          let applicantDiscordId = null;
+          let applicantDiscordUsername = null;
+          const discordIdKeys = [
+            "Enter your Discord User ID",
+            "Discord User ID",
+            "Discord ID",
+            "User ID",
+            "Applicant ID"
+          ];
+          const discordUsernameKeys = [
+            "Enter your Discord Username (not your display name)",
+            "Discord Username",
+            "Discord User",
+            "Username",
+            "Applicant"
+          ];
+
+          for (const [key, value] of Object.entries(answers)) {
+            if (!applicantDiscordId && discordIdKeys.some(k => k.toLowerCase() === String(key).toLowerCase())) {
+              applicantDiscordId = String(value || "").trim();
+            }
+            if (!applicantDiscordUsername && discordUsernameKeys.some(k => k.toLowerCase() === String(key).toLowerCase())) {
+              applicantDiscordUsername = String(value || "").trim();
+            }
+          }
+
+          if (applicantDiscordId) {
+            const idMatch = applicantDiscordId.match(/^<@!?([0-9]+)>$|^([0-9]{16,20})$/);
+            applicantDiscordId = idMatch ? (idMatch[1] || idMatch[2]) : applicantDiscordId;
+          }
+
+          try {
+            let userToDm = null;
+            if (applicantDiscordId) {
+              userToDm = await client.users.fetch(applicantDiscordId).catch(() => null);
+            }
+
+            if (!userToDm && applicantDiscordUsername && channel.guild) {
+              const cachedMember = channel.guild.members.cache.find(m => m.user.username === applicantDiscordUsername);
+              if (cachedMember) userToDm = cachedMember.user;
+            }
+
+            if (!userToDm && applicantDiscordUsername && channel.guild) {
+              const members = await channel.guild.members.fetch().catch(() => null);
+              if (members) {
+                const member = members.find(m => m.user.username === applicantDiscordUsername);
+                if (member) userToDm = member.user;
+              }
+            }
+
+            if (userToDm) {
+              await userToDm.send(
+                `Your application was not accepted because the Roblox username "${robloxUsername}" is blacklisted.`
+              ).catch(() => null);
+            }
+          } catch (err) {
+            console.warn("Failed to DM blacklisted applicant:", err);
+          }
+
           console.warn(`Blocked application from blacklisted username: ${robloxUsername}`);
           return res.status(200).json({ success: false, message: "Blocked by blacklist" });
         }
