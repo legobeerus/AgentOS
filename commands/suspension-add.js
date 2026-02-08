@@ -67,7 +67,7 @@ module.exports = {
     .addStringOption(option =>
       option
         .setName("title")
-        .setDescription("Card title")
+        .setDescription("Card title - This should be the suspect's name")
         .setRequired(true)
     )
     .addStringOption(option =>
@@ -83,7 +83,7 @@ module.exports = {
     .addStringOption(option =>
       option
         .setName("label")
-        .setDescription("Label to apply")
+        .setDescription("Label to apply - OSI Approved is for OSI-handled punishments, DoW Approved is for DoW-handled punishments")
         .setRequired(true)
         .addChoices(
           { name: "OSI Approved", value: "OSI Approved" },
@@ -99,19 +99,19 @@ module.exports = {
     .addStringOption(option =>
       option
         .setName("divisional_ranks")
-        .setDescription("Divisional Ranks")
+        .setDescription("Divisional Ranks - Follow format of Rank Name (Division), separate multiple ranks with commas")
         .setRequired(true)
     )
     .addStringOption(option =>
       option
         .setName("requested_time")
-        .setDescription("Requested Time")
+        .setDescription("Requested Time - Must follow format of X days/weeks/months or 'Permanent'")
         .setRequired(true)
     )
     .addStringOption(option =>
       option
         .setName("broken_laws")
-        .setDescription("Broken Laws")
+        .setDescription("Broken Laws - Separate multiple laws with commas, follow format of [X.X] Law Name")
         .setRequired(true)
     )
     .addStringOption(option =>
