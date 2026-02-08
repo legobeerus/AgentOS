@@ -1,6 +1,14 @@
 const { SlashCommandBuilder } = require("discord.js");
 const { addUsername } = require("../utils/blacklistStore");
 
+const ALLOWED_ROLE_IDS = [
+  "1449860815086813224"
+];
+
+const ALLOWED_USER_IDS = [
+  "716248402513494027"
+];
+
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("blacklist-add")
@@ -13,6 +21,14 @@ module.exports = {
     ),
 
   async execute(interaction) {
+    if (!ALLOWED_USER_IDS.includes(interaction.user.id)) {
+      const hasRole = interaction.member?.roles?.cache?.some(role => ALLOWED_ROLE_IDS.includes(role.id));
+      if (!hasRole) {
+        await interaction.reply({ content: "❌ You do not have permission to use this command.", ephemeral: true });
+        return;
+      }
+    }
+
     const username = interaction.options.getString("username");
     const result = addUsername(username);
 
