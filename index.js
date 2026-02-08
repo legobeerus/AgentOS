@@ -3,6 +3,7 @@ const { Client, GatewayIntentBits } = require("discord.js");
 const { loadCommands } = require("./utils/loadCommands");
 const { handleInteraction } = require("./utils/handleInteraction");
 const { handleTrelloIngest } = require("./utils/trelloMessageIngest");
+const { startSuspensionScheduler } = require("./utils/trelloSuspensionScheduler");
 const { createFormServer } = require("./utils/createFormServer");
 
 const client = new Client({
@@ -20,6 +21,7 @@ loadCommands(client);
 // Ready event
 client.once("ready", () => {
   console.log(`Logged in as ${client.user.tag}`);
+  startSuspensionScheduler();
 });
 
 // Interaction handler
