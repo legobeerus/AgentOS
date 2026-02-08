@@ -2,11 +2,13 @@ require("dotenv").config();
 const { Client, GatewayIntentBits } = require("discord.js");
 const { loadCommands } = require("./utils/loadCommands");
 const { handleInteraction } = require("./utils/handleInteraction");
+const { handleTrelloIngest } = require("./utils/trelloMessageIngest");
 const { createFormServer } = require("./utils/createFormServer");
 
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
     GatewayIntentBits.DirectMessages,
     GatewayIntentBits.MessageContent
   ]
@@ -23,6 +25,11 @@ client.once("ready", () => {
 // Interaction handler
 client.on("interactionCreate", async interaction => {
   await handleInteraction(interaction, client);
+});
+
+// Message handler for Trello ingestion
+client.on("messageCreate", async message => {
+  await handleTrelloIngest(message);
 });
 
 // Start Express server for form submissions
