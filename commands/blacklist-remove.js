@@ -2,7 +2,8 @@ const { SlashCommandBuilder } = require("discord.js");
 const { removeUsername } = require("../utils/blacklistStore");
 
 const ALLOWED_ROLE_IDS = [
-  "1449860815086813224"
+  "1449860815086813224", // OSI HC
+  "1449860639475630240" // OSI MC
 ];
 
 const ALLOWED_USER_IDS = [
