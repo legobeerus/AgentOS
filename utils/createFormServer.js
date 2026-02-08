@@ -130,7 +130,7 @@ function createFormServer(client) {
 
             if (userToDm) {
               await userToDm.send(
-                `Your application was not accepted because the Roblox username "${robloxUsername}" is blacklisted.`
+                `Your application was not sent because the Roblox username "${robloxUsername}" is blacklisted.`
               ).catch(() => null);
             }
           } catch (err) {
