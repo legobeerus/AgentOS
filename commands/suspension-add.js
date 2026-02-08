@@ -83,7 +83,7 @@ module.exports = {
     .addStringOption(option =>
       option
         .setName("label")
-        .setDescription("Label to apply - OSI Approved is for OSI-handled punishments, DoW Approved is for DoW-handled punishments")
+        .setDescription("Label to apply - Only select DoW Approved if you are not OSI")
         .setRequired(true)
         .addChoices(
           { name: "OSI Approved", value: "OSI Approved" },
