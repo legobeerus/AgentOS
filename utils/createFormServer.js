@@ -77,7 +77,7 @@ function createFormServer(client) {
         }
 
         // Block submissions from blacklisted usernames and DM applicant if possible
-        if (robloxUsername && hasUsername(robloxUsername)) {
+        if (robloxUsername && await hasUsername(robloxUsername)) {
           let applicantDiscordId = null;
           let applicantDiscordUsername = null;
           const discordIdKeys = [

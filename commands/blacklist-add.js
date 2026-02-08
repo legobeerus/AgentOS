@@ -31,7 +31,7 @@ module.exports = {
     }
 
     const username = interaction.options.getString("username");
-    const result = addUsername(username);
+    const result = await addUsername(username);
 
     if (result.added) {
       await interaction.reply({ content: `✅ Added **${username}** to the blacklist.`, ephemeral: true });

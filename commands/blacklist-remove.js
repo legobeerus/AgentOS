@@ -31,7 +31,7 @@ module.exports = {
     }
 
     const username = interaction.options.getString("username");
-    const result = removeUsername(username);
+    const result = await removeUsername(username);
 
     if (result.removed) {
       await interaction.reply({ content: `✅ Removed **${username}** from the blacklist.`, ephemeral: true });
