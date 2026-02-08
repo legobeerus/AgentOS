@@ -100,7 +100,7 @@ function createFormServer(client) {
             let sgc = groups.find(g => g.group.id === SGC_ID);
 
             bgcEmbed = new (require("discord.js").EmbedBuilder)()
-              .setTitle("Roblox Background Check")
+              .setTitle("Background Check")
               .setColor(0x00aff1)
               .setFooter({ text: `User ID: ${robloxUserId}` });
 
@@ -111,10 +111,10 @@ function createFormServer(client) {
             if (sgc)
               bgcEmbed.addFields({ name: "SGC Rank", value: `Role: ${sgc.role.name}\nRank: ${sgc.role.rank}`, inline: false });
             if (!hostileGroups.length && !blacklistedGroups.length && !sgc)
-              bgcEmbed.setDescription("✅ No hostile/blacklisted groups or SGC rank found.");
+              bgcEmbed.setDescription("⚠️ No hostile/blacklisted groups or SGC rank found.");
           } catch (err) {
             bgcEmbed = new (require("discord.js").EmbedBuilder)()
-              .setTitle("Roblox Background Check")
+              .setTitle("Background Check")
               .setColor(0xed4245)
               .setDescription("⚠️ Could not fetch group info.");
           }
