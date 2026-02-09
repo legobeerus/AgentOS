@@ -1,4 +1,5 @@
 const fs = require("fs");
+const fsp = fs.promises;
 const path = require("path");
 
 const FILE_PATH = path.join(__dirname, "..", "data", "blacklist.json");
@@ -7,32 +8,48 @@ const DATABASE_URL = process.env.DATABASE_URL;
 let pool = null;
 let initPromise = null;
 
+let writeLock = Promise.resolve();
+
 function normalize(username) {
   return String(username || "").trim().toLowerCase();
 }
 
-function ensureFileStore() {
+async function ensureFileStore() {
   const dir = path.dirname(FILE_PATH);
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  if (!fs.existsSync(FILE_PATH)) fs.writeFileSync(FILE_PATH, "[]", "utf8");
+  await fsp.mkdir(dir, { recursive: true });
+  try {
+    await fsp.access(FILE_PATH);
+  } catch (err) {
+    await fsp.writeFile(FILE_PATH, "[]", "utf8");
+  }
 }
 
-function readList() {
-  ensureFileStore();
+async function readList() {
+  await ensureFileStore();
   try {
-    const raw = fs.readFileSync(FILE_PATH, "utf8");
+    const raw = await fsp.readFile(FILE_PATH, "utf8");
     const list = JSON.parse(raw);
     return Array.isArray(list) ? list : [];
   } catch (err) {
     console.warn("Failed to read blacklist store, resetting.", err);
-    fs.writeFileSync(FILE_PATH, "[]", "utf8");
+    try { await fsp.writeFile(FILE_PATH, "[]", "utf8"); } catch (e) {}
     return [];
   }
 }
 
-function writeList(list) {
-  ensureFileStore();
-  fs.writeFileSync(FILE_PATH, JSON.stringify(list, null, 2), "utf8");
+async function doAtomicWrite(list) {
+  const tmp = FILE_PATH + ".tmp";
+  await fsp.writeFile(tmp, JSON.stringify(list, null, 2), "utf8");
+  await fsp.rename(tmp, FILE_PATH);
+}
+
+function enqueueWrite(list) {
+  writeLock = writeLock
+    .then(() => doAtomicWrite(list))
+    .catch(err => {
+      console.warn("Failed to write blacklist store:", err);
+    });
+  return writeLock;
 }
 
 function getPool() {
@@ -66,7 +83,7 @@ async function hasUsername(username) {
   if (!norm) return false;
 
   if (!DATABASE_URL) {
-    const list = readList();
+    const list = await readList();
     return list.includes(norm);
   }
 
@@ -82,10 +99,10 @@ async function addUsername(username) {
   if (!norm) return { added: false, reason: "empty" };
 
   if (!DATABASE_URL) {
-    const list = readList();
+    const list = await readList();
     if (list.includes(norm)) return { added: false, reason: "exists" };
     list.push(norm);
-    writeList(list);
+    await enqueueWrite(list);
     return { added: true };
   }
 
@@ -105,11 +122,11 @@ async function removeUsername(username) {
   if (!norm) return { removed: false, reason: "empty" };
 
   if (!DATABASE_URL) {
-    const list = readList();
+    const list = await readList();
     const idx = list.indexOf(norm);
     if (idx === -1) return { removed: false, reason: "missing" };
     list.splice(idx, 1);
-    writeList(list);
+    await enqueueWrite(list);
     return { removed: true };
   }
 
