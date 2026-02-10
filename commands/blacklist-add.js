@@ -22,6 +22,7 @@ module.exports = {
     ),
 
   async execute(interaction) {
+    console.info(`[blacklist-add] invoked by ${interaction.user?.id}`);
     if (!ALLOWED_USER_IDS.includes(interaction.user.id)) {
       const hasRole = interaction.member?.roles?.cache?.some(role => ALLOWED_ROLE_IDS.includes(role.id));
       if (!hasRole) {
@@ -31,18 +32,26 @@ module.exports = {
     }
 
     const username = interaction.options.getString("username");
-    const result = await addUsername(username);
+    try {
+      const result = await addUsername(username);
+      console.info(`[blacklist-add] result for ${username}:`, result);
 
-    if (result.added) {
-      await interaction.reply({ content: `✅ Added **${username}** to the blacklist.`, ephemeral: true });
-      return;
+      if (result.added) {
+        await interaction.reply({ content: `✅ Added **${username}** to the blacklist.`, ephemeral: true });
+        return;
+      }
+
+      if (result.reason === "exists") {
+        await interaction.reply({ content: `⚠️ **${username}** is already blacklisted.`, ephemeral: true });
+        return;
+      }
+
+      await interaction.reply({ content: "⚠️ Invalid username.", ephemeral: true });
+    } catch (err) {
+      console.error('[blacklist-add] error:', err);
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({ content: "Error adding username to blacklist.", ephemeral: true });
+      }
     }
-
-    if (result.reason === "exists") {
-      await interaction.reply({ content: `⚠️ **${username}** is already blacklisted.`, ephemeral: true });
-      return;
-    }
-
-    await interaction.reply({ content: "⚠️ Invalid username.", ephemeral: true });
   }
 };
