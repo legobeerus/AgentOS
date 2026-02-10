@@ -33,24 +33,29 @@ module.exports = {
 
     const username = interaction.options.getString("username");
     try {
+      if (!interaction.deferred && !interaction.replied) await interaction.deferReply({ ephemeral: true });
+
       const result = await removeUsername(username);
       console.info(`[blacklist-remove] result for ${username}:`, result);
 
       if (result.removed) {
-        await interaction.reply({ content: `✅ Removed **${username}** from the blacklist.`, ephemeral: true });
+        await interaction.editReply({ content: `✅ Removed **${username}** from the blacklist.` });
         return;
       }
 
       if (result.reason === "missing") {
-        await interaction.reply({ content: `⚠️ **${username}** is not in the blacklist.`, ephemeral: true });
+        await interaction.editReply({ content: `⚠️ **${username}** is not in the blacklist.` });
         return;
       }
 
-      await interaction.reply({ content: "⚠️ Invalid username.", ephemeral: true });
+      await interaction.editReply({ content: "⚠️ Invalid username." });
     } catch (err) {
       console.error('[blacklist-remove] error:', err);
-      if (!interaction.replied && !interaction.deferred) {
-        await interaction.reply({ content: "Error removing username from blacklist.", ephemeral: true });
+      try {
+        if (!interaction.replied && !interaction.deferred) await interaction.deferReply({ ephemeral: true });
+        await interaction.editReply({ content: "Error removing username from blacklist." });
+      } catch (replyErr) {
+        console.error('[blacklist-remove] reply error:', replyErr);
       }
     }
   }

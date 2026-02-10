@@ -33,24 +33,30 @@ module.exports = {
 
     const username = interaction.options.getString("username");
     try {
+      // Defer reply to avoid interaction timeout if DB ops take time
+      if (!interaction.deferred && !interaction.replied) await interaction.deferReply({ ephemeral: true });
+
       const result = await addUsername(username);
       console.info(`[blacklist-add] result for ${username}:`, result);
 
       if (result.added) {
-        await interaction.reply({ content: `✅ Added **${username}** to the blacklist.`, ephemeral: true });
+        await interaction.editReply({ content: `✅ Added **${username}** to the blacklist.` });
         return;
       }
 
       if (result.reason === "exists") {
-        await interaction.reply({ content: `⚠️ **${username}** is already blacklisted.`, ephemeral: true });
+        await interaction.editReply({ content: `⚠️ **${username}** is already blacklisted.` });
         return;
       }
 
-      await interaction.reply({ content: "⚠️ Invalid username.", ephemeral: true });
+      await interaction.editReply({ content: "⚠️ Invalid username." });
     } catch (err) {
       console.error('[blacklist-add] error:', err);
-      if (!interaction.replied && !interaction.deferred) {
-        await interaction.reply({ content: "Error adding username to blacklist.", ephemeral: true });
+      try {
+        if (!interaction.replied && !interaction.deferred) await interaction.deferReply({ ephemeral: true });
+        await interaction.editReply({ content: "Error adding username to blacklist." });
+      } catch (replyErr) {
+        console.error('[blacklist-add] reply error:', replyErr);
       }
     }
   }
