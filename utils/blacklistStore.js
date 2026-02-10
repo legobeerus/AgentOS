@@ -5,6 +5,8 @@ const path = require("path");
 const FILE_PATH = path.join(__dirname, "..", "data", "blacklist.json");
 const DATABASE_URL = process.env.DATABASE_URL;
 
+console.info("[blacklistStore] storage:", DATABASE_URL ? "postgres (DATABASE_URL set)" : "file (no DATABASE_URL)");
+
 let pool = null;
 let initPromise = null;
 
@@ -56,7 +58,11 @@ function getPool() {
   if (!DATABASE_URL) return null;
   if (!pool) {
     const { Pool } = require("pg");
+    console.info("[blacklistStore] creating Postgres pool");
     pool = new Pool({ connectionString: DATABASE_URL, ssl: { rejectUnauthorized: false } });
+    pool.on("error", (err) => {
+      console.error("[blacklistStore] Postgres pool error:", err);
+    });
   }
   return pool;
 }
@@ -69,6 +75,7 @@ async function ensureTable() {
       await db.query(
         "CREATE TABLE IF NOT EXISTS blacklist (username TEXT PRIMARY KEY)"
       );
+      console.info("[blacklistStore] ensured blacklist table exists");
       return true;
     })().catch(err => {
       console.warn("Failed to init blacklist table:", err);
