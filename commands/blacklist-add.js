@@ -49,7 +49,17 @@ module.exports = {
         return;
       }
 
-      await interaction.editReply({ content: "⚠️ Invalid username." });
+      if (result.reason === "empty") {
+        await interaction.editReply({ content: "⚠️ Invalid or empty username provided." });
+        return;
+      }
+
+      if (result.reason === "db_error") {
+        await interaction.editReply({ content: "⚠️ Database error (unable to persist). Try again later." });
+        return;
+      }
+
+      await interaction.editReply({ content: `⚠️ Operation failed (${String(result.reason) || 'unknown'}).` });
     } catch (err) {
       console.error('[blacklist-add] error:', err);
       try {
