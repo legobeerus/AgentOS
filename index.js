@@ -1,4 +1,5 @@
 require("dotenv").config();
+const { startKeepAlive } = require("./utils/dbKeepAlive");
 const { Client, GatewayIntentBits } = require("discord.js");
 const { loadCommands } = require("./utils/loadCommands");
 const { handleInteraction } = require("./utils/handleInteraction");
@@ -14,6 +15,9 @@ const client = new Client({
     GatewayIntentBits.MessageContent
   ]
 });
+
+// Start DB keep-alive (if configured)
+startKeepAlive();
 
 // Load all commands
 loadCommands(client);
