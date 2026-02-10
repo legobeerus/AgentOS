@@ -7,7 +7,6 @@ Version history officially begins logging after a few patches to the initial bot
 
 MOST RECENT MAJOR UPDATE:
 
-2.6.0
+2.7.0
 
-- Arrests now automatically log on the Suspensions Trello
-- Suspension-add command created to add new punishments to the Trello
+- Suspension search command for looking up criminal records added.
