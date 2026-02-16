@@ -48,8 +48,8 @@ module.exports = {
         return embed;
       }
 
+      const token = `bl_${Date.now().toString(36)}`;
       function makeComponents(p) {
-        const token = `bl_${Date.now().toString(36)}`;
         const prev = new ButtonBuilder()
           .setCustomId(`${token}:prev`)
           .setLabel("◀️ Prev")
@@ -61,7 +61,7 @@ module.exports = {
           .setStyle(ButtonStyle.Primary)
           .setDisabled(p >= totalPages - 1);
         const row = new ActionRowBuilder().addComponents(prev, next);
-        return { components: [row], token };
+        return { components: [row] };
       }
 
       const embed = makeEmbedForPage(page);
@@ -70,7 +70,7 @@ module.exports = {
       await interaction.editReply({ embeds: [embed], components: comps.components });
       const message = await interaction.fetchReply();
 
-      const filter = (i) => i.isButton() && typeof i.customId === "string" && i.customId.startsWith(comps.token + ":");
+      const filter = (i) => i.isButton() && typeof i.customId === "string" && i.customId.startsWith(token + ":");
       const collector = message.createMessageComponentCollector({ filter, componentType: ComponentType.Button, time: 10 * 60 * 1000 });
 
       collector.on("collect", async (btnInt) => {
