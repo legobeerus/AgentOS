@@ -5,8 +5,8 @@ const PAGE_SIZE = 10;
 
 module.exports = {
   data: new SlashCommandBuilder()
-    .setName("blacklist-list")
-    .setDescription("View the blacklist roster (paginated, 10 per page)."),
+    .setName("blacklist-view")
+    .setDescription("View the blacklist roster"),
 
   async execute(interaction) {
     const ALLOWED_GUILD = process.env.BLACKLIST_GUILD_ID;
@@ -16,7 +16,7 @@ module.exports = {
     }
 
     if (interaction.guildId !== ALLOWED_GUILD) {
-      await interaction.reply({ content: "❌ This command can only be used in the configured server.", ephemeral: true });
+      await interaction.reply({ content: "❌ This command can only be used in the OSI server for security purposes.", ephemeral: true });
       return;
     }
 
