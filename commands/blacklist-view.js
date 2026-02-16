@@ -24,9 +24,14 @@ module.exports = {
     await interaction.deferReply();
 
     try {
-      const list = Array.isArray(await blacklistStore.listUsernames()) ? await blacklistStore.listUsernames() : [];
+      const rawList = await blacklistStore.listUsernames();
+      const list = Array.isArray(rawList) ? rawList : [];
       if (!list.length) {
-        await interaction.editReply("The blacklist roster is currently empty.");
+        if (process.env.DATABASE_URL) {
+          await interaction.editReply("The blacklist roster is empty in the database. Confirm the Railway Postgres `blacklist` table has rows.");
+        } else {
+          await interaction.editReply("The blacklist roster is currently empty.");
+        }
         return;
       }
 

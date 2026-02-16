@@ -3,7 +3,8 @@ const fsp = fs.promises;
 const path = require("path");
 
 const FILE_PATH = path.join(__dirname, "..", "data", "blacklist.json");
-const DATABASE_URL = process.env.DATABASE_URL;
+const config = require("../config");
+const DATABASE_URL = config.DATABASE_URL || process.env.DATABASE_URL || "";
 
 console.info("[blacklistStore] storage:", DATABASE_URL ? "postgres (DATABASE_URL set)" : "file (no DATABASE_URL)");
 
@@ -35,6 +36,20 @@ async function readList() {
   } catch (err) {
     console.warn("Failed to read blacklist store, resetting.", err);
     try { await fsp.writeFile(FILE_PATH, "[]", "utf8"); } catch (e) {}
+    return [];
+  }
+}
+
+async function listUsernames() {
+  if (!DATABASE_URL) return await readList();
+  const ok = await ensureTable();
+  if (!ok) return [];
+  const db = getPool();
+  try {
+    const res = await db.query("SELECT username FROM blacklist ORDER BY username ASC");
+    return Array.isArray(res.rows) ? res.rows.map(r => String(r.username)) : [];
+  } catch (err) {
+    console.warn("Failed to list usernames from DB:", err);
     return [];
   }
 }
@@ -149,5 +164,5 @@ module.exports = {
   hasUsername,
   addUsername,
   removeUsername,
-  listUsernames: readList
+  listUsernames
 };
