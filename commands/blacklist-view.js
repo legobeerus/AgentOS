@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, ComponentType } = require("discord.js");
 const blacklistStore = require("../utils/blacklistStore");
+const config = require("../config");
 
 const PAGE_SIZE = 10;
 
@@ -9,7 +10,7 @@ module.exports = {
     .setDescription("View the blacklist roster"),
 
   async execute(interaction) {
-    const ALLOWED_GUILD = process.env.BLACKLIST_GUILD_ID;
+    const ALLOWED_GUILD = config.BLACKLIST_GUILD_ID;
     if (!ALLOWED_GUILD) {
       await interaction.reply({ content: "⚠️ This command is not configured (BLACKLIST_GUILD_ID).", ephemeral: true });
       return;
