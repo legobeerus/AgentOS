@@ -9,4 +9,7 @@ module.exports = {
   VOTING_CHANNEL_ID: process.env.VOTING_CHANNEL_ID || "1467678462302093334",
   RESULT_CHANNEL_ID: process.env.RESULT_CHANNEL_ID || "1320064034963325068",
   LOG_CHANNEL_ID: process.env.LOG_CHANNEL_ID || "1467682055298089131"
+  ,
+  // Channel ID to create one-time invites in (falls back to the voting channel)
+  INVITE_CHANNEL_ID: process.env.INVITE_CHANNEL_ID || "1041577710960513043"
 };

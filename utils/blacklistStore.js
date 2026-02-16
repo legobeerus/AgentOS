@@ -148,5 +148,6 @@ async function removeUsername(username) {
 module.exports = {
   hasUsername,
   addUsername,
-  removeUsername
+  removeUsername,
+  listUsernames: readList
 };

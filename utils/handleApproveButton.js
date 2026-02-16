@@ -35,13 +35,17 @@ async function handleApproveButton(interaction) {
   const casenumber = caseField?.value ?? "Unknown";
 
   // Send message to target channel with thread
-  const msg = await channel.send({
-    content: `<@&${config.PING_ROLE_ID}> | [${casenumber}] | ${messageLink}`
+  // Post a parent message and start a thread named with the case number,
+  // then send the ping inside the thread rather than on the parent message.
+  const parentMsg = await channel.send({
+    content: `Case [${casenumber}] | ${messageLink}`
   });
 
-  await msg.startThread({
-    name: "Punishment Discussion"
-  });
+  const threadName = `Punishment Discussion - ${casenumber}`;
+  const thread = await parentMsg.startThread({ name: threadName });
+
+  // Ping the role inside the newly created thread for visibility
+  await thread.send({ content: `<@&${config.PING_ROLE_ID}> | ${messageLink}` });
 
   // Disable the button
   const disabledRow = new ActionRowBuilder().addComponents(

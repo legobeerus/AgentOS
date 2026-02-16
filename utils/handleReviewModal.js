@@ -230,6 +230,45 @@ async function handleReviewModal(interaction) {
     console.error("Failed to post result to result channel:", err);
   }
 
+  // If approved, try to create a one-time 24h invite and DM the applicant.
+  if (approved) {
+    try {
+      // Compute a helpful message link for context
+      const messageLink = `https://discord.com/channels/${interaction.guildId}/${interaction.channelId}/${message.id}`;
+
+      if (!applicantUser) {
+        // Notify staff (log channel) that we couldn't resolve the user to DM
+        const logChannel = await interaction.client.channels.fetch(config.LOG_CHANNEL_ID).catch(() => null);
+        if (logChannel) {
+          await logChannel.send({ content: `⚠️ Could not resolve applicant to a Discord user to DM for approval. Applicant: ${applicantUsername || "Unknown"}. Please contact them manually. Message: ${messageLink}` }).catch(() => null);
+        }
+      } else {
+        // Determine channel to create invite in
+        let inviteChannel = null;
+        if (config.INVITE_CHANNEL_ID) {
+          inviteChannel = await interaction.client.channels.fetch(config.INVITE_CHANNEL_ID).catch(() => null);
+        }
+        if (!inviteChannel) inviteChannel = interaction.channel;
+
+        // Create a single-use, 24-hour invite
+        const invite = await inviteChannel.createInvite({ maxAge: 24 * 3600, maxUses: 1, unique: true, reason: `Invite for approved applicant ${applicantUsername || applicantUser.tag}` });
+
+        // DM the applicant with the invite
+        const dmContent = `Your OSI application has been approved. You must send a request to join the group, and join the server linked. This invite will remain valid for 24 hours: ${invite.url}`;
+        await applicantUser.send({ content: dmContent }).catch(async (err) => {
+          // If DM fails, notify staff in log channel
+          console.error("Failed to DM applicant:", err);
+          const logChannel = await interaction.client.channels.fetch(config.LOG_CHANNEL_ID).catch(() => null);
+          if (logChannel) {
+            await logChannel.send({ content: `⚠️ Failed to DM approved user <@${applicantUser.id}>. Please contact them manually. Message: ${messageLink}` }).catch(() => null);
+          }
+        });
+      }
+    } catch (err) {
+      console.error("Error creating invite or sending DM:", err);
+    }
+  }
+
   await interaction.reply({
     content: "✅ Decision recorded",
     ephemeral: true

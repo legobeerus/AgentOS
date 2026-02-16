@@ -7,6 +7,10 @@ Version history officially begins logging after a few patches to the initial bot
 
 MOST RECENT MAJOR UPDATE:
 
-2.7.0
+3.0.0
 
-- Suspension search command for looking up criminal records added.
+- Blacklist-view has been added as a command to be used by OSI.
+- Suspension-search has been changed to display non-ephemeral messages.
+- Suspension-search now displays arrest logs correctly.
+- Punishment Discussion threads now ping inside of the thread and have the case number in their name.
+- Accepted applicants are now DMed by AgentOS with an invite link.
