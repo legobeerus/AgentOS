@@ -237,10 +237,12 @@ async function handleReviewModal(interaction) {
       const messageLink = `https://discord.com/channels/${interaction.guildId}/${interaction.channelId}/${message.id}`;
 
       if (!applicantUser) {
-        // Notify staff (log channel) that we couldn't resolve the user to DM
-        const logChannel = await interaction.client.channels.fetch(config.LOG_CHANNEL_ID).catch(() => null);
-        if (logChannel) {
-          await logChannel.send({ content: `⚠️ Could not resolve applicant to a Discord user to DM for approval. Applicant: ${applicantUsername || "Unknown"}. Please contact them manually. Message: ${messageLink}` }).catch(() => null);
+        // Notify staff that we couldn't resolve the user to DM. Use DM_FAIL_CHANNEL_ID if configured,
+        // otherwise fall back to LOG_CHANNEL_ID then RESULT_CHANNEL_ID.
+        const notifyChannelId = config.DM_FAIL_CHANNEL_ID || config.LOG_CHANNEL_ID || config.RESULT_CHANNEL_ID;
+        const notifyChannel = await interaction.client.channels.fetch(notifyChannelId).catch(() => null);
+        if (notifyChannel) {
+          await notifyChannel.send({ content: `⚠️ Could not resolve applicant to a Discord user to DM for approval. Applicant: ${applicantUsername || "Unknown"}. Please contact them manually. Message: ${messageLink}` }).catch(() => null);
         }
       } else {
         // Determine channel to create invite in
@@ -256,11 +258,12 @@ async function handleReviewModal(interaction) {
         // DM the applicant with the invite
         const dmContent = `Your OSI application has been approved. You must send a request to join the group, and join the server linked. This invite will remain valid for 24 hours: ${invite.url}`;
         await applicantUser.send({ content: dmContent }).catch(async (err) => {
-          // If DM fails, notify staff in log channel
+          // If DM fails, notify staff in a configured notify channel (see above fallback order)
           console.error("Failed to DM applicant:", err);
-          const logChannel = await interaction.client.channels.fetch(config.LOG_CHANNEL_ID).catch(() => null);
-          if (logChannel) {
-            await logChannel.send({ content: `⚠️ Failed to DM approved user <@${applicantUser.id}>. Please contact them manually. Message: ${messageLink}` }).catch(() => null);
+          const notifyChannelId = config.DM_FAIL_CHANNEL_ID || config.LOG_CHANNEL_ID || config.RESULT_CHANNEL_ID;
+          const notifyChannel = await interaction.client.channels.fetch(notifyChannelId).catch(() => null);
+          if (notifyChannel) {
+            await notifyChannel.send({ content: `⚠️ Failed to DM approved user <@${applicantUser.id}>. Please contact them manually. Message: ${messageLink}` }).catch(() => null);
           }
         });
       }
