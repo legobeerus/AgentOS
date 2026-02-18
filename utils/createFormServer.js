@@ -178,6 +178,7 @@ function createFormServer(client) {
                 GOOGLE_SHEET_ID,
                 GOOGLE_SHEETS_API_KEY,
                 GOOGLE_SHEETS_RANGE,
+                GOOGLE_SERVICE_ACCOUNT_JSON,
                 GOOGLE_SERVICE_ACCOUNT_PATH
               } = require("../config");
 
@@ -188,12 +189,24 @@ function createFormServer(client) {
                 const url = `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEET_ID}/values/${encodeURIComponent(range)}?key=${GOOGLE_SHEETS_API_KEY}`;
                 const sheetRes = await require("axios").get(url);
                 rows = sheetRes.data.values || [];
-              } else if (GOOGLE_SHEET_ID && GOOGLE_SERVICE_ACCOUNT_PATH) {
+              } else if (GOOGLE_SHEET_ID && (GOOGLE_SERVICE_ACCOUNT_JSON || GOOGLE_SERVICE_ACCOUNT_PATH)) {
                 try {
                   const { google } = require('googleapis');
-                  const fs = require('fs');
-                  const p = GOOGLE_SERVICE_ACCOUNT_PATH;
-                  const keyObj = JSON.parse(fs.readFileSync(p, 'utf8'));
+                  let keyObj = null;
+
+                  if (GOOGLE_SERVICE_ACCOUNT_JSON) {
+                    try {
+                      keyObj = typeof GOOGLE_SERVICE_ACCOUNT_JSON === 'string' ? JSON.parse(GOOGLE_SERVICE_ACCOUNT_JSON) : GOOGLE_SERVICE_ACCOUNT_JSON;
+                    } catch (e) {
+                      keyObj = GOOGLE_SERVICE_ACCOUNT_JSON;
+                    }
+                  } else if (GOOGLE_SERVICE_ACCOUNT_PATH) {
+                    const fs = require('fs');
+                    const p = GOOGLE_SERVICE_ACCOUNT_PATH;
+                    keyObj = JSON.parse(fs.readFileSync(p, 'utf8'));
+                  }
+
+                  if (!keyObj) throw new Error('No Google service account credentials available');
 
                   const jwt = new google.auth.JWT({
                     email: keyObj.client_email,

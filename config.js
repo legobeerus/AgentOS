@@ -32,11 +32,13 @@ module.exports = {
   GOOGLE_SHEET_ID: process.env.GOOGLE_SHEET_ID || "2081592829",
   GOOGLE_SHEETS_API_KEY: process.env.GOOGLE_SHEETS_API_KEY || "AIzaSyBU73pFrxOsIrwj4W_6GlwPv98gpZJBWPg",
   // Range to fetch (e.g. 'Sheet1!A:C'). Defaults to the first 3 columns.
-  GOOGLE_SHEETS_RANGE: process.env.GOOGLE_SHEETS_RANGE || 'BLACKLIST!B11:B1000'
-};
-    // Service account credentials for private sheets. Provide the full JSON
-    // as a string in `GOOGLE_SERVICE_ACCOUNT_JSON` or a filesystem path in
-    // `GOOGLE_SERVICE_ACCOUNT_PATH`.
-    GOOGLE_SERVICE_ACCOUNT_JSON: process.env.GOOGLE_SERVICE_ACCOUNT_JSON || null,
-    GOOGLE_SERVICE_ACCOUNT_PATH: process.env.GOOGLE_SERVICE_ACCOUNT_PATH || null
+  GOOGLE_SHEETS_RANGE: process.env.GOOGLE_SHEETS_RANGE || 'BLACKLIST!B11:B1000',
 
+  // Service account credentials for private sheets. Provide the full JSON
+  // as a string in `GOOGLE_SERVICE_ACCOUNT_JSON` (preferred) or a filesystem
+  // path in `GOOGLE_SERVICE_ACCOUNT_PATH` (legacy).
+  GOOGLE_SERVICE_ACCOUNT_JSON: process.env.GOOGLE_SERVICE_ACCOUNT_JSON ?
+    (() => { try { return JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON); } catch (e) { return process.env.GOOGLE_SERVICE_ACCOUNT_JSON; } })()
+    : undefined,
+  GOOGLE_SERVICE_ACCOUNT_PATH: process.env.GOOGLE_SERVICE_ACCOUNT_PATH || undefined
+};
