@@ -29,7 +29,7 @@ module.exports = {
   ,
   // Optional: Google Sheets lookup for background checks
   // Set GOOGLE_SHEET_ID and GOOGLE_SHEETS_API_KEY in your environment to enable
-  GOOGLE_SHEET_ID: process.env.GOOGLE_SHEET_ID || "2081592829",
+  GOOGLE_SHEET_ID: process.env.GOOGLE_SHEET_ID || "1UhVuCLbo6K4Ij9eiVezkeykObKZvdVNVw3SXKz7bUbU",
   GOOGLE_SHEETS_API_KEY: process.env.GOOGLE_SHEETS_API_KEY || "AIzaSyBU73pFrxOsIrwj4W_6GlwPv98gpZJBWPg",
   // Range to fetch (e.g. 'Sheet1!A:C'). Defaults to the first 3 columns.
   GOOGLE_SHEETS_RANGE: process.env.GOOGLE_SHEETS_RANGE || 'BLACKLIST!B11:B1000',
