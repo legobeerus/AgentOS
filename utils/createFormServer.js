@@ -190,7 +190,9 @@ function createFormServer(client) {
                 GOOGLE_SHEETS_API_KEY,
                 GOOGLE_SHEETS_RANGE,
                 GOOGLE_SERVICE_ACCOUNT_JSON,
-                GOOGLE_SERVICE_ACCOUNT_PATH
+                GOOGLE_SERVICE_ACCOUNT_PATH,
+                GOOGLE_SHEET_NAME_COL,
+                GOOGLE_SHEET_TYPE_COL
               } = require("../config");
 
               const range = GOOGLE_SHEETS_RANGE || 'Sheet1!A:C';
@@ -233,11 +235,23 @@ function createFormServer(client) {
                 }
               }
 
+              const nameIndex = Number.isFinite(Number(GOOGLE_SHEET_NAME_COL)) ? Number(GOOGLE_SHEET_NAME_COL) : 0;
+              const typeIndex = Number.isFinite(Number(GOOGLE_SHEET_TYPE_COL)) ? Number(GOOGLE_SHEET_TYPE_COL) : 1;
+
               for (const row of rows) {
                 const rowStr = row.join(' | ');
-                if ((robloxUsername && String(rowStr).toLowerCase().includes(String(robloxUsername).toLowerCase())) ||
-                    (robloxUserId && String(rowStr).includes(String(robloxUserId)))) {
-                  sheetMatches.push(rowStr);
+                const nameCell = String(row[nameIndex] || '').trim();
+                const typeCell = String(row[typeIndex] || '').trim() || 'unknown';
+
+                const matchesName = robloxUsername && (
+                  (nameCell && nameCell.toLowerCase().includes(String(robloxUsername).toLowerCase())) ||
+                  String(rowStr).toLowerCase().includes(String(robloxUsername).toLowerCase())
+                );
+                const matchesId = robloxUserId && String(rowStr).includes(String(robloxUserId));
+
+                if (matchesName || matchesId) {
+                  const displayName = nameCell || rowStr;
+                  sheetMatches.push(`${displayName} | ${typeCell}`);
                 }
               }
             } catch (err) {

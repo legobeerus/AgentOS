@@ -32,7 +32,13 @@ module.exports = {
   GOOGLE_SHEET_ID: process.env.GOOGLE_SHEET_ID || "1UhVuCLbo6K4Ij9eiVezkeykObKZvdVNVw3SXKz7bUbU",
   GOOGLE_SHEETS_API_KEY: process.env.GOOGLE_SHEETS_API_KEY || "AIzaSyBU73pFrxOsIrwj4W_6GlwPv98gpZJBWPg",
   // Range to fetch (e.g. 'Sheet1!A:C'). Defaults to the first 3 columns.
-  GOOGLE_SHEETS_RANGE: process.env.GOOGLE_SHEETS_RANGE || 'BLACKLIST!B11:B1000',
+  GOOGLE_SHEETS_RANGE: process.env.GOOGLE_SHEETS_RANGE || 'BLACKLIST!B11:D1000',
+
+  // Which columns in the fetched range contain the name and the blacklist type.
+  // These are zero-based indices into the returned row array. Adjust if your
+  // name and type columns are not adjacent.
+  GOOGLE_SHEET_NAME_COL: process.env.GOOGLE_SHEET_NAME_COL !== undefined ? Number(process.env.GOOGLE_SHEET_NAME_COL) : 0,
+  GOOGLE_SHEET_TYPE_COL: process.env.GOOGLE_SHEET_TYPE_COL !== undefined ? Number(process.env.GOOGLE_SHEET_TYPE_COL) : 2,
 
   // Service account credentials for private sheets. Provide the full JSON
   // as a string in `GOOGLE_SERVICE_ACCOUNT_JSON` (preferred) or a filesystem
