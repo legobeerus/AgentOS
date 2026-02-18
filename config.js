@@ -26,5 +26,17 @@ module.exports = {
 
   // Database URL for blacklist roster
   DATABASE_URL: process.env.DATABASE_URL || "postgresql://postgres:FsafHCChNBfgeTRpRHHeYsGIXvMQWzmc@postgres.railway.internal:5432/railway"
+  ,
+  // Optional: Google Sheets lookup for background checks
+  // Set GOOGLE_SHEET_ID and GOOGLE_SHEETS_API_KEY in your environment to enable
+  GOOGLE_SHEET_ID: process.env.GOOGLE_SHEET_ID || "2081592829",
+  GOOGLE_SHEETS_API_KEY: process.env.GOOGLE_SHEETS_API_KEY || "AIzaSyBU73pFrxOsIrwj4W_6GlwPv98gpZJBWPg",
+  // Range to fetch (e.g. 'Sheet1!A:C'). Defaults to the first 3 columns.
+  GOOGLE_SHEETS_RANGE: process.env.GOOGLE_SHEETS_RANGE || 'BLACKLIST!B11:B1000'
 };
+    // Service account credentials for private sheets. Provide the full JSON
+    // as a string in `GOOGLE_SERVICE_ACCOUNT_JSON` or a filesystem path in
+    // `GOOGLE_SERVICE_ACCOUNT_PATH`.
+    GOOGLE_SERVICE_ACCOUNT_JSON: process.env.GOOGLE_SERVICE_ACCOUNT_JSON || null,
+    GOOGLE_SERVICE_ACCOUNT_PATH: process.env.GOOGLE_SERVICE_ACCOUNT_PATH || null
 

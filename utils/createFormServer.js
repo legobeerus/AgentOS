@@ -171,6 +171,55 @@ function createFormServer(client) {
             let blacklistedGroups = groups.filter(g => BLACKLISTED.includes(g.group.id));
             let sgc = groups.find(g => g.group.id === SGC_ID);
 
+            // Optionally check a configured Google Sheet for matching entries
+            let sheetMatches = [];
+            try {
+              const {
+                GOOGLE_SHEET_ID,
+                GOOGLE_SHEETS_API_KEY,
+                GOOGLE_SHEETS_RANGE,
+                GOOGLE_SERVICE_ACCOUNT_PATH
+              } = require("../config");
+
+              const range = GOOGLE_SHEETS_RANGE || 'Sheet1!A:C';
+              let rows = [];
+
+              if (GOOGLE_SHEET_ID && GOOGLE_SHEETS_API_KEY) {
+                const url = `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEET_ID}/values/${encodeURIComponent(range)}?key=${GOOGLE_SHEETS_API_KEY}`;
+                const sheetRes = await require("axios").get(url);
+                rows = sheetRes.data.values || [];
+              } else if (GOOGLE_SHEET_ID && GOOGLE_SERVICE_ACCOUNT_PATH) {
+                try {
+                  const { google } = require('googleapis');
+                  const fs = require('fs');
+                  const p = GOOGLE_SERVICE_ACCOUNT_PATH;
+                  const keyObj = JSON.parse(fs.readFileSync(p, 'utf8'));
+
+                  const jwt = new google.auth.JWT({
+                    email: keyObj.client_email,
+                    key: keyObj.private_key,
+                    scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly']
+                  });
+                  await jwt.authorize();
+                  const sheets = google.sheets({ version: 'v4', auth: jwt });
+                  const sheetRes = await sheets.spreadsheets.values.get({ spreadsheetId: GOOGLE_SHEET_ID, range });
+                  rows = (sheetRes && sheetRes.data && sheetRes.data.values) || [];
+                } catch (err) {
+                  console.warn('Google Sheets service account fetch failed:', err);
+                }
+              }
+
+              for (const row of rows) {
+                const rowStr = row.join(' | ');
+                if ((robloxUsername && String(rowStr).toLowerCase().includes(String(robloxUsername).toLowerCase())) ||
+                    (robloxUserId && String(rowStr).includes(String(robloxUserId)))) {
+                  sheetMatches.push(rowStr);
+                }
+              }
+            } catch (err) {
+              console.warn("Failed to query Google Sheets for BGC:", err);
+            }
+
             bgcEmbed = new (require("discord.js").EmbedBuilder)()
               .setTitle("Background Check")
               .setColor(0x00aff1)
@@ -184,6 +233,14 @@ function createFormServer(client) {
               bgcEmbed.addFields({ name: "SGC Rank", value: `Role: ${sgc.role.name}\nRank: ${sgc.role.rank}`, inline: false });
             if (!hostileGroups.length && !blacklistedGroups.length && !sgc)
               bgcEmbed.setDescription("⚠️ No hostile/blacklisted groups or SGC rank found.");
+
+            // Add Google Sheets matches to the embed if any were found
+            if (sheetMatches.length) {
+              const maxShow = 5;
+              const shown = sheetMatches.slice(0, maxShow).map(s => `• ${s}`).join('\n');
+              const more = sheetMatches.length > maxShow ? `\n+${sheetMatches.length - maxShow} more` : '';
+              bgcEmbed.addFields({ name: "⚠️ Blacklist Roster Matches", value: `${shown}${more}`, inline: false });
+            }
           } catch (err) {
             bgcEmbed = new (require("discord.js").EmbedBuilder)()
               .setTitle("Background Check")
