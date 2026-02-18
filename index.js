@@ -26,6 +26,12 @@ loadCommands(client);
 client.once("ready", () => {
   console.log(`Logged in as ${client.user.tag}`);
   startSuspensionScheduler();
+  // Start the form server now that the bot is ready
+  const app = createFormServer(client);
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => {
+    console.log(`Form submission server listening on port ${PORT}`);
+  });
 });
 
 // Interaction handler
@@ -37,13 +43,5 @@ client.on("interactionCreate", async interaction => {
 client.on("messageCreate", async message => {
   await handleTrelloIngest(message);
 });
-
-// Start Express server for form submissions
-const app = createFormServer(client);
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Form submission server listening on port ${PORT}`);
-});
-
 // Login to Discord
 client.login(process.env.DISCORD_TOKEN);
