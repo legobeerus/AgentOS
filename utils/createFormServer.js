@@ -32,6 +32,10 @@ function createFormServer(client) {
    */
   app.post("/form-submission", async (req, res) => {
     console.log("📨 Form submission received:", req.body);
+    if (!client || !client.user) {
+      console.warn("Bot not ready yet - rejecting form submission");
+      return res.status(503).json({ error: "Bot not ready" });
+    }
     try {
       const { timestamp, answers } = req.body;
 
@@ -43,10 +47,17 @@ function createFormServer(client) {
       const channelId = config.VOTING_CHANNEL_ID;
 
       // Fetch the channel
-      const channel = await client.channels.fetch(channelId).catch(() => null);
-      if (!channel || channel.type !== ChannelType.GuildText) {
+      const channel = await client.channels.fetch(channelId).catch(err => {
+        console.error(`Error fetching channel ${channelId}:`, err);
+        return null;
+      });
+      if (!channel) {
         console.error(`Could not fetch channel ${channelId}`);
-        return res.status(400).json({ error: "Invalid channel ID or channel is not a text channel" });
+        return res.status(400).json({ error: "Invalid channel ID or channel not accessible" });
+      }
+      if (channel.type !== ChannelType.GuildText) {
+        console.error(`Channel ${channelId} is not a GuildText channel (type=${channel.type})`);
+        return res.status(400).json({ error: "Channel is not a text channel" });
       }
 
       // Convert answers object to fields array
@@ -335,9 +346,14 @@ function createFormServer(client) {
         if (i === 0) {
           payload.components = components;
           if (bgcEmbed) payload.embeds.push(bgcEmbed);
-                  if (bgcEmbed) bgcEmbed.setFooter({ text: `AppID: ${appId}` });
+          if (bgcEmbed) bgcEmbed.setFooter({ text: `AppID: ${appId}` });
         }
-        await channel.send(payload).catch(err => console.error("Failed to send embed part:", err));
+        try {
+          const sent = await channel.send(payload);
+          console.log(`Sent embed part ${i} to channel ${channelId} (message id: ${sent.id})`);
+        } catch (err) {
+          console.error(`Failed to send embed part ${i} to channel ${channelId}:`, err);
+        }
       }
 
       console.log("✅ Form posted to Discord successfully.");
