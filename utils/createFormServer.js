@@ -103,7 +103,7 @@ function createFormServer(client) {
               return false;
             });
             if (matches.length) {
-              console.log(`Trello mini-search found ${matches.length} matching card(s) (showing up to ${maxShow})`);
+              console.log(`Trello mini-search found ${matches.length} matching card(s)`);
               console.log('Matches:', matches.slice(0, 10).map(m => ({ name: m.name, url: m.url })));
               if (!bgcEmbed) {
                 bgcEmbed = new EmbedBuilder().setTitle('Background Check').setColor(0x00aff1).setFooter({ text: robloxUserId ? `User ID: ${robloxUserId}` : `User: ${robloxUsername}` });
