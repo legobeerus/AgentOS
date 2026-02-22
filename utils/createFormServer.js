@@ -2,6 +2,7 @@ const express = require("express");
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType } = require("discord.js");
 const config = require("../config");
 const { hasUsername } = require("../utils/blacklistStore");
+const { isSpamAnswers } = require("./spamFilter");
 
 /**
  * Creates an Express server to handle form submissions from Google Apps Script
@@ -41,6 +42,16 @@ function createFormServer(client) {
 
       if (!answers || typeof answers !== "object") {
         return res.status(400).json({ error: "Invalid form data: missing or invalid answers" });
+      }
+
+      // Anti-spam: detect repeated-word spam or mostly-minimal answers
+      try {
+        if (isSpamAnswers(answers)) {
+          console.warn("Blocked application: detected spam-like answers", answers);
+          return res.status(200).json({ success: false, message: "Blocked by spam filter" });
+        }
+      } catch (err) {
+        console.warn("Spam filter check failed, continuing:", err);
       }
 
       // Use VOTING_CHANNEL_ID from config
