@@ -81,48 +81,7 @@ function createFormServer(client) {
           if (/roblox.*user.?id/i.test(key)) robloxUserId = value;
         }
 
-        // Mini suspensions board search (run even if no robloxUserId, using username)
-        try {
-          const BOARD_ID = (config && config.TRELLO_SUSPENSIONS_BOARD_ID) ? config.TRELLO_SUSPENSIONS_BOARD_ID : process.env.TRELLO_SUSPENSIONS_BOARD_ID;
-          const TRELLO_KEY = process.env.TRELLO_KEY;
-          const TRELLO_TOKEN = process.env.TRELLO_TOKEN;
-          console.log(`Trello mini-search using boardId=${BOARD_ID} (from config=${!!(config && config.TRELLO_SUSPENSIONS_BOARD_ID)})`);
-          if (BOARD_ID && TRELLO_KEY && TRELLO_TOKEN && (robloxUsername || robloxUserId)) {
-            console.log(`Trello mini-search starting for query name="${robloxUsername}" id="${robloxUserId || ''}"`);
-            const cardsRes = await require('axios').get(`https://api.trello.com/1/boards/${BOARD_ID}/cards`, {
-              params: { key: TRELLO_KEY, token: TRELLO_TOKEN, fields: 'name,desc,url,labels' }
-            });
-            const cards = Array.isArray(cardsRes.data) ? cardsRes.data : [];
-            console.log(`Trello mini-search fetched ${cards.length} cards from board ${BOARD_ID}`);
-            const qName = (String(robloxUsername || '')).toLowerCase();
-            const qId = robloxUserId ? String(robloxUserId) : '';
-            const matches = cards.filter(c => {
-              const hay = `${String(c.name||'')}\n${String(c.desc||'')}`.toLowerCase();
-              if (qName && hay.includes(qName)) return true;
-              if (qId && (String(c.name||'').includes(qId) || String(c.desc||'').includes(qId))) return true;
-              return false;
-            });
-            if (matches.length) {
-              console.log(`Trello mini-search found ${matches.length} matching card(s)`);
-              console.log('Matches:', matches.slice(0, 10).map(m => ({ name: m.name, url: m.url })));
-              if (!bgcEmbed) {
-                bgcEmbed = new EmbedBuilder().setTitle('Background Check').setColor(0x00aff1).setFooter({ text: robloxUserId ? `User ID: ${robloxUserId}` : `User: ${robloxUsername}` });
-              }
-              const maxShow = 6;
-              const shown = matches.slice(0, maxShow).map(c => {
-                const labels = Array.isArray(c.labels) ? c.labels.map(l => l.name).filter(Boolean).join(', ') : '';
-                const labelPart = labels ? ` — ${labels}` : '';
-                return `• [${String(c.name || 'untitled')}](${c.url})${labelPart}`;
-              }).join('\n');
-              const more = matches.length > maxShow ? `\n+${matches.length - maxShow} more` : '';
-              // ensure field length is within Discord limits
-              const value = (shown + more).slice(0, 1000);
-              bgcEmbed.addFields({ name: 'Suspensions Board Search Results:', value, inline: false });
-            }
-          }
-        } catch (err) {
-          console.warn('Suspensions board mini-search failed:', err?.message || err);
-        }
+        // (suspensions mini-search moved below so username-only searches run)
         // Fallback: find a generic username field (avoid Discord username)
         if (!robloxUsername) {
           const usernameEntry = Object.entries(answers).find(([key]) => /username/i.test(key) && !/discord/i.test(key));
@@ -346,6 +305,43 @@ function createFormServer(client) {
           }
         }
 
+        // Mini suspensions board search (run after robloxUsername/robloxUserId are resolved)
+        try {
+          const BOARD_ID = (config && config.TRELLO_SUSPENSIONS_BOARD_ID) ? config.TRELLO_SUSPENSIONS_BOARD_ID : process.env.TRELLO_SUSPENSIONS_BOARD_ID;
+          const TRELLO_KEY = process.env.TRELLO_KEY;
+          const TRELLO_TOKEN = process.env.TRELLO_TOKEN;
+          if (BOARD_ID && TRELLO_KEY && TRELLO_TOKEN && (robloxUsername || robloxUserId)) {
+            const cardsRes = await require('axios').get(`https://api.trello.com/1/boards/${BOARD_ID}/cards`, {
+              params: { key: TRELLO_KEY, token: TRELLO_TOKEN, fields: 'name,desc,url,labels' }
+            });
+            const cards = Array.isArray(cardsRes.data) ? cardsRes.data : [];
+            const qName = (String(robloxUsername || '')).toLowerCase();
+            const qId = robloxUserId ? String(robloxUserId) : '';
+            const matches = cards.filter(c => {
+              const hay = `${String(c.name||'')}\n${String(c.desc||'')}`.toLowerCase();
+              if (qName && hay.includes(qName)) return true;
+              if (qId && (String(c.name||'').includes(qId) || String(c.desc||'').includes(qId))) return true;
+              return false;
+            });
+            if (matches.length) {
+              if (!bgcEmbed) {
+                bgcEmbed = new EmbedBuilder().setTitle('Background Check').setColor(0x00aff1).setFooter({ text: robloxUserId ? `User ID: ${robloxUserId}` : `User: ${robloxUsername}` });
+              }
+              const maxShow = 6;
+              const shown = matches.slice(0, maxShow).map(c => {
+                const labels = Array.isArray(c.labels) ? c.labels.map(l => l.name).filter(Boolean).join(', ') : '';
+                const labelPart = labels ? ` — ${labels}` : '';
+                return `• [${String(c.name || 'untitled')}](${c.url})${labelPart}`;
+              }).join('\n');
+              const more = matches.length > maxShow ? `\n+${matches.length - maxShow} more` : '';
+              const value = (shown + more).slice(0, 1000);
+              bgcEmbed.addFields({ name: 'Suspensions Board Search Results:', value, inline: false });
+            }
+          }
+        } catch (err) {
+          console.warn('Suspensions board mini-search failed:', err?.message || err);
+        }
+
       // Chunk fields into groups where each embed has at most 25 fields and total
       // approx character length per embed stays under ~1800 characters to avoid
       // hitting message/content limits when rendered.
@@ -420,13 +416,6 @@ function createFormServer(client) {
           payload.components = components;
           if (bgcEmbed) payload.embeds.push(bgcEmbed);
           if (bgcEmbed) bgcEmbed.setFooter({ text: `AppID: ${appId}` });
-        }
-        // Debug: log what will be sent for inspection
-        try {
-          const embedInfo = payload.embeds.map(e => ({ title: e?.data?.title || e?.title || '<unknown>', fields: (e?.data?.fields || e?.fields || []).map(f => f.name) }));
-          console.log(`Sending payload part ${i} with ${payload.embeds.length} embed(s):`, JSON.stringify(embedInfo));
-        } catch (e) {
-          console.log('Sending payload embed debug failed:', e?.message || e);
         }
         try {
           const sent = await channel.send(payload);
