@@ -421,6 +421,13 @@ function createFormServer(client) {
           if (bgcEmbed) payload.embeds.push(bgcEmbed);
           if (bgcEmbed) bgcEmbed.setFooter({ text: `AppID: ${appId}` });
         }
+        // Debug: log what will be sent for inspection
+        try {
+          const embedInfo = payload.embeds.map(e => ({ title: e?.data?.title || e?.title || '<unknown>', fields: (e?.data?.fields || e?.fields || []).map(f => f.name) }));
+          console.log(`Sending payload part ${i} with ${payload.embeds.length} embed(s):`, JSON.stringify(embedInfo));
+        } catch (e) {
+          console.log('Sending payload embed debug failed:', e?.message || e);
+        }
         try {
           const sent = await channel.send(payload);
           console.log(`Sent embed part ${i} to channel ${channelId} (message id: ${sent.id})`);
