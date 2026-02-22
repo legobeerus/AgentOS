@@ -280,21 +280,7 @@ function createFormServer(client) {
               const more = sheetMatches.length > maxShow ? `\n+${sheetMatches.length - maxShow} more` : '';
               bgcEmbed.addFields({ name: "⚠️ Blacklist Roster Matches", value: `${shown}${more}`, inline: false });
             }
-            // Add account creation date / age if available
-            try {
-              const userInfoRes = await require('axios').get(`https://users.roblox.com/v1/users/${robloxUserId}`);
-              const userInfo = userInfoRes.data || {};
-              if (userInfo.created) {
-                const created = new Date(userInfo.created);
-                const now = new Date();
-                const ageDays = Math.floor((now - created) / (1000 * 60 * 60 * 24));
-                const ageYears = (ageDays / 365).toFixed(2);
-                const createdStr = created.toISOString().split('T')[0];
-                bgcEmbed.addFields({ name: 'Account Age', value: `${createdStr} — ${ageDays} day(s) (~${ageYears} years)`, inline: false });
-              }
-            } catch (err) {
-              // ignore account age errors
-            }
+            // account age will be added after suspensions search so it appears last
 
             // (suspensions mini-search moved below so username-only searches run)
           } catch (err) {
@@ -335,11 +321,30 @@ function createFormServer(client) {
               }).join('\n');
               const more = matches.length > maxShow ? `\n+${matches.length - maxShow} more` : '';
               const value = (shown + more).slice(0, 1000);
-              bgcEmbed.addFields({ name: 'Suspensions Board Search Results:', value, inline: false });
+              bgcEmbed.addFields({ name: 'Suspensions Board Search Results', value, inline: false });
             }
           }
         } catch (err) {
           console.warn('Suspensions board mini-search failed:', err?.message || err);
+        }
+
+        // Add account creation date / age as the final BGC field
+        try {
+          if (robloxUserId) {
+            const userInfoRes = await require('axios').get(`https://users.roblox.com/v1/users/${robloxUserId}`);
+            const userInfo = userInfoRes.data || {};
+            if (userInfo.created) {
+              const created = new Date(userInfo.created);
+              const now = new Date();
+              const ageDays = Math.floor((now - created) / (1000 * 60 * 60 * 24));
+              const ageYears = (ageDays / 365).toFixed(2);
+              const createdStr = created.toISOString().split('T')[0];
+              if (!bgcEmbed) bgcEmbed = new EmbedBuilder().setTitle('Background Check').setColor(0x00aff1).setFooter({ text: robloxUserId ? `User ID: ${robloxUserId}` : `User: ${robloxUsername}` });
+              bgcEmbed.addFields({ name: 'Account Age', value: `${createdStr} — ${ageDays} day(s) (~${ageYears} years)`, inline: false });
+            }
+          }
+        } catch (err) {
+          // ignore account age errors
         }
 
       // Chunk fields into groups where each embed has at most 25 fields and total
