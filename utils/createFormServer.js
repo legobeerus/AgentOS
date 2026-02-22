@@ -83,14 +83,17 @@ function createFormServer(client) {
 
         // Mini suspensions board search (run even if no robloxUserId, using username)
         try {
-          const BOARD_ID = process.env.TRELLO_SUSPENSIONS_BOARD_ID;
+          const BOARD_ID = (config && config.TRELLO_SUSPENSIONS_BOARD_ID) ? config.TRELLO_SUSPENSIONS_BOARD_ID : process.env.TRELLO_SUSPENSIONS_BOARD_ID;
           const TRELLO_KEY = process.env.TRELLO_KEY;
           const TRELLO_TOKEN = process.env.TRELLO_TOKEN;
+          console.log(`Trello mini-search using boardId=${BOARD_ID} (from config=${!!(config && config.TRELLO_SUSPENSIONS_BOARD_ID)})`);
           if (BOARD_ID && TRELLO_KEY && TRELLO_TOKEN && (robloxUsername || robloxUserId)) {
+            console.log(`Trello mini-search starting for query name="${robloxUsername}" id="${robloxUserId || ''}"`);
             const cardsRes = await require('axios').get(`https://api.trello.com/1/boards/${BOARD_ID}/cards`, {
               params: { key: TRELLO_KEY, token: TRELLO_TOKEN, fields: 'name,desc,url,labels' }
             });
             const cards = Array.isArray(cardsRes.data) ? cardsRes.data : [];
+            console.log(`Trello mini-search fetched ${cards.length} cards from board ${BOARD_ID}`);
             const qName = (String(robloxUsername || '')).toLowerCase();
             const qId = robloxUserId ? String(robloxUserId) : '';
             const matches = cards.filter(c => {
@@ -100,6 +103,8 @@ function createFormServer(client) {
               return false;
             });
             if (matches.length) {
+              console.log(`Trello mini-search found ${matches.length} matching card(s) (showing up to ${maxShow})`);
+              console.log('Matches:', matches.slice(0, 10).map(m => ({ name: m.name, url: m.url })));
               if (!bgcEmbed) {
                 bgcEmbed = new EmbedBuilder().setTitle('Background Check').setColor(0x00aff1).setFooter({ text: robloxUserId ? `User ID: ${robloxUserId}` : `User: ${robloxUsername}` });
               }
