@@ -279,6 +279,54 @@ function createFormServer(client) {
               const more = sheetMatches.length > maxShow ? `\n+${sheetMatches.length - maxShow} more` : '';
               bgcEmbed.addFields({ name: "⚠️ Blacklist Roster Matches", value: `${shown}${more}`, inline: false });
             }
+            // Add account creation date / age if available
+            try {
+              const userInfoRes = await require('axios').get(`https://users.roblox.com/v1/users/${robloxUserId}`);
+              const userInfo = userInfoRes.data || {};
+              if (userInfo.created) {
+                const created = new Date(userInfo.created);
+                const now = new Date();
+                const ageDays = Math.floor((now - created) / (1000 * 60 * 60 * 24));
+                const ageYears = (ageDays / 365).toFixed(2);
+                const createdStr = created.toISOString().split('T')[0];
+                bgcEmbed.addFields({ name: 'Account Age', value: `${createdStr} — ${ageDays} day(s) (~${ageYears} years)`, inline: false });
+              }
+            } catch (err) {
+              // ignore account age errors
+            }
+
+            // Mini suspensions board search (Trello)
+            try {
+              const BOARD_ID = process.env.TRELLO_SUSPENSIONS_BOARD_ID;
+              const TRELLO_KEY = process.env.TRELLO_KEY;
+              const TRELLO_TOKEN = process.env.TRELLO_TOKEN;
+              if (BOARD_ID && TRELLO_KEY && TRELLO_TOKEN && (robloxUsername || robloxUserId)) {
+                const cardsRes = await require('axios').get(`https://api.trello.com/1/boards/${BOARD_ID}/cards`, {
+                  params: { key: TRELLO_KEY, token: TRELLO_TOKEN, fields: 'name,desc,url,labels' }
+                });
+                const cards = Array.isArray(cardsRes.data) ? cardsRes.data : [];
+                const qName = (String(robloxUsername || '')).toLowerCase();
+                const qId = robloxUserId ? String(robloxUserId) : '';
+                const matches = cards.filter(c => {
+                  const hay = `${String(c.name||'')}\n${String(c.desc||'')}`.toLowerCase();
+                  if (qName && hay.includes(qName)) return true;
+                  if (qId && (String(c.name||'').includes(qId) || String(c.desc||'').includes(qId))) return true;
+                  return false;
+                });
+                if (matches.length) {
+                  const maxShow = 6;
+                  const shown = matches.slice(0, maxShow).map(c => {
+                    const labels = Array.isArray(c.labels) ? c.labels.map(l => l.name).filter(Boolean).join(', ') : '';
+                    const labelPart = labels ? ` — ${labels}` : '';
+                    return `• [${String(c.name || 'untitled')}](${c.url})${labelPart}`;
+                  }).join('\n');
+                  const more = matches.length > maxShow ? `\n+${matches.length - maxShow} more` : '';
+                  bgcEmbed.addFields({ name: 'Suspensions Board Search Results:', value: `${shown}${more}`, inline: false });
+                }
+              }
+            } catch (err) {
+              console.warn('Suspensions board mini-search failed:', err?.message || err);
+            }
           } catch (err) {
             bgcEmbed = new (require("discord.js").EmbedBuilder)()
               .setTitle("Background Check")
