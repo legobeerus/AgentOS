@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
 const axios = require("axios");
+const { getErrorEmbed } = require("../utils/errorCodes");
 
 // Define categories and the group IDs in each
 const GROUP_CATEGORIES = {
@@ -47,7 +48,10 @@ module.exports = {
       );
 
       const robloxUser = userRes.data.data[0];
-      if (!robloxUser) return interaction.editReply("❌ Roblox user not found.");
+      if (!robloxUser) {
+        const embed = getErrorEmbed(41) || new EmbedBuilder().setDescription("❌ Roblox user not found.");
+        return interaction.editReply({ embeds: [embed] });
+      }
       const userId = robloxUser.id;
 
       // Get groups
@@ -91,7 +95,22 @@ module.exports = {
 
     } catch (err) {
       console.error(err);
-      await interaction.editReply("⚠️ Something went wrong.");
+      // Network timeout / axios specific
+      if (err && err.code === 'ECONNABORTED') {
+        const embed = getErrorEmbed(43) || new EmbedBuilder().setDescription('Request timed out.');
+        return interaction.editReply({ embeds: [embed] });
+      }
+      if (err && err.response && err.response.status === 429) {
+        const embed = getErrorEmbed(20) || new EmbedBuilder().setDescription('Roblox API rate limited (429).');
+        return interaction.editReply({ embeds: [embed] });
+      }
+      if (err && err.response && err.response.status >= 500) {
+        const embed = getErrorEmbed(42) || new EmbedBuilder().setDescription('Roblox API server error.');
+        return interaction.editReply({ embeds: [embed] });
+      }
+
+      const embed = getErrorEmbed(50) || new EmbedBuilder().setDescription('Internal error.');
+      await interaction.editReply({ embeds: [embed] });
     }
   }
 };

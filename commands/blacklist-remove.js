@@ -1,5 +1,6 @@
 const { SlashCommandBuilder } = require("discord.js");
 const { removeUsername } = require("../utils/blacklistStore");
+const { getErrorEmbed } = require("../utils/errorCodes");
 
 const ALLOWED_ROLE_IDS = [
   "1449860815086813224", // OSI HC
@@ -54,7 +55,9 @@ module.exports = {
       }
 
       if (result.reason === "db_error") {
-        await interaction.editReply({ content: "⚠️ Database error (unable to persist). Try again later." });
+        const embed = getErrorEmbed(70);
+        if (embed) await interaction.editReply({ embeds: [embed] });
+        else await interaction.editReply({ content: "⚠️ Database error (unable to persist). Try again later." });
         return;
       }
 
@@ -63,7 +66,9 @@ module.exports = {
       console.error('[blacklist-remove] error:', err);
       try {
         if (!interaction.replied && !interaction.deferred) await interaction.deferReply({ ephemeral: true });
-        await interaction.editReply({ content: "Error removing username from blacklist." });
+        const embed = getErrorEmbed(50);
+        if (embed) await interaction.editReply({ embeds: [embed] });
+        else await interaction.editReply({ content: "Error removing username from blacklist." });
       } catch (replyErr) {
         console.error('[blacklist-remove] reply error:', replyErr);
       }

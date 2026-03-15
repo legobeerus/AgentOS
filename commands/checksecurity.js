@@ -1,4 +1,5 @@
 const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
+const { getErrorEmbed } = require("../utils/errorCodes");
 const axios = require("axios");
 
 // Define restricted groups (from checkgroups.js)
@@ -98,6 +99,7 @@ module.exports = {
       const suspiciousMembers = [];
 
       // Check each member against restricted groups
+      let rateLimited = false;
       for (const member of members) {
         const userId = member.user.userId;
         
@@ -120,9 +122,18 @@ module.exports = {
             }
           }
         } catch (err) {
-          // Skip if we can't fetch user's groups
+          // If rate limited by Roblox API, surface error code 20 to the user
+          if (err && err.response && err.response.status === 429) {
+            rateLimited = true;
+            break;
+          }
+          // Otherwise skip this user
           continue;
         }
+      }
+      if (rateLimited) {
+        const embed = getErrorEmbed(20) || new EmbedBuilder().setDescription("Rate limited (429)");
+        return interaction.editReply({ embeds: [embed] });
       }
 
       // Build embed report
@@ -139,24 +150,43 @@ module.exports = {
           `**${m.username}**\n` +
           `└─ ${m.category}: ${m.groupName}`
         ).join("\n\n");
-
-        // Truncate if too long
-        if (report.length > 2048) {
-          report = report.substring(0, 2045) + "...";
+        // If report is too long to post, return a specific error code (10)
+        if (report.length > 1000 || suspiciousMembers.length > 40) {
+          const errEmbed = getErrorEmbed(10) || new EmbedBuilder().setDescription("Too many suspicious members to display.");
+          return interaction.editReply({ embeds: [errEmbed] });
         }
 
-        embed.addFields({
-          name: `⚠️ Suspicious Members (${suspiciousMembers.length})`,
-          value: report,
-          inline: false
-        });
+        // Truncate defensively if necessary
+        if (report.length > 1024) report = report.substring(0, 1021) + "...";
+
+        embed.addFields({ name: `⚠️ Suspicious Members (${suspiciousMembers.length})`, value: report, inline: false });
       }
 
       await interaction.editReply({ embeds: [embed] });
 
     } catch (err) {
       console.error(err);
-      await interaction.editReply("⚠️ Something went wrong. Make sure the group ID is valid.");
+      // Timeouts
+      if (err && err.code === 'ECONNABORTED') {
+        const embed = getErrorEmbed(43) || new EmbedBuilder().setDescription('Request timed out.');
+        return interaction.editReply({ embeds: [embed] });
+      }
+
+      // Roblox rate limit
+      if (err && err.response && err.response.status === 429) {
+        const embed = getErrorEmbed(20) || new EmbedBuilder().setDescription('Roblox API rate limited (429).');
+        return interaction.editReply({ embeds: [embed] });
+      }
+
+      // Roblox server errors
+      if (err && err.response && err.response.status >= 500) {
+        const embed = getErrorEmbed(42) || new EmbedBuilder().setDescription('Roblox API server error.');
+        return interaction.editReply({ embeds: [embed] });
+      }
+
+      // Generic internal error
+      const embed = getErrorEmbed(50) || new EmbedBuilder().setDescription('Something went wrong.');
+      await interaction.editReply({ embeds: [embed] });
     }
   }
 };

@@ -1,4 +1,5 @@
 const axios = require("axios");
+const { getErrorEmbed } = require("./errorCodes");
 
 const WATCH_CHANNEL_ID = process.env.TRELLO_INGEST_CHANNEL_ID || "1221224045429915759";
 const TRELLO_LIST_ID = process.env.TRELLO_CREATE_LIST_ID || "6940345b7ed679287366e82b";
@@ -10,7 +11,7 @@ const TRELLO_LABEL_COLOR = process.env.TRELLO_LABEL_COLOR || "blue";
 let cachedLabelId = null;
 
 function parseMessage(content) {
-  const pattern = /Suspect:\s*([\s\S]*?)\s*Incident Summary:\s*([\s\S]*?)\s*Charge\(s\):\s*([\s\S]*?)\s*Sentence:\s*([\s\S]*?)\s*Proof:\s*([\s\S]*)/i;
+  const pattern = /Suspect:\s*([\s\S]*?)\s*Incident Summary:\s*([\s\S]*?)\s*(?:Charge\(s\)|Charges?)\s*:\s*([\s\S]*?)\s*Sentence:\s*([\s\S]*?)\s*Proof:\s*([\s\S]*)/i;
   const match = String(content || "").match(pattern);
   if (!match) return null;
 
@@ -99,6 +100,16 @@ async function handleTrelloIngest(message) {
     await message.react("✅").catch(() => null);
   } catch (err) {
     console.error("Failed to create Trello card from message:", err);
+    // React with failure emoji if possible
+    try {
+      await message.react("❌").catch(() => null);
+    } catch (_) {}
+
+    // Try to let the user know via a reply with the error code embed
+    try {
+      const embed = getErrorEmbed(60);
+      if (embed) await message.reply({ embeds: [embed] }).catch(() => null);
+    } catch (_) {}
   }
 }
 

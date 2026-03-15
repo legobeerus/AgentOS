@@ -4,6 +4,7 @@ const { Client, GatewayIntentBits } = require("discord.js");
 const { loadCommands } = require("./utils/loadCommands");
 const { handleInteraction } = require("./utils/handleInteraction");
 const { handleTrelloIngest } = require("./utils/trelloMessageIngest");
+const { handleMessageCommands } = require("./utils/messageCommands");
 const { startSuspensionScheduler } = require("./utils/trelloSuspensionScheduler");
 const { createFormServer } = require("./utils/createFormServer");
 
@@ -41,6 +42,7 @@ client.on("interactionCreate", async interaction => {
 
 // Message handler for Trello ingestion
 client.on("messageCreate", async message => {
+  await handleMessageCommands(message, client);
   await handleTrelloIngest(message);
 });
 // Login to Discord
