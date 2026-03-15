@@ -93,7 +93,26 @@ async function handleTrelloIngest(message) {
   }
 
   const parsed = parseMessage(message.content);
-  if (!parsed) return;
+  if (!parsed) {
+    // If the message contains at least one of the expected fields but parsing failed,
+    // react with ❌ and reply with error code 60 so the sender knows the format is invalid.
+    try {
+      const contentLower = String(message.content || "").toLowerCase();
+      const markers = ["suspect:", "incident summary:", "charge:", "charges:", "sentence:", "proof:"];
+      const hasMarker = markers.some(m => contentLower.includes(m));
+      if (hasMarker) {
+        try { await message.react("❌").catch(() => null); } catch (_) {}
+        try {
+          const embed = getErrorEmbed(60);
+          if (embed) await message.reply({ embeds: [embed] }).catch(() => null);
+        } catch (_) {}
+        return;
+      }
+    } catch (e) {
+      // ignore marker-detection errors and fall through to no-op
+    }
+    return;
+  }
 
   try {
     await createTrelloCard(parsed, message);
