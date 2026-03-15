@@ -74,7 +74,7 @@ function getErrorEmbed(code) {
 function getIndexEmbed() {
   const embed = new EmbedBuilder()
     .setTitle("Error Index")
-    .setColor(0x5865f2)
+    .setColor(0x00aff1)
     .setDescription("List of current error codes and their meanings.");
 
   const fields = Object.entries(ERROR_CODES).map(([code, info]) => ({
