@@ -26,8 +26,9 @@ module.exports = {
     try {
       const rawList = await blacklistStore.listEntries();
       const list = Array.isArray(rawList) ? rawList : [];
+      console.info(`[blacklist-view] listEntries returned ${list.length} rows (DATABASE_URL=${Boolean(config.DATABASE_URL)})`);
       if (!list.length) {
-        if (process.env.DATABASE_URL) {
+        if (config.DATABASE_URL) {
           await interaction.editReply("The blacklist roster is empty in the database. Confirm the Railway Postgres `blacklist` table has rows.");
         } else {
           await interaction.editReply("The blacklist roster is currently empty.");

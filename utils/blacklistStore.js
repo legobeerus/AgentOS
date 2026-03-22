@@ -108,6 +108,15 @@ async function ensureTable() {
           added_at TIMESTAMPTZ DEFAULT NOW()
         )`
       );
+      // Ensure columns exist for older schemas that only created `username`.
+      try {
+        await db.query("ALTER TABLE blacklist ADD COLUMN IF NOT EXISTS added_by_name TEXT");
+        await db.query("ALTER TABLE blacklist ADD COLUMN IF NOT EXISTS added_by_id TEXT");
+        await db.query("ALTER TABLE blacklist ADD COLUMN IF NOT EXISTS added_at TIMESTAMPTZ DEFAULT NOW()");
+      } catch (e) {
+        // non-fatal: log and continue
+        console.warn("[blacklistStore] failed to ensure blacklist columns:", e.message || e);
+      }
       console.info("[blacklistStore] ensured blacklist table exists");
       return true;
     })().catch(err => {
