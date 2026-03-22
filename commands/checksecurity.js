@@ -64,16 +64,11 @@ module.exports = {
     const groupId = interaction.options.getInteger("groupid");
     await interaction.deferReply();
 
-    // Informational disclaimer: command is deprecated/disused
-    try {
-      const disclaimerEmbed = new EmbedBuilder()
-        .setTitle("Notice — Deprecated Command")
-        .setDescription("All hostile factions are defunct and this command is disused; results are informational only.")
-        .setColor(0x808080);
-      await interaction.followUp({ embeds: [disclaimerEmbed], ephemeral: true });
-    } catch (err) {
-      // ignore follow-up errors
-    }
+    // Prepare informational disclaimer: command is deprecated/disused
+    const disclaimerEmbed = new EmbedBuilder()
+      .setTitle("Notice — Deprecated Command")
+      .setDescription("All hostile factions are defunct and this command is disused; results are informational only.")
+      .setColor(0x808080);
 
     try {
       // Get group info
@@ -144,7 +139,7 @@ module.exports = {
       }
       if (rateLimited) {
         const embed = getErrorEmbed(20) || new EmbedBuilder().setDescription("Rate limited (429)");
-        return interaction.editReply({ embeds: [embed] });
+        return interaction.editReply({ embeds: [disclaimerEmbed, embed] });
       }
 
       // Build embed report
@@ -173,31 +168,31 @@ module.exports = {
         embed.addFields({ name: `⚠️ Suspicious Members (${suspiciousMembers.length})`, value: report, inline: false });
       }
 
-      await interaction.editReply({ embeds: [embed] });
+      await interaction.editReply({ embeds: [disclaimerEmbed, embed] });
 
     } catch (err) {
       console.error(err);
       // Timeouts
-      if (err && err.code === 'ECONNABORTED') {
+        if (err && err.code === 'ECONNABORTED') {
         const embed = getErrorEmbed(43) || new EmbedBuilder().setDescription('Request timed out.');
-        return interaction.editReply({ embeds: [embed] });
+        return interaction.editReply({ embeds: [disclaimerEmbed, embed] });
       }
 
       // Roblox rate limit
       if (err && err.response && err.response.status === 429) {
         const embed = getErrorEmbed(20) || new EmbedBuilder().setDescription('Roblox API rate limited (429).');
-        return interaction.editReply({ embeds: [embed] });
+        return interaction.editReply({ embeds: [disclaimerEmbed, embed] });
       }
 
       // Roblox server errors
       if (err && err.response && err.response.status >= 500) {
         const embed = getErrorEmbed(42) || new EmbedBuilder().setDescription('Roblox API server error.');
-        return interaction.editReply({ embeds: [embed] });
+        return interaction.editReply({ embeds: [disclaimerEmbed, embed] });
       }
 
       // Generic internal error
       const embed = getErrorEmbed(50) || new EmbedBuilder().setDescription('Something went wrong.');
-      await interaction.editReply({ embeds: [embed] });
+      await interaction.editReply({ embeds: [disclaimerEmbed, embed] });
     }
   }
 };
