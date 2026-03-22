@@ -24,7 +24,7 @@ module.exports = {
     await interaction.deferReply();
 
     try {
-      const rawList = await blacklistStore.listUsernames();
+      const rawList = await blacklistStore.listEntries();
       const list = Array.isArray(rawList) ? rawList : [];
       if (!list.length) {
         if (process.env.DATABASE_URL) {
@@ -43,7 +43,10 @@ module.exports = {
         const slice = list.slice(start, start + PAGE_SIZE);
         const embed = new EmbedBuilder()
           .setTitle("Blacklist Roster")
-          .setDescription(slice.map((u, i) => `${start + i + 1}. ${u}`).join("\n"))
+          .setDescription(slice.map((entry, i) => {
+            const addedBy = entry.added_by_name || 'N/A';
+            return `${start + i + 1}. ${entry.username} — Added by: ${addedBy}`;
+          }).join("\n"))
           .setFooter({ text: `Page ${p + 1} of ${totalPages} • ${list.length} entries` });
         return embed;
       }

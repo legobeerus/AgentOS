@@ -7,6 +7,18 @@ async function handleSlashCommand(interaction, client) {
   const command = client.commands.get(interaction.commandName);
   if (!command) return;
 
+  // Check if command is paused
+  try {
+    const { isPaused } = require('./pausedCommands');
+    const paused = await isPaused(interaction.commandName);
+    if (paused) {
+      return interaction.reply({ content: '❗ This command is temporarily paused by an administrator.', ephemeral: true });
+    }
+  } catch (e) {
+    // ignore DB errors and allow command to run
+    console.error('Failed to check paused state for command:', e);
+  }
+
   if (command.guildOnly && interaction.guildId !== command.guildOnly) {
     return interaction.reply({
       content: "❌ This command is not available in this server.",

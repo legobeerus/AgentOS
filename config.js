@@ -48,3 +48,7 @@ module.exports = {
     : undefined,
   GOOGLE_SERVICE_ACCOUNT_PATH: process.env.GOOGLE_SERVICE_ACCOUNT_PATH || undefined
 };
+
+// Admin whitelist: comma-separated user IDs in env var ADMIN_WHITELIST
+// Example: ADMIN_WHITELIST=123,456,789
+module.exports.ADMIN_WHITELIST = (process.env.ADMIN_WHITELIST || "").split(",").map(s => s.trim()).filter(Boolean);

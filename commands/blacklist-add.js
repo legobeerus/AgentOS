@@ -37,7 +37,7 @@ module.exports = {
       // Defer reply to avoid interaction timeout if DB ops take time
       if (!interaction.deferred && !interaction.replied) await interaction.deferReply({ ephemeral: true });
 
-      const result = await addUsername(username);
+      const result = await addUsername(username, { id: interaction.user.id, tag: interaction.user.tag });
       console.info(`[blacklist-add] result for ${username}:`, result);
 
       if (result.added) {

@@ -64,6 +64,17 @@ module.exports = {
     const groupId = interaction.options.getInteger("groupid");
     await interaction.deferReply();
 
+    // Informational disclaimer: command is deprecated/disused
+    try {
+      const disclaimerEmbed = new EmbedBuilder()
+        .setTitle("Notice — Deprecated Command")
+        .setDescription("All hostile factions are defunct and this command is disused; results are informational only.")
+        .setColor(0x808080);
+      await interaction.followUp({ embeds: [disclaimerEmbed], ephemeral: true });
+    } catch (err) {
+      // ignore follow-up errors
+    }
+
     try {
       // Get group info
       const groupRes = await axios.get(

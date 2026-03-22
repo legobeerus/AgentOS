@@ -151,6 +151,16 @@ async function handleReviewModal(interaction) {
     ]
   };
 
+  // Add reviewer info to footer while preserving any existing footer/AppID
+  try {
+    const existingFooter = embed.footer && embed.footer.text ? embed.footer.text : '';
+    const reviewerText = `Reviewed by ${interaction.user.tag}`;
+    const footerText = existingFooter ? `${existingFooter} • ${reviewerText}` : reviewerText;
+    updatedEmbed.footer = { text: footerText };
+  } catch (e) {
+    // ignore footer build errors
+  }
+
   // Delete excess embeds if present (for long applications)
   // Always replace with only the updated embed and clear components
   await message.edit({ embeds: [updatedEmbed], components: [] }).catch(err => {
@@ -165,7 +175,7 @@ async function handleReviewModal(interaction) {
       if (logChannel && (logChannel.type === ChannelType.GuildText || logChannel.type === 0)) {
         // Send the final decision embed to the log channel
         const logEmbed = new EmbedBuilder(updatedEmbed)
-          .setFooter({ text: `Decision logged by ${interaction.user.username}` });
+          .setFooter({ text: `Decision logged by ${interaction.user.tag}` });
         await logChannel.send({ embeds: [logEmbed] }).catch(err => {
           console.error("Failed to post to log channel:", err);
         });
@@ -220,6 +230,10 @@ async function handleReviewModal(interaction) {
             inline: false
           });
         }
+        // Add reviewer footer to the compact result
+        try {
+          resultEmbed.setFooter({ text: `Reviewed by ${interaction.user.tag}` });
+        } catch (e) {}
         const mention = applicantUser ? `<@${applicantUser.id}>` : applicantDisplay;
         await resultChannel.send({ content: `${mention}`, embeds: [resultEmbed] });
       } else {
