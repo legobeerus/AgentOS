@@ -187,7 +187,7 @@ function createFormServer(client) {
             );
             const groups = groupsRes.data.data;
             // Hostile/blacklisted group IDs
-            const HOSTILE = [34810794, 35686873];
+            const HOSTILE = [35686873];
             const BLACKLISTED = [765802690, 16140130];
             const SGC_ID = 6762663;
             let hostileGroups = groups.filter(g => HOSTILE.includes(g.group.id));

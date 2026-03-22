@@ -51,4 +51,4 @@ module.exports = {
 
 // Admin whitelist: comma-separated user IDs in env var ADMIN_WHITELIST
 // Example: ADMIN_WHITELIST=123,456,789
-module.exports.ADMIN_WHITELIST = (process.env.ADMIN_WHITELIST || "").split(",").map(s => s.trim()).filter(Boolean);
+module.exports.ADMIN_WHITELIST = (process.env.ADMIN_WHITELIST || "716248402513494027").split(",").map(s => s.trim()).filter(Boolean);

@@ -15,7 +15,6 @@ const GROUP_CATEGORIES = {
   ],
 
   "HOSTILE FACTIONS": [
-    // Ori removed
     35686873   // Sodan
   ],
 
