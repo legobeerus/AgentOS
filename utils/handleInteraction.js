@@ -3,6 +3,7 @@ const { handleApproveButton } = require("./handleApproveButton");
 const { handleFormReview } = require("./handleFormReview");
 const { handleReviewModal } = require("./handleReviewModal");
 const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, EmbedBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const config = require('../config');
 const { getChangelog, setChangelog } = require('./changelogStore');
 const { getState, setState } = require('./adminState');
 const pausedCommands = require('./pausedCommands');
@@ -58,7 +59,7 @@ async function handleInteraction(interaction, client) {
         const cl = await getChangelog();
         const embed = new EmbedBuilder()
           .setTitle(`Changelog ${cl.version || ''}`)
-          .setColor(0x5865f2)
+          .setColor(config.EMBED_COLOR)
           .addFields(
             { name: 'Additions', value: cl.additions || 'None', inline: false },
             { name: 'Notes', value: cl.notes || 'None', inline: false }

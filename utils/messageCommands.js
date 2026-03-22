@@ -57,7 +57,7 @@ async function handleMessageCommands(message, client) {
     const state = await getState();
     const embed = new EmbedBuilder()
       .setTitle("Admin Menu")
-      .setColor(0xffcc00)
+      .setColor(config.EMBED_COLOR)
       .setDescription(`Paused Applications: ${state.pausedApplications}\nDebug Mode: ${state.debugMode}`)
       .setFooter({ text: `User: ${message.author.tag}` });
 
@@ -83,7 +83,7 @@ async function handleMessageCommands(message, client) {
     const cl = await getChangelog();
     const embed = new EmbedBuilder()
       .setTitle(`Changelog ${cl.version || ''}`)
-      .setColor(0x5865f2)
+        .setColor(config.EMBED_COLOR)
       .addFields(
         { name: 'Additions', value: cl.additions || 'None', inline: false },
         { name: 'Notes', value: cl.notes || 'None', inline: false }
