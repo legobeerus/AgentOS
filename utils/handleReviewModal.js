@@ -163,6 +163,9 @@ async function handleReviewModal(interaction) {
 
   // Delete excess embeds if present (for long applications)
   // Always replace with only the updated embed and clear components
+  // Capture any continued embeds so we can archive the whole application
+  const continuedEmbedsData = message.embeds.slice(1).map(e => (e && e.data) ? e.data : e);
+
   await message.edit({ embeds: [updatedEmbed], components: [] }).catch(err => {
     console.error("Failed to edit message:", err);
   });
@@ -173,10 +176,17 @@ async function handleReviewModal(interaction) {
     if (logChannelId) {
       const logChannel = await interaction.client.channels.fetch(logChannelId).catch(() => null);
       if (logChannel && (logChannel.type === ChannelType.GuildText || logChannel.type === 0)) {
-        // Send the final decision embed to the log channel
-        const logEmbed = new EmbedBuilder(updatedEmbed)
-          .setFooter({ text: `Decision logged by ${interaction.user.tag}` });
-        await logChannel.send({ embeds: [logEmbed] }).catch(err => {
+        // Send the final decision embed plus any continued embeds to the log channel
+        const logEmbeds = [new EmbedBuilder(updatedEmbed).setFooter({ text: `Decision logged by ${interaction.user.tag}` })];
+        // Append continued embeds (if any) preserving their original data
+        for (const cont of continuedEmbedsData) {
+          try {
+            logEmbeds.push(new EmbedBuilder(cont));
+          } catch (e) {
+            // ignore malformed continued embed
+          }
+        }
+        await logChannel.send({ embeds: logEmbeds }).catch(err => {
           console.error("Failed to post to log channel:", err);
         });
         // Identify application ID from embed footer
@@ -270,7 +280,7 @@ async function handleReviewModal(interaction) {
         const invite = await inviteChannel.createInvite({ maxAge: 24 * 3600, maxUses: 1, unique: true, reason: `Invite for approved applicant ${applicantUsername || applicantUser.tag}` });
 
         // DM the applicant with the invite
-        const dmContent = `Your OSI application has been approved. You must send a request to join the group, and join the server linked. This invite will remain valid for 24 hours: ${invite.url}`;
+        const dmContent = `Your OSI application has been approved. You must send a request to join the group, and join the server linked. Once you have joined, read the guidelines and begin the Academy.This invite will remain valid for 24 hours: ${invite.url}`;
         await applicantUser.send({ content: dmContent }).catch(async (err) => {
           // If DM fails, notify staff in a configured notify channel (see above fallback order)
           console.error("Failed to DM applicant:", err);
