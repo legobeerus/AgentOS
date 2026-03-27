@@ -4,6 +4,9 @@
  */
 async function handleReviewModal(interaction) {
   if (!interaction.customId.startsWith("feedback_")) return;
+  // Prevent double-processing the same review (debounce window)
+  if (!global._processedReviewIds) global._processedReviewIds = new Set();
+  const processedSet = global._processedReviewIds;
 
   // customId format: feedback_<approve|deny>_<messageId>
   const parts = interaction.customId.split("_");
@@ -15,6 +18,11 @@ async function handleReviewModal(interaction) {
   // Try to fetch the original message using the messageId embedded in the modal id
   let message;
   try {
+  // Debounce: if we've processed this message recently, ignore duplicate submission
+  if (processedSet.has(messageId)) {
+    try { await interaction.reply({ content: "⚠️ This review was already processed.", ephemeral: true }); } catch (e) {}
+    return;
+  }
     message = await interaction.channel.messages.fetch(messageId);
   } catch (err) {
     console.error("Could not fetch original message for review modal:", err);
