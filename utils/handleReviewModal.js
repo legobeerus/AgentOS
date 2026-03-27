@@ -207,11 +207,17 @@ async function handleReviewModal(interaction) {
         for (let i = 0; i < embedsData.length; i++) {
           const d = embedsData[i];
           const title = d && d.title ? String(d.title).toLowerCase() : '';
-          if (!replaced && title.startsWith('form submission')) {
+          const isApplicationPart = title.startsWith('form submission');
+          const isBGC = (d && d.title && /background check/i.test(d.title)) || (d && d.footer && d.footer.text && /user id/i.test(d.footer.text));
+          if (!replaced && isApplicationPart) {
             try { logEmbeds.push(new EmbedBuilder(updatedEmbed).setFooter({ text: `Decision logged by ${interaction.user.tag}` })); } catch (e) {}
             replaced = true;
           } else {
-            try { logEmbeds.push(new EmbedBuilder(d)); } catch (e) {}
+            try {
+              const eb = new EmbedBuilder(d);
+              if (isApplicationPart || isBGC) eb.setColor(approved ? 0x57F287 : 0xED4245);
+              logEmbeds.push(eb);
+            } catch (e) {}
           }
         }
         // If no matched embeds found, just send the updated embed
