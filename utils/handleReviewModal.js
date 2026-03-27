@@ -167,10 +167,9 @@ async function handleReviewModal(interaction) {
   // so the log contains the full application. Fetch them before we delete messages.
   const appId = embed.footer?.text?.includes("AppID:") ? embed.footer.text.split("AppID:")[1].trim() : null;
 
-  // Edit the original voting message first (replace with updated embed and clear components)
-  await message.edit({ embeds: [updatedEmbed], components: [] }).catch(err => {
-    console.error("Failed to edit message:", err);
-  });
+  // We'll fetch related messages (by AppID) before deleting them so we can archive
+  // the full application including continued parts. Then update the original
+  // voting message to show the decision.
 
   // Log the decision to LOG_CHANNEL_ID and delete from voting channel to keep it clean
   try {
@@ -179,20 +178,16 @@ async function handleReviewModal(interaction) {
       const logChannel = await interaction.client.channels.fetch(logChannelId).catch(() => null);
       if (logChannel && (logChannel.type === ChannelType.GuildText || logChannel.type === 0)) {
         // Collect application parts across messages that match AppID (if available)
-        const collected = [];
-        const bgcCollected = [];
+        const embedsData = [];
         if (appId) {
           try {
             const recent = await interaction.channel.messages.fetch({ limit: 100 });
-            // Messages ordered by timestamp ascending
             const matched = recent.filter(m => m.embeds && m.embeds.some(e => e.footer && e.footer.text && e.footer.text.includes(`AppID: ${appId}`)));
             const sorted = matched.sort((a, b) => a.createdTimestamp - b.createdTimestamp);
             for (const m of sorted.values()) {
               for (const e of m.embeds) {
                 const data = (e && e.data) ? e.data : e;
-                // Identify background-check embeds by title or footer hint
-                const isBGC = (data.title && /background check/i.test(data.title)) || (data.footer && data.footer.text && /user id/i.test(data.footer.text));
-                if (isBGC) bgcCollected.push(data); else collected.push(data);
+                embedsData.push(data);
               }
             }
           } catch (err) {
@@ -200,15 +195,28 @@ async function handleReviewModal(interaction) {
           }
         }
 
-        // Build final log embeds: continued application parts first, then the updated main embed, then BGC embeds
+        // Now update the original voting message (show decision) after collecting data
+        await message.edit({ embeds: [updatedEmbed], components: [] }).catch(err => {
+          console.error("Failed to edit message:", err);
+        });
+
+        // Replace the main application embed (first occurrence of "Form Submission") with updatedEmbed
+        let replaced = false;
+        const normalizedTitle = (embed.data && embed.data.title) ? String(embed.data.title).toLowerCase() : '';
         const logEmbeds = [];
-        for (const d of collected) {
-          try { logEmbeds.push(new EmbedBuilder(d)); } catch (e) {}
+        for (let i = 0; i < embedsData.length; i++) {
+          const d = embedsData[i];
+          const title = d && d.title ? String(d.title).toLowerCase() : '';
+          if (!replaced && title.startsWith('form submission')) {
+            try { logEmbeds.push(new EmbedBuilder(updatedEmbed).setFooter({ text: `Decision logged by ${interaction.user.tag}` })); } catch (e) {}
+            replaced = true;
+          } else {
+            try { logEmbeds.push(new EmbedBuilder(d)); } catch (e) {}
+          }
         }
-        // Add the updated embed (with reviewer footer)
-        logEmbeds.push(new EmbedBuilder(updatedEmbed).setFooter({ text: `Decision logged by ${interaction.user.tag}` }));
-        for (const d of bgcCollected) {
-          try { logEmbeds.push(new EmbedBuilder(d)); } catch (e) {}
+        // If no matched embeds found, just send the updated embed
+        if (!replaced) {
+          try { logEmbeds.unshift(new EmbedBuilder(updatedEmbed).setFooter({ text: `Decision logged by ${interaction.user.tag}` })); } catch (e) {}
         }
 
         // Respect embed limits (Discord allows up to 10 embeds per message)
@@ -217,7 +225,6 @@ async function handleReviewModal(interaction) {
           console.error("Failed to post to log channel:", err);
         });
         // Identify application ID from embed footer
-        const appId = embed.footer?.text?.includes("AppID:") ? embed.footer.text.split("AppID:")[1].trim() : null;
         if (appId) {
           // Fetch recent messages in the channel and delete all with matching AppID
           const messages = await interaction.channel.messages.fetch({ limit: 50 });
