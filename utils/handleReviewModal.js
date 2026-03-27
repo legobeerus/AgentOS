@@ -15,18 +15,23 @@ async function handleReviewModal(interaction) {
   const approved = action === "approve";
   const feedback = interaction.fields.getTextInputValue("feedback");
 
+  // Defer reply to avoid "Unknown interaction" while we do work
+  try { await interaction.deferReply({ ephemeral: true }); } catch (e) {}
+
   // Try to fetch the original message using the messageId embedded in the modal id
   let message;
-  try {
   // Debounce: if we've processed this message recently, ignore duplicate submission
   if (processedSet.has(messageId)) {
-    try { await interaction.reply({ content: "⚠️ This review was already processed.", ephemeral: true }); } catch (e) {}
+    try { await interaction.editReply({ content: "⚠️ This review was already processed." }); } catch (e) { try { await interaction.followUp({ content: "⚠️ This review was already processed.", ephemeral: true }); } catch (_) {} }
     return;
   }
+  // Mark as processing immediately to avoid race conditions
+  try { processedSet.add(messageId); setTimeout(() => processedSet.delete(messageId), 10000); } catch (e) {}
+  try {
     message = await interaction.channel.messages.fetch(messageId);
   } catch (err) {
     console.error("Could not fetch original message for review modal:", err);
-    await interaction.reply({ content: "⚠️ Could not find the original message to update.", ephemeral: true });
+    try { await interaction.editReply({ content: "⚠️ Could not find the original message to update." }); } catch (e) { try { await interaction.followUp({ content: "⚠️ Could not find the original message to update.", ephemeral: true }); } catch (_) {} }
     return;
   }
 
@@ -36,7 +41,7 @@ async function handleReviewModal(interaction) {
 
   if (!embed) {
     console.error("No embed found in the message");
-    await interaction.reply({ content: "⚠️ Could not find embed in message.", ephemeral: true });
+    try { await interaction.editReply({ content: "⚠️ Could not find embed in message." }); } catch (e) { try { await interaction.followUp({ content: "⚠️ Could not find embed in message.", ephemeral: true }); } catch (_) {} }
     return;
   }
 
@@ -344,10 +349,7 @@ async function handleReviewModal(interaction) {
     }
   }
 
-  await interaction.reply({
-    content: "✅ Decision recorded",
-    ephemeral: true
-  });
+  try { await interaction.editReply({ content: "✅ Decision recorded" }); } catch (e) { try { await interaction.followUp({ content: "✅ Decision recorded", ephemeral: true }); } catch (_) {} }
 }
 
 module.exports = { handleReviewModal };
