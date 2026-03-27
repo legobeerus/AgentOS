@@ -163,9 +163,11 @@ async function handleReviewModal(interaction) {
 
   // Delete excess embeds if present (for long applications)
   // Always replace with only the updated embed and clear components
-  // Capture any continued embeds so we can archive the whole application
-  const continuedEmbedsData = message.embeds.slice(1).map(e => (e && e.data) ? e.data : e);
+  // We'll collect any continued embeds across messages that share the same AppID
+  // so the log contains the full application. Fetch them before we delete messages.
+  const appId = embed.footer?.text?.includes("AppID:") ? embed.footer.text.split("AppID:")[1].trim() : null;
 
+  // Edit the original voting message first (replace with updated embed and clear components)
   await message.edit({ embeds: [updatedEmbed], components: [] }).catch(err => {
     console.error("Failed to edit message:", err);
   });
@@ -176,17 +178,42 @@ async function handleReviewModal(interaction) {
     if (logChannelId) {
       const logChannel = await interaction.client.channels.fetch(logChannelId).catch(() => null);
       if (logChannel && (logChannel.type === ChannelType.GuildText || logChannel.type === 0)) {
-        // Send the final decision embed plus any continued embeds to the log channel
-        const logEmbeds = [new EmbedBuilder(updatedEmbed).setFooter({ text: `Decision logged by ${interaction.user.tag}` })];
-        // Append continued embeds (if any) preserving their original data
-        for (const cont of continuedEmbedsData) {
+        // Collect application parts across messages that match AppID (if available)
+        const collected = [];
+        const bgcCollected = [];
+        if (appId) {
           try {
-            logEmbeds.push(new EmbedBuilder(cont));
-          } catch (e) {
-            // ignore malformed continued embed
+            const recent = await interaction.channel.messages.fetch({ limit: 100 });
+            // Messages ordered by timestamp ascending
+            const matched = recent.filter(m => m.embeds && m.embeds.some(e => e.footer && e.footer.text && e.footer.text.includes(`AppID: ${appId}`)));
+            const sorted = matched.sort((a, b) => a.createdTimestamp - b.createdTimestamp);
+            for (const m of sorted.values()) {
+              for (const e of m.embeds) {
+                const data = (e && e.data) ? e.data : e;
+                // Identify background-check embeds by title or footer hint
+                const isBGC = (data.title && /background check/i.test(data.title)) || (data.footer && data.footer.text && /user id/i.test(data.footer.text));
+                if (isBGC) bgcCollected.push(data); else collected.push(data);
+              }
+            }
+          } catch (err) {
+            console.warn("Failed to fetch related messages for AppID collection:", err);
           }
         }
-        await logChannel.send({ embeds: logEmbeds }).catch(err => {
+
+        // Build final log embeds: continued application parts first, then the updated main embed, then BGC embeds
+        const logEmbeds = [];
+        for (const d of collected) {
+          try { logEmbeds.push(new EmbedBuilder(d)); } catch (e) {}
+        }
+        // Add the updated embed (with reviewer footer)
+        logEmbeds.push(new EmbedBuilder(updatedEmbed).setFooter({ text: `Decision logged by ${interaction.user.tag}` }));
+        for (const d of bgcCollected) {
+          try { logEmbeds.push(new EmbedBuilder(d)); } catch (e) {}
+        }
+
+        // Respect embed limits (Discord allows up to 10 embeds per message)
+        const toSend = logEmbeds.slice(0, 10);
+        await logChannel.send({ embeds: toSend }).catch(err => {
           console.error("Failed to post to log channel:", err);
         });
         // Identify application ID from embed footer
