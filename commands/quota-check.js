@@ -51,6 +51,8 @@ module.exports = {
         const name = (row[nameCol] || "").toString().trim();
         const raw = (row[minutesCol] || "").toString().trim();
         if (!name) continue;
+        // If the sheet cell contains exactly a single hyphen, treat it as ignored
+        if (raw === "-") continue;
         if (raw !== "") {
           const val = Number(raw);
           if (!Number.isNaN(val)) {
