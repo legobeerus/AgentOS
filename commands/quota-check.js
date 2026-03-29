@@ -82,7 +82,7 @@ module.exports = {
         const pingRoleId = config.GAME_QUOTA_PING_ROLE_ID || config.PING_ROLE_ID;
         const rolePing = pingRoleId ? `<@&${pingRoleId}>` : "";
 
-        const content = `# :OSI: Quota Check :OSI: #\n${rolePing}\n\nThis week's quota has been reset! Here are the people who failed, and have recieved one strike:\n${failedList}\n\n**Agent of the week:**\n${agent}\n\n*The roster will be manually reset shortly.*`;
+        const content = `# <:osi:1448992108500357150> Quota Check <:osi:1448992108500357150> #\n${rolePing}\n\nThis week's quota has been reset! Here are the people who failed, and have recieved one strike:\n${failedList}\n\n**Agent of the week:**\n${agent}\n\n*The roster will be manually reset shortly.*`;
 
         await channel.send({ content });
         await interaction.editReply({ content: `Quota check posted to <#${channelId}>.`, ephemeral: true });
@@ -103,7 +103,7 @@ module.exports = {
       const failedList = failed.length ? failed.map(n => `- ${n}`).join("\n") : "- None";
       const agent = topName ? `- ${topName}` : "- None";
 
-      const content = `# :OSI: Quota Check :OSI: #\n${rolePing}\n\nThis week's quota has been reset! Here are the people who failed, and have recieved one strike:\n${failedList}\n\n**Agent of the week:**\n${agent}\n\n*The roster will be manually reset shortly.*`;
+      const content = `# <:osi:1448992108500357150> Quota Check <:osi:1448992108500357150> #\n${rolePing}\n\nThis week's quota has been reset! Here are the people who failed, and have recieved one strike:\n${failedList}\n\n**Agent of the week:**\n${agent}\n\n*The roster will be manually reset shortly.*`;
 
       await channel.send({ content });
       await interaction.editReply({ content: `Quota check posted to <#${channelId}>.`, ephemeral: true });
