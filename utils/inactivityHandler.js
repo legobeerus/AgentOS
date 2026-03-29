@@ -153,9 +153,22 @@ async function handleApprove(interaction) {
     endDateStr = durationRaw;
   }
 
-  // write to sheet
+    // write to sheet
   try {
-    const lookupName = robloxProvided || (embed.fields[0].value ? embed.fields[0].value.split(' ')[0] : null);
+    // Determine lookup name robustly: prefer provided Roblox username, then legacy 'Target' field, then parse from title
+    let lookupName = null;
+    if (robloxProvided) lookupName = robloxProvided;
+    else {
+      const legacyTarget = embed.fields.find(f => /target/i.test(f.name));
+      if (legacyTarget && legacyTarget.value) {
+        lookupName = String(legacyTarget.value).split(' ')[0];
+      } else if (embed.title) {
+        const m = String(embed.title).match(/—\s*(.+)$/); // em dash
+        const m2 = !m ? String(embed.title).match(/-\s*(.+)$/) : m;
+        const parsed = (m || m2) ? (m ? m[1] : m2[1]) : null;
+        if (parsed) lookupName = String(parsed).split(' ')[0];
+      }
+    }
     const res = await setEndDateForUser({ discordId: targetId, username: lookupName }, endDateStr);
     // Write to DB so scheduler can manage expirations
     try {
