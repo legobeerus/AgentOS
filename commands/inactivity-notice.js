@@ -3,7 +3,7 @@ const { SlashCommandBuilder } = require('discord.js');
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('inactivity-notice')
-    .setDescription('Create an inactivity notice for a user (opens a form)')
+    .setDescription('Create an inactivity notice (opens a form)')
     .addUserOption(opt => opt.setName('user').setDescription('Target user').setRequired(true)),
 
   async execute(interaction) {

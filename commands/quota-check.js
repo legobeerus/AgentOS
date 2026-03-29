@@ -2,14 +2,29 @@ const { SlashCommandBuilder } = require("discord.js");
 const config = require("../config");
 const { google } = require("googleapis");
 
-async function getSheetsClient() {
-  const auth = new google.auth.GoogleAuth({
-    credentials: config.GOOGLE_SERVICE_ACCOUNT_JSON,
-    keyFilename: config.GOOGLE_SERVICE_ACCOUNT_PATH,
-    scopes: ["https://www.googleapis.com/auth/spreadsheets"]
-  });
-  const client = await auth.getClient();
-  return google.sheets({ version: "v4", auth: client });
+async function getSheetRows(range) {
+  // If an API key is provided, use the simple REST read (read-only)
+  if (config.GOOGLE_SHEETS_API_KEY && config.GOOGLE_SHEET_ID) {
+    const axios = require('axios');
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${config.GOOGLE_SHEET_ID}/values/${encodeURIComponent(range)}?key=${config.GOOGLE_SHEETS_API_KEY}`;
+    const res = await axios.get(url);
+    return res.data.values || [];
+  }
+
+  // Otherwise attempt service account credentials via googleapis
+  if (config.GOOGLE_SHEET_ID && (config.GOOGLE_SERVICE_ACCOUNT_JSON || config.GOOGLE_SERVICE_ACCOUNT_PATH)) {
+    const auth = new google.auth.GoogleAuth({
+      credentials: config.GOOGLE_SERVICE_ACCOUNT_JSON,
+      keyFilename: config.GOOGLE_SERVICE_ACCOUNT_PATH,
+      scopes: ["https://www.googleapis.com/auth/spreadsheets"]
+    });
+    const client = await auth.getClient();
+    const sheets = google.sheets({ version: 'v4', auth: client });
+    const resp = await sheets.spreadsheets.values.get({ spreadsheetId: config.GOOGLE_SHEET_ID, range });
+    return (resp && resp.data && resp.data.values) || [];
+  }
+
+  throw new Error('Google Sheets not configured: provide GOOGLE_SHEETS_API_KEY or service account credentials');
 }
 
 module.exports = {
@@ -23,9 +38,7 @@ module.exports = {
     try {
       if (!config.GOOGLE_SHEET_ID) return interaction.editReply("Google sheet not configured.");
       const range = config.GAME_LOG_SHEET_RANGE;
-      const sheets = await getSheetsClient();
-      const resp = await sheets.spreadsheets.values.get({ spreadsheetId: config.GOOGLE_SHEET_ID, range });
-      const rows = resp.data.values || [];
+      const rows = await getSheetRows(range);
 
       const nameCol = config.GAME_LOG_NAME_COL || 0;
       const minutesCol = config.GAME_LOG_MINUTES_COL || 2;

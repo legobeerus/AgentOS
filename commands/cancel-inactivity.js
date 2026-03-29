@@ -12,8 +12,7 @@ module.exports = {
   data: new SlashCommandBuilder()
     .setName('cancel-inactivity')
     .setDescription('Cancel an active inactivity (IN) entry prematurely')
-    .addUserOption(o => o.setName('user').setDescription('Discord user whose IN to cancel').setRequired(false))
-    .addStringOption(o => o.setName('roblox').setDescription('Roblox username to cancel').setRequired(false)),
+    .addUserOption(o => o.setName('user').setDescription('Discord user whose IN to cancel').setRequired(true)),
 
   async execute(interaction) {
     await interaction.deferReply({ ephemeral: true });
@@ -25,15 +24,13 @@ module.exports = {
     if (!hasPerm) return interaction.editReply({ content: '❌ You do not have permission to cancel inactivity entries.', ephemeral: true });
 
     const optUser = interaction.options.getUser('user');
-    const optRoblox = interaction.options.getString('roblox');
-    if (!optUser && !optRoblox) return interaction.editReply({ content: 'You must provide either a `user` or a `roblox` username.', ephemeral: true });
+    if (!optUser) return interaction.editReply({ content: 'You must provide a Discord `user` to cancel.', ephemeral: true });
 
     try {
       const rows = await getAll();
-      const qRoblox = optRoblox ? String(optRoblox).toLowerCase() : null;
-      const qDiscordId = optUser ? String(optUser.id) : null;
+      const qDiscordId = String(optUser.id);
 
-      const found = rows.find(r => (qRoblox && String(r.roblox_username).toLowerCase() === qRoblox) || (qDiscordId && String(r.discord_id) === qDiscordId));
+      const found = rows.find(r => String(r.discord_id) === qDiscordId);
       if (!found) return interaction.editReply({ content: 'No active inactivity entry found for that user.', ephemeral: true });
 
       // Remove DB entry
@@ -50,13 +47,13 @@ module.exports = {
       if (found.discord_id) {
         try {
           const u = await interaction.client.users.fetch(found.discord_id).catch(() => null);
-          if (u) await u.send(`Your inactivity notice for ${found.roblox_username} has been cancelled prematurely by staff.`).catch(() => null);
+          if (u) await u.send(`Your inactivity notice with the username ${found.roblox_username} has been cancelled prematurely by ${interaction.user.tag}.`).catch(() => null);
         } catch (err) {
           console.warn('Failed to DM user after cancelling IN:', err);
         }
       }
 
-      await interaction.editReply({ content: `✅ Inactivity for ${found.roblox_username} cancelled and removed from active IN list.`, ephemeral: true });
+      await interaction.editReply({ content: `✅ Inactivity for ${found.roblox_username} cancelled and removed from active IN list by ${interaction.user.tag}.`, ephemeral: true });
     } catch (err) {
       console.error('cancel-inactivity error:', err);
       await interaction.editReply({ content: 'An error occurred while cancelling inactivity.', ephemeral: true });

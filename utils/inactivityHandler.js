@@ -72,10 +72,9 @@ async function setEndDateForUser({ discordId, username }, endDateStr) {
 function buildInactivityEmbed({ targetUser, duration, reason, submitter, robloxUsername }) {
   const eb = new EmbedBuilder()
     .setTitle('Inactivity Notice')
-    .setColor(0xEDAD08)
+    .setColor(config.EMBED_COLOR || 0x5865f2)
     .addFields(
-      { name: 'Target', value: `${targetUser.tag} (${targetUser.id})`, inline: true },
-      { name: 'Roblox Username', value: robloxUsername || '(not provided)', inline: true },
+      { name: 'Target', value: `${targetUser.tag}`, inline: true },
       { name: 'Duration', value: String(duration), inline: true },
       { name: 'Submitted by', value: submitter.tag, inline: true },
       { name: 'Reason', value: reason || '(no reason provided)', inline: false }
@@ -181,7 +180,7 @@ async function handleApprove(interaction) {
     }
 
     // Update message: disable buttons and add approval info
-    const updatedEmbed = EmbedBuilder.from(embed).setColor(0x57F287).addFields({ name: 'End Date', value: endDateStr, inline: true }, { name: 'Approved by', value: interaction.user.tag, inline: true });
+    const updatedEmbed = EmbedBuilder.from(embed).setColor(config.EMBED_COLOR || 0x5865f2).addFields({ name: 'End Date', value: endDateStr, inline: true }, { name: 'Approved by', value: interaction.user.tag, inline: true });
     const disabledRow = new ActionRowBuilder().addComponents(ButtonBuilder.from(interaction.component).setDisabled(true), ButtonBuilder.from(interaction.message.components[0].components[1]).setDisabled(true));
     await interaction.message.edit({ embeds: [updatedEmbed], components: [disabledRow] }).catch(() => {});
     await interaction.followUp({ content: `✅ Approved. End date ${endDateStr} written to sheet.`, ephemeral: true });
