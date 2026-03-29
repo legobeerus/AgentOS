@@ -69,11 +69,12 @@ async function setEndDateForUser({ discordId, username }, endDateStr) {
   return null;
 }
 
-function buildInactivityEmbed({ targetUser, duration, reason, submitter }) {
+function buildInactivityEmbed({ targetUser, duration, reason, submitter, robloxUsername }) {
   const eb = new EmbedBuilder()
     .setTitle(`Inactivity Notice — ${targetUser.tag}`)
     .setColor(config.EMBED_COLOR || 0x5865f2)
     .addFields(
+      { name: 'Username', value: robloxUsername || '(not provided)', inline: false },
       { name: 'Submitted by', value: submitter.tag, inline: false },
       { name: 'Duration', value: String(duration), inline: false },
       { name: 'Reason', value: reason || '(no reason provided)', inline: false }
@@ -137,8 +138,8 @@ async function handleApprove(interaction) {
   const targetId = idMatch ? idMatch[1] : null;
   const durationField = embed.fields.find(f => /duration/i.test(f.name));
   const durationRaw = durationField?.value || '';
-  const robloxField = embed.fields.find(f => /roblox username/i.test(f.name));
-  const robloxProvided = robloxField?.value || null;
+  const usernameField = embed.fields.find(f => /username/i.test(f.name));
+  const robloxProvided = usernameField?.value || null;
 
   // Parse duration as number of days if possible, otherwise accept as text and set endDate as now + days
   let endDateStr = new Date().toISOString().split('T')[0];
