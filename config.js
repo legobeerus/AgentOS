@@ -79,9 +79,17 @@ module.exports = {
   // Service account credentials for private sheets. Provide the full JSON
   // as a string in `GOOGLE_SERVICE_ACCOUNT_JSON` (preferred) or a filesystem
   // path in `GOOGLE_SERVICE_ACCOUNT_PATH` (legacy).
-  GOOGLE_SERVICE_ACCOUNT_JSON: process.env.GOOGLE_SERVICE_ACCOUNT_JSON ?
-    (() => { try { return JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON); } catch (e) { return process.env.GOOGLE_SERVICE_ACCOUNT_JSON; } })()
-    : undefined,
+  GOOGLE_SERVICE_ACCOUNT_JSON: (() => {
+    const raw = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
+    if (!raw) return undefined;
+    // Try plain JSON
+    try { return JSON.parse(raw); } catch (e) {}
+    // Try JSON with escaped newlines fixed
+    try { return JSON.parse(raw.replace(/\\n/g, '\n')); } catch (e) {}
+    // Try base64-encoded JSON
+    try { const dec = Buffer.from(raw, 'base64').toString('utf8'); return JSON.parse(dec); } catch (e) {}
+    return undefined;
+  })(),
   GOOGLE_SERVICE_ACCOUNT_PATH: process.env.GOOGLE_SERVICE_ACCOUNT_PATH || undefined
 };
 
