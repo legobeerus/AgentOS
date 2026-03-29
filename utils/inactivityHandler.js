@@ -69,14 +69,13 @@ async function setEndDateForUser({ discordId, username }, endDateStr) {
   return null;
 }
 
-function buildInactivityEmbed({ targetUser, duration, reason, submitter, robloxUsername }) {
+function buildInactivityEmbed({ targetUser, duration, reason, submitter }) {
   const eb = new EmbedBuilder()
-    .setTitle('Inactivity Notice')
+    .setTitle(`Inactivity Notice — ${targetUser.tag}`)
     .setColor(config.EMBED_COLOR || 0x5865f2)
     .addFields(
-      { name: 'Target', value: `${targetUser.tag}`, inline: true },
-      { name: 'Duration', value: String(duration), inline: true },
-      { name: 'Submitted by', value: submitter.tag, inline: true },
+      { name: 'Submitted by', value: submitter.tag, inline: false },
+      { name: 'Duration', value: String(duration), inline: false },
       { name: 'Reason', value: reason || '(no reason provided)', inline: false }
     )
     .setTimestamp(new Date());
@@ -99,10 +98,7 @@ async function handleModalSubmit(interaction) {
 
   const embed = buildInactivityEmbed({ targetUser, duration, reason, submitter: interaction.user, robloxUsername: roblox });
 
-  // include provided roblox username in the embed
-  if (roblox) {
-    embed.addFields({ name: 'Roblox Username', value: roblox, inline: true });
-  }
+  // (No extra fields: embed shows Submitted by, Duration, and Reason)
 
   // Buttons
   const approveBtn = new ButtonBuilder().setCustomId('inactivity_approve').setLabel('Approve').setStyle(ButtonStyle.Success);

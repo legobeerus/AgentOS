@@ -74,7 +74,7 @@ module.exports = {
   BLACKLIST_REASON_COL: process.env.BLACKLIST_REASON_COL !== undefined ? Number(process.env.BLACKLIST_REASON_COL) : 6,
 
   // Standard embed color (hex). Can be set via env as number (e.g. 0x5865f2) or decimal.
-  EMBED_COLOR: process.env.EMBED_COLOR ? Number(process.env.EMBED_COLOR) : 0x5865f2,
+  EMBED_COLOR: process.env.EMBED_COLOR ? Number(process.env.EMBED_COLOR) : 0x00aff1,
 
   // Service account credentials for private sheets. Provide the full JSON
   // as a string in `GOOGLE_SERVICE_ACCOUNT_JSON` (preferred) or a filesystem
