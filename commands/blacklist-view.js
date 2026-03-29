@@ -23,15 +23,17 @@ module.exports = {
 
     await interaction.deferReply();
 
+    const archivalNotice = "⚠️ Notice: This command is disused and retained for archival purposes.";
+
     try {
       const rawList = await blacklistStore.listEntries();
       const list = Array.isArray(rawList) ? rawList : [];
       console.info(`[blacklist-view] listEntries returned ${list.length} rows (DATABASE_URL=${Boolean(config.DATABASE_URL)})`);
       if (!list.length) {
         if (config.DATABASE_URL) {
-          await interaction.editReply("The blacklist roster is empty in the database. Confirm the Railway Postgres `blacklist` table has rows.");
+          await interaction.editReply(`${archivalNotice}\n\nThe blacklist roster is empty in the database. Confirm the Railway Postgres \`blacklist\` table has rows.`);
         } else {
-          await interaction.editReply("The blacklist roster is currently empty.");
+          await interaction.editReply(`${archivalNotice}\n\nThe blacklist roster is currently empty.`);
         }
         return;
       }
@@ -44,7 +46,7 @@ module.exports = {
         const slice = list.slice(start, start + PAGE_SIZE);
         const embed = new EmbedBuilder()
           .setTitle("Blacklist Roster")
-          .setDescription(slice.map((entry, i) => {
+          .setDescription(archivalNotice + "\n\n" + slice.map((entry, i) => {
             const addedBy = entry.added_by_name || 'N/A';
             return `${start + i + 1}. ${entry.username} — Added by: ${addedBy}`;
           }).join("\n"))

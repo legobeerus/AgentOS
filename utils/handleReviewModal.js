@@ -333,7 +333,7 @@ async function handleReviewModal(interaction) {
         const invite = await inviteChannel.createInvite({ maxAge: 24 * 3600, maxUses: 1, unique: true, reason: `Invite for approved applicant ${applicantUsername || applicantUser.tag}` });
 
         // DM the applicant with the invite
-        const dmContent = `Your OSI application has been approved. You must send a request to join the group, and join the server linked. Once you have joined, read the guidelines and begin the Academy.This invite will remain valid for 24 hours: ${invite.url}`;
+        const dmContent = `Your OSI application has been approved. You must send a request to join the group, and join the server linked. \n\nOnce you have joined, it is important that you **read the guidelines**. You can **not** get on the team until you have *passed* Phase 2. \n\nThis invite will remain valid for 24 hours: ${invite.url}`;
         await applicantUser.send({ content: dmContent }).catch(async (err) => {
           // If DM fails, notify staff in a configured notify channel (see above fallback order)
           console.error("Failed to DM applicant:", err);

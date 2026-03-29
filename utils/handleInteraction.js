@@ -2,6 +2,7 @@ const { handleSlashCommand } = require("./handleSlashCommand");
 const { handleApproveButton } = require("./handleApproveButton");
 const { handleFormReview } = require("./handleFormReview");
 const { handleReviewModal } = require("./handleReviewModal");
+const { handleModalSubmit: handleInactivityModal, handleApprove: handleInactivityApprove, handleDeny: handleInactivityDeny } = require('./inactivityHandler');
 const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, EmbedBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const config = require('../config');
 const { getChangelog, setChangelog } = require('./changelogStore');
@@ -25,6 +26,16 @@ async function handleInteraction(interaction, client) {
     if (interaction.isButton()) {
       if (interaction.customId === "approve_request") {
         await handleApproveButton(interaction);
+        return;
+      }
+
+      if (interaction.customId === 'inactivity_approve') {
+        await handleInactivityApprove(interaction);
+        return;
+      }
+
+      if (interaction.customId === 'inactivity_deny') {
+        await handleInactivityDeny(interaction);
         return;
       }
 
@@ -137,6 +148,10 @@ async function handleInteraction(interaction, client) {
 
     // Handle modal submissions
     if (interaction.isModalSubmit()) {
+      if (interaction.customId.startsWith('inactivity_modal_')) {
+        await handleInactivityModal(interaction);
+        return;
+      }
       if (interaction.customId.startsWith("feedback_")) {
         await handleReviewModal(interaction);
         return;

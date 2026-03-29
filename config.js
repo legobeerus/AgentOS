@@ -29,16 +29,49 @@ module.exports = {
   ,
   // Optional: Google Sheets lookup for background checks
   // Set GOOGLE_SHEET_ID and GOOGLE_SHEETS_API_KEY in your environment to enable
-  GOOGLE_SHEET_ID: process.env.GOOGLE_SHEET_ID || "1UhVuCLbo6K4Ij9eiVezkeykObKZvdVNVw3SXKz7bUbU",
+  GOOGLE_SHEET_ID: process.env.GOOGLE_SHEET_ID || "11k9MP9Qqt2-2xTWMco_YyAysAPVXG5PN3E7P18clWXc",
   GOOGLE_SHEETS_API_KEY: process.env.GOOGLE_SHEETS_API_KEY || "AIzaSyBU73pFrxOsIrwj4W_6GlwPv98gpZJBWPg",
   // Range to fetch (e.g. 'Sheet1!A:C'). Defaults to the first 3 columns.
-  GOOGLE_SHEETS_RANGE: process.env.GOOGLE_SHEETS_RANGE || 'BLACKLIST!B11:D1000',
+  GOOGLE_SHEETS_RANGE: process.env.GOOGLE_SHEETS_RANGE || 'Blacklists!A4:B1000',
+
+  // Game webhook sheet settings: range to search for usernames and minutes
+  GAME_LOG_SHEET_RANGE: process.env.GAME_LOG_SHEET_RANGE || 'Master!A4:J1000',
+  // Zero-based indices within the fetched range rows for username and minutes columns
+  GAME_LOG_NAME_COL: process.env.GAME_LOG_NAME_COL !== undefined ? Number(process.env.GAME_LOG_NAME_COL) : 0,
+  GAME_LOG_MINUTES_COL: process.env.GAME_LOG_MINUTES_COL !== undefined ? Number(process.env.GAME_LOG_MINUTES_COL) : 8,
+  // Channel ID for the webhook messages to listen to (set via env)
+  GAME_LOG_CHANNEL_ID: process.env.GAME_LOG_CHANNEL_ID || "1484714859592552498",
+  // Channel to post quota check reports
+    GAME_QUOTA_CHANNEL_ID: process.env.GAME_QUOTA_CHANNEL_ID || "1290094295956848700",
+    // Probation detection: comma-separated rank names to consider probationary
+    PROBATION_RANK_NAMES: process.env.PROBATION_RANK_NAMES || 'Probationary Agent',
+    // Comma-separated role IDs that should trigger an alert if a probationary agent has them
+    PROBATION_SUSPICIOUS_ROLE_IDS: process.env.PROBATION_SUSPICIOUS_ROLE_IDS || "1487506799400849518,1396886896616931420,1396886903185215539",
+    // Channel to post probation alerts
+    PROBATION_ALERT_CHANNEL_ID: process.env.PROBATION_ALERT_CHANNEL_ID || "1041577711845519384",
+  // Role to ping in quota reports (separate from general PING_ROLE_ID)
+  GAME_QUOTA_PING_ROLE_ID: process.env.GAME_QUOTA_PING_ROLE_ID || "1041577710067138561",
+  // Channel where inactivity notices are posted for staff review
+  INACTIVITY_CHANNEL_ID: process.env.INACTIVITY_CHANNEL_ID || "1107773216140832878",
+  // Comma-separated role IDs allowed to approve inactivity notices
+  INACTIVITY_APPROVER_ROLE_IDS: process.env.INACTIVITY_APPROVER_ROLE_IDS || "1449861438012133566",
+  // Zero-based index (within GAME_LOG_SHEET_RANGE) of the column to write the end-date to
+  GAME_LOG_ENDDATE_COL: process.env.GAME_LOG_ENDDATE_COL !== undefined ? Number(process.env.GAME_LOG_ENDDATE_COL) : 6,
+  // Optional: column index (zero-based) for the running total time column (adjacent to minutes column)
+  GAME_LOG_TOTAL_COL: process.env.GAME_LOG_TOTAL_COL !== undefined ? Number(process.env.GAME_LOG_TOTAL_COL) : 9,
 
   // Which columns in the fetched range contain the name and the blacklist type.
   // These are zero-based indices into the returned row array. Adjust if your
   // name and type columns are not adjacent.
   GOOGLE_SHEET_NAME_COL: process.env.GOOGLE_SHEET_NAME_COL !== undefined ? Number(process.env.GOOGLE_SHEET_NAME_COL) : 0,
-  GOOGLE_SHEET_TYPE_COL: process.env.GOOGLE_SHEET_TYPE_COL !== undefined ? Number(process.env.GOOGLE_SHEET_TYPE_COL) : 2,
+  GOOGLE_SHEET_TYPE_COL: process.env.GOOGLE_SHEET_TYPE_COL !== undefined ? Number(process.env.GOOGLE_SHEET_TYPE_COL) : 1,
+
+  // Blacklist sheet settings (separate tab). Columns are zero-based indices
+  BLACKLIST_SHEET_RANGE: process.env.BLACKLIST_SHEET_RANGE || 'Blacklists!A4:I1000',
+  BLACKLIST_NAME_COL: process.env.BLACKLIST_NAME_COL !== undefined ? Number(process.env.BLACKLIST_NAME_COL) : 0,
+  BLACKLIST_TYPE_COL: process.env.BLACKLIST_TYPE_COL !== undefined ? Number(process.env.BLACKLIST_TYPE_COL) : 1,
+  BLACKLIST_ENDDATE_COL: process.env.BLACKLIST_ENDDATE_COL !== undefined ? Number(process.env.BLACKLIST_ENDDATE_COL) : 2,
+  BLACKLIST_REASON_COL: process.env.BLACKLIST_REASON_COL !== undefined ? Number(process.env.BLACKLIST_REASON_COL) : 6,
 
   // Standard embed color (hex). Can be set via env as number (e.g. 0x5865f2) or decimal.
   EMBED_COLOR: process.env.EMBED_COLOR ? Number(process.env.EMBED_COLOR) : 0x5865f2,

@@ -1,7 +1,7 @@
 const express = require("express");
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType } = require("discord.js");
 const config = require("../config");
-const { hasUsername } = require("../utils/blacklistStore");
+const { findBlacklistEntry } = require("../utils/blacklistSheet");
 const { isSpamAnswers } = require("./spamFilter");
 
 /**
@@ -99,69 +99,76 @@ function createFormServer(client) {
           if (usernameEntry) robloxUsername = usernameEntry[1];
         }
 
-        // Block submissions from blacklisted usernames and DM applicant if possible
-        if (robloxUsername && await hasUsername(robloxUsername)) {
-          let applicantDiscordId = null;
-          let applicantDiscordUsername = null;
-          const discordIdKeys = [
-            "Enter your Discord User ID",
-            "Discord User ID",
-            "Discord ID",
-            "User ID",
-            "Applicant ID"
-          ];
-          const discordUsernameKeys = [
-            "Enter your Discord Username (not your display name)",
-            "Discord Username",
-            "Discord User",
-            "Username",
-            "Applicant"
-          ];
-
-          for (const [key, value] of Object.entries(answers)) {
-            if (!applicantDiscordId && discordIdKeys.some(k => k.toLowerCase() === String(key).toLowerCase())) {
-              applicantDiscordId = String(value || "").trim();
-            }
-            if (!applicantDiscordUsername && discordUsernameKeys.some(k => k.toLowerCase() === String(key).toLowerCase())) {
-              applicantDiscordUsername = String(value || "").trim();
-            }
-          }
-
-          if (applicantDiscordId) {
-            const idMatch = applicantDiscordId.match(/^<@!?([0-9]+)>$|^([0-9]{16,20})$/);
-            applicantDiscordId = idMatch ? (idMatch[1] || idMatch[2]) : applicantDiscordId;
-          }
-
+        // Block submissions based on blacklist sheet entries and DM applicant if possible
+        if (robloxUsername) {
           try {
-            let userToDm = null;
-            if (applicantDiscordId) {
-              userToDm = await client.users.fetch(applicantDiscordId).catch(() => null);
-            }
+            const entry = await findBlacklistEntry({ robloxUsername, robloxUserId });
+            if (entry) {
+              // Found a blocking blacklist entry (temporary/permanent)
+              let applicantDiscordId = null;
+              let applicantDiscordUsername = null;
+              const discordIdKeys = [
+                "Enter your Discord User ID",
+                "Discord User ID",
+                "Discord ID",
+                "User ID",
+                "Applicant ID"
+              ];
+              const discordUsernameKeys = [
+                "Enter your Discord Username (not your display name)",
+                "Discord Username",
+                "Discord User",
+                "Username",
+                "Applicant"
+              ];
 
-            if (!userToDm && applicantDiscordUsername && channel.guild) {
-              const cachedMember = channel.guild.members.cache.find(m => m.user.username === applicantDiscordUsername);
-              if (cachedMember) userToDm = cachedMember.user;
-            }
-
-            if (!userToDm && applicantDiscordUsername && channel.guild) {
-              const members = await channel.guild.members.fetch().catch(() => null);
-              if (members) {
-                const member = members.find(m => m.user.username === applicantDiscordUsername);
-                if (member) userToDm = member.user;
+              for (const [key, value] of Object.entries(answers)) {
+                if (!applicantDiscordId && discordIdKeys.some(k => k.toLowerCase() === String(key).toLowerCase())) {
+                  applicantDiscordId = String(value || "").trim();
+                }
+                if (!applicantDiscordUsername && discordUsernameKeys.some(k => k.toLowerCase() === String(key).toLowerCase())) {
+                  applicantDiscordUsername = String(value || "").trim();
+                }
               }
-            }
 
-            if (userToDm) {
-              await userToDm.send(
-                `Your application was not sent because the Roblox username "${robloxUsername}" is blacklisted.`
-              ).catch(() => null);
+              if (applicantDiscordId) {
+                const idMatch = applicantDiscordId.match(/^<@!?([0-9]+)>$|^([0-9]{16,20})$/);
+                applicantDiscordId = idMatch ? (idMatch[1] || idMatch[2]) : applicantDiscordId;
+              }
+
+              try {
+                let userToDm = null;
+                if (applicantDiscordId) {
+                  userToDm = await client.users.fetch(applicantDiscordId).catch(() => null);
+                }
+
+                if (!userToDm && applicantDiscordUsername && channel.guild) {
+                  const cachedMember = channel.guild.members.cache.find(m => m.user.username === applicantDiscordUsername);
+                  if (cachedMember) userToDm = cachedMember.user;
+                }
+
+                if (!userToDm && applicantDiscordUsername && channel.guild) {
+                  const members = await channel.guild.members.fetch().catch(() => null);
+                  if (members) {
+                    const member = members.find(m => m.user.username === applicantDiscordUsername);
+                    if (member) userToDm = member.user;
+                  }
+                }
+
+                if (userToDm) {
+                  const notifyMsg = `Your application was not sent, as the username "${robloxUsername}" is blacklisted. Your blacklist is ${entry.type} and ends at ${entry.endDate || '(no end date listed)'}, the reason is listed as: "${entry.reason || '(no reason provided)'}"`;
+                  await userToDm.send(notifyMsg).catch(() => null);
+                }
+              } catch (err) {
+                console.warn("Failed to DM blacklisted applicant:", err);
+              }
+
+              console.warn(`Blocked application from blacklisted username: ${robloxUsername} — ${entry.type}`);
+              return res.status(200).json({ success: false, message: "Blocked by blacklist" });
             }
           } catch (err) {
-            console.warn("Failed to DM blacklisted applicant:", err);
+            console.warn('Blacklist sheet lookup failed, continuing with application flow:', err);
           }
-
-          console.warn(`Blocked application from blacklisted username: ${robloxUsername}`);
-          return res.status(200).json({ success: false, message: "Blocked by blacklist" });
         }
 
         // If only username is present, fetch userId

@@ -41,7 +41,7 @@ module.exports = {
       console.info(`[blacklist-add] result for ${username}:`, result);
 
       if (result.added) {
-        await interaction.editReply({ content: `✅ Added **${username}** to the blacklist.` });
+        await interaction.editReply({ content: `✅ Added **${username}** to the blacklist. Note: This blacklist roster is disused and only stored for archival purposes.` });
         return;
       }
 

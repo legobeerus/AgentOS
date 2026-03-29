@@ -5,6 +5,7 @@ const { loadCommands } = require("./utils/loadCommands");
 const { handleInteraction } = require("./utils/handleInteraction");
 const { handleTrelloIngest } = require("./utils/trelloMessageIngest");
 const { handleMessageCommands } = require("./utils/messageCommands");
+const { handleGameWebhookMessage } = require("./utils/gameWebhookHandler");
 const { startSuspensionScheduler } = require("./utils/trelloSuspensionScheduler");
 const { createFormServer } = require("./utils/createFormServer");
 
@@ -17,6 +18,8 @@ const client = new Client({
   ]
 });
 
+const { startInactivityScheduler } = require("./utils/inactivityScheduler");
+
 // Start DB keep-alive (if configured)
 startKeepAlive();
 
@@ -27,6 +30,8 @@ loadCommands(client);
 client.once("ready", () => {
   console.log(`Logged in as ${client.user.tag}`);
   startSuspensionScheduler();
+  // Start inactivity scheduler to DM expired INs and clean DB
+  try { startInactivityScheduler(client); } catch (e) { console.error('Failed to start inactivity scheduler:', e); }
   // Start the form server now that the bot is ready
   const app = createFormServer(client);
   const PORT = process.env.PORT || 3000;
@@ -44,6 +49,7 @@ client.on("interactionCreate", async interaction => {
 client.on("messageCreate", async message => {
   await handleMessageCommands(message, client);
   await handleTrelloIngest(message);
+  await handleGameWebhookMessage(message);
 });
 // Login to Discord
 client.login(process.env.DISCORD_TOKEN);

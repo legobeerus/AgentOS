@@ -1,0 +1,203 @@
+const config = require("../config");
+const { google } = require("googleapis");
+const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, EmbedBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
+
+async function getSheets() {
+  const auth = new google.auth.GoogleAuth({
+    credentials: config.GOOGLE_SERVICE_ACCOUNT_JSON,
+    keyFilename: config.GOOGLE_SERVICE_ACCOUNT_PATH,
+    scopes: ["https://www.googleapis.com/auth/spreadsheets"]
+  });
+  const client = await auth.getClient();
+  return google.sheets({ version: "v4", auth: client });
+}
+
+function colLetterToIndex(letter) {
+  let index = 0;
+  for (let i = 0; i < letter.length; i++) {
+    index = index * 26 + (letter.charCodeAt(i) - 65 + 1);
+  }
+  return index - 1;
+}
+
+function indexToColLetter(index) {
+  let s = "";
+  while (index >= 0) {
+    s = String.fromCharCode(65 + (index % 26)) + s;
+    index = Math.floor(index / 26) - 1;
+  }
+  return s;
+}
+
+function parseRange(range) {
+  const m = range.match(/^([^!]+)!([A-Z]+)(\d+)(?::[A-Z]+\d+)?$/);
+  if (!m) return null;
+  return { sheetName: m[1], startCol: m[2], startRow: Number(m[3]) };
+}
+
+async function setEndDateForUser({ discordId, username }, endDateStr) {
+  if (!config.GOOGLE_SHEET_ID) throw new Error('Google sheet not configured');
+  const range = config.GAME_LOG_SHEET_RANGE;
+  const parsed = parseRange(range);
+  if (!parsed) throw new Error('Unsupported GAME_LOG_SHEET_RANGE format');
+
+  const sheets = await getSheets();
+  const resp = await sheets.spreadsheets.values.get({ spreadsheetId: config.GOOGLE_SHEET_ID, range });
+  const rows = resp.data.values || [];
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    const cellName = (row[config.GAME_LOG_NAME_COL] || "").toString().trim();
+    if (!cellName) continue;
+    if (username && cellName.toLowerCase() === String(username).toLowerCase()) {
+      const startColIndex = colLetterToIndex(parsed.startCol);
+      const targetColIndex = startColIndex + config.GAME_LOG_ENDDATE_COL;
+      const targetColLetter = indexToColLetter(targetColIndex);
+      const targetRowNumber = parsed.startRow + i;
+      const targetA1 = `${parsed.sheetName}!${targetColLetter}${targetRowNumber}`;
+
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: config.GOOGLE_SHEET_ID,
+        range: targetA1,
+        valueInputOption: 'RAW',
+        resource: { values: [[endDateStr]] }
+      });
+
+      return { row: targetRowNumber, col: targetColLetter };
+    }
+  }
+  return null;
+}
+
+function buildInactivityEmbed({ targetUser, duration, reason, submitter, robloxUsername }) {
+  const eb = new EmbedBuilder()
+    .setTitle('Inactivity Notice')
+    .setColor(0xEDAD08)
+    .addFields(
+      { name: 'Target', value: `${targetUser.tag} (${targetUser.id})`, inline: true },
+      { name: 'Roblox Username', value: robloxUsername || '(not provided)', inline: true },
+      { name: 'Duration', value: String(duration), inline: true },
+      { name: 'Submitted by', value: submitter.tag, inline: true },
+      { name: 'Reason', value: reason || '(no reason provided)', inline: false }
+    )
+    .setTimestamp(new Date());
+  return eb;
+}
+
+async function handleModalSubmit(interaction) {
+  // customId: inactivity_modal_<userId>
+  if (!interaction.customId.startsWith('inactivity_modal_')) return;
+  await interaction.deferReply({ ephemeral: true }).catch(() => {});
+  const targetId = interaction.customId.split('_').slice(2).join('_');
+  const duration = interaction.fields.getTextInputValue('duration');
+  const roblox = interaction.fields.getTextInputValue('roblox') || '';
+  const reason = interaction.fields.getTextInputValue('reason') || '';
+
+  const targetUser = await interaction.client.users.fetch(targetId).catch(() => null);
+  if (!targetUser) {
+    return interaction.editReply({ content: 'Could not resolve target user.' });
+  }
+
+  const embed = buildInactivityEmbed({ targetUser, duration, reason, submitter: interaction.user, robloxUsername: roblox });
+
+  // include provided roblox username in the embed
+  if (roblox) {
+    embed.addFields({ name: 'Roblox Username', value: roblox, inline: true });
+  }
+
+  // Buttons
+  const approveBtn = new ButtonBuilder().setCustomId('inactivity_approve').setLabel('Approve').setStyle(ButtonStyle.Success);
+  const denyBtn = new ButtonBuilder().setCustomId('inactivity_deny').setLabel('Deny').setStyle(ButtonStyle.Danger);
+
+  // Post to configured channel
+  const chanId = config.INACTIVITY_CHANNEL_ID || config.TARGET_CHANNEL_ID;
+  if (!chanId) return interaction.editReply({ content: 'Inactivity channel not configured.' });
+  const channel = await interaction.client.channels.fetch(chanId).catch(() => null);
+  if (!channel) return interaction.editReply({ content: 'Could not fetch the inactivity channel.' });
+
+  const sent = await channel.send({ embeds: [embed], components: [new ActionRowBuilder().addComponents(approveBtn, denyBtn)] }).catch(err => null);
+  if (!sent) return interaction.editReply({ content: 'Failed to post inactivity notice.' });
+
+  try { await interaction.editReply({ content: 'Inactivity notice submitted for review.', ephemeral: true }); } catch (e) {}
+}
+
+function parseApproverRoles() {
+  if (!config.INACTIVITY_APPROVER_ROLE_IDS) return [];
+  return String(config.INACTIVITY_APPROVER_ROLE_IDS).split(',').map(s => s.trim()).filter(Boolean);
+}
+
+async function handleApprove(interaction) {
+  await interaction.deferUpdate();
+
+  const approverRoles = parseApproverRoles();
+  if (approverRoles.length && !approverRoles.some(r => interaction.member.roles.cache.has(r))) {
+    return interaction.followUp({ content: '❌ You do not have permission to approve this.', ephemeral: true });
+  }
+
+  // Extract embed and target user id
+  const embed = interaction.message.embeds[0];
+  if (!embed) return;
+  const targetField = embed.fields.find(f => /target/i.test(f.name));
+  const idMatch = targetField?.value?.match(/(\d{16,20})/);
+  const targetId = idMatch ? idMatch[1] : null;
+  const durationField = embed.fields.find(f => /duration/i.test(f.name));
+  const durationRaw = durationField?.value || '';
+  const robloxField = embed.fields.find(f => /roblox username/i.test(f.name));
+  const robloxProvided = robloxField?.value || null;
+
+  // Parse duration as number of days if possible, otherwise accept as text and set endDate as now + days
+  let endDateStr = new Date().toISOString().split('T')[0];
+  const daysMatch = String(durationRaw).match(/(\d+)/);
+  if (daysMatch) {
+    const days = Number(daysMatch[1]);
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    endDateStr = d.toISOString().split('T')[0];
+  } else if (durationRaw) {
+    // fallback: store the raw duration text
+    endDateStr = durationRaw;
+  }
+
+  // write to sheet
+  try {
+    const lookupName = robloxProvided || (embed.fields[0].value ? embed.fields[0].value.split(' ')[0] : null);
+    const res = await setEndDateForUser({ discordId: targetId, username: lookupName }, endDateStr);
+    // Write to DB so scheduler can manage expirations
+    try {
+      const { addEntry } = require('./inactivityStore');
+      // try to convert endDateStr to a JS Date when possible
+      let endDateObj = null;
+      const isoMatch = String(endDateStr).match(/^(\d{4}-\d{2}-\d{2})/);
+      if (isoMatch) endDateObj = new Date(isoMatch[1] + 'T00:00:00Z');
+      if (!endDateObj && /\d+/.test(String(durationRaw || ''))) {
+        const days = Number((String(durationRaw).match(/(\d+)/) || [])[1]);
+        if (!Number.isNaN(days)) {
+          const d = new Date(); d.setDate(d.getDate() + days); endDateObj = d;
+        }
+      }
+      if (endDateObj) await addEntry(lookupName, targetId, endDateObj);
+    } catch (err) {
+      console.error('Failed to add inactivity DB entry:', err);
+    }
+
+    // Update message: disable buttons and add approval info
+    const updatedEmbed = EmbedBuilder.from(embed).setColor(0x57F287).addFields({ name: 'End Date', value: endDateStr, inline: true }, { name: 'Approved by', value: interaction.user.tag, inline: true });
+    const disabledRow = new ActionRowBuilder().addComponents(ButtonBuilder.from(interaction.component).setDisabled(true), ButtonBuilder.from(interaction.message.components[0].components[1]).setDisabled(true));
+    await interaction.message.edit({ embeds: [updatedEmbed], components: [disabledRow] }).catch(() => {});
+    await interaction.followUp({ content: `✅ Approved. End date ${endDateStr} written to sheet.`, ephemeral: true });
+  } catch (err) {
+    console.error('Error approving inactivity:', err);
+    await interaction.followUp({ content: 'Failed to write end date to sheet.', ephemeral: true });
+  }
+}
+
+async function handleDeny(interaction) {
+  await interaction.deferUpdate();
+  // show feedback modal routed through existing review modal processor
+  const modal = new ModalBuilder().setCustomId(`feedback_deny_${interaction.message.id}`).setTitle('Denial Feedback');
+  const feedbackInput = new TextInputBuilder().setCustomId('feedback').setLabel('Feedback for submitter').setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(1000);
+  modal.addComponents(new ActionRowBuilder().addComponents(feedbackInput));
+  await interaction.showModal(modal).catch(err => { console.error('Failed to show deny modal:', err); });
+}
+
+module.exports = { handleModalSubmit, handleApprove, handleDeny };
