@@ -200,4 +200,4 @@ async function handleDeny(interaction) {
   await interaction.showModal(modal).catch(err => { console.error('Failed to show deny modal:', err); });
 }
 
-module.exports = { handleModalSubmit, handleApprove, handleDeny };
+module.exports = { handleModalSubmit, handleApprove, handleDeny, setEndDateForUser };
