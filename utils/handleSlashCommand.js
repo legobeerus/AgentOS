@@ -7,6 +7,15 @@ async function handleSlashCommand(interaction, client) {
   const command = client.commands.get(interaction.commandName);
   if (!command) return;
 
+  // Log command usage to agentos store (non-blocking)
+  try {
+    const agentosStore = require('./agentosStore');
+    const opts = (interaction.options && interaction.options.data && interaction.options.data.length) ? interaction.options.data.map(o => ({ name: o.name, value: o.value })) : null;
+    try { agentosStore.addEntry({ command: interaction.commandName, params: opts ? JSON.stringify(opts) : null, userId: interaction.user.id, userTag: interaction.user.tag }).catch(() => {}); } catch (e) {}
+  } catch (e) {
+    // ignore logging errors
+  }
+
   // Check if command is paused
   try {
     const { isPaused } = require('./pausedCommands');
