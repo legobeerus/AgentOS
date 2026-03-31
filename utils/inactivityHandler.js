@@ -184,7 +184,35 @@ async function handleApprove(interaction) {
           const d = new Date(); d.setDate(d.getDate() + days); endDateObj = d;
         }
       }
-      if (endDateObj) await addEntry(lookupName, targetId, endDateObj);
+      if (endDateObj) {
+        // Resolve a Discord ID to store in DB. Prefer explicit targetId (from embed Target field),
+        // otherwise try to resolve the "Submitted by" embed field (username#discriminator) to a guild member ID.
+        let dbDiscordId = targetId;
+        if (!dbDiscordId) {
+          try {
+            const submitterField = embed.fields.find(f => /submitted by/i.test(f.name));
+            if (submitterField && submitterField.value && interaction.guild) {
+              const tag = String(submitterField.value).trim();
+              // Try cache lookup by exact tag first
+              let member = interaction.guild.members.cache.find(m => m.user.tag === tag);
+              if (!member) {
+                // Fallback: query members by username portion (may return multiple); then match exact tag if possible
+                const namePart = tag.split('#')[0];
+                try {
+                  const fetched = await interaction.guild.members.fetch({ query: namePart, limit: 5 });
+                  member = Array.from(fetched.values()).find(m => m.user.tag === tag) || Array.from(fetched.values())[0];
+                } catch (e) {
+                  // ignore fetch errors
+                }
+              }
+              if (member) dbDiscordId = member.user.id;
+            }
+          } catch (e) {
+            console.error('Failed to resolve submitter Discord ID:', e);
+          }
+        }
+        await addEntry(lookupName, dbDiscordId, endDateObj);
+      }
     } catch (err) {
       console.error('Failed to add inactivity DB entry:', err);
     }

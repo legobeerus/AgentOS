@@ -19,6 +19,7 @@ const client = new Client({
 });
 
 const { startInactivityScheduler } = require("./utils/inactivityScheduler");
+const { startFollowupScheduler } = require("./utils/followupScheduler");
 
 // Start DB keep-alive (if configured)
 startKeepAlive();
@@ -32,6 +33,8 @@ client.once("ready", () => {
   startSuspensionScheduler();
   // Start inactivity scheduler to DM expired INs and clean DB
   try { startInactivityScheduler(client); } catch (e) { console.error('Failed to start inactivity scheduler:', e); }
+  // Start follow-up scheduler to send persisted follow-up messages
+  try { startFollowupScheduler(client); } catch (e) { console.error('Failed to start followup scheduler:', e); }
   // Start the form server now that the bot is ready
   const app = createFormServer(client);
   const PORT = process.env.PORT || 3000;

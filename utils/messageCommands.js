@@ -1,6 +1,7 @@
 const { getIndexEmbed } = require("./errorCodes");
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ButtonStyle } = require("discord.js");
 const config = require("../config");
+const agentosStore = require('./agentosStore');
 const { getChangelog, setChangelog } = require("./changelogStore");
 const { getState, setState } = require("./adminState");
 
@@ -92,6 +93,35 @@ async function handleMessageCommands(message, client) {
     try {
       await message.reply({ embeds: [embed] });
     } catch (e) { console.error('Failed to send changelog:', e); }
+  }
+
+  if (lower.includes("!agentos")) {
+    const authorId = message.author.id;
+    const whitelist = config.ADMIN_WHITELIST || [];
+    if (!whitelist.includes(authorId)) {
+      try { await message.reply({ content: 'You are not authorized to use this command.' }); } catch (e) {}
+      return;
+    }
+    try {
+      const entries = await agentosStore.listEntries(10);
+      const embed = new EmbedBuilder().setTitle('AgentOS — Recent Commands').setColor(config.EMBED_COLOR || 0x00aff1).setTimestamp(new Date());
+      if (!entries || entries.length === 0) {
+        embed.setDescription('No recent AgentOS commands found.');
+      } else {
+        for (const e of entries) {
+          const time = e.createdAt ? new Date(e.createdAt).toLocaleString() : 'unknown';
+          const who = e.userTag || e.userId || 'unknown';
+          const name = `${e.command} — ${who} — ${time}`;
+          let params = e.params || '(no params)';
+          if (params.length > 1020) params = params.slice(0, 1017) + '...';
+          embed.addFields({ name, value: params, inline: false });
+        }
+      }
+      await message.reply({ embeds: [embed] });
+    } catch (err) {
+      console.error('Failed to fetch AgentOS entries:', err);
+      try { await message.reply({ content: 'Failed to fetch AgentOS entries.' }); } catch (e) {}
+    }
   }
 }
 
