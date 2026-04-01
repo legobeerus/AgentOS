@@ -41,6 +41,10 @@ module.exports = {
   GAME_LOG_MINUTES_COL: process.env.GAME_LOG_MINUTES_COL !== undefined ? Number(process.env.GAME_LOG_MINUTES_COL) : 8,
   // Channel ID for the webhook messages to listen to (set via env)
   GAME_LOG_CHANNEL_ID: process.env.GAME_LOG_CHANNEL_ID || "1484714859592552498",
+  // Optional: zero-based index of the rank column within GAME_LOG_SHEET_RANGE
+  GAME_LOG_RANK_COL: process.env.GAME_LOG_RANK_COL !== undefined ? Number(process.env.GAME_LOG_RANK_COL) : 3,
+  // Comma-separated list of rank names (case-insensitive) to exclude from quota checks
+  GAME_QUOTA_EXCLUDE_RANKS: process.env.GAME_QUOTA_EXCLUDE_RANKS || "Probationary Agent,Overseer",
   // Channel to post quota check reports
     GAME_QUOTA_CHANNEL_ID: process.env.GAME_QUOTA_CHANNEL_ID || "1290094295956848700",
     // Probation detection: comma-separated rank names to consider probationary

@@ -42,6 +42,8 @@ module.exports = {
 
       const nameCol = config.GAME_LOG_NAME_COL || 0;
       const minutesCol = config.GAME_LOG_MINUTES_COL || 2;
+      const rankCol = (config.GAME_LOG_RANK_COL !== undefined && config.GAME_LOG_RANK_COL !== null) ? Number(config.GAME_LOG_RANK_COL) : undefined;
+      const excludeRanks = (config.GAME_QUOTA_EXCLUDE_RANKS || "").split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
 
       const failed = [];
       let topName = null;
@@ -51,6 +53,11 @@ module.exports = {
         const name = (row[nameCol] || "").toString().trim();
         const raw = (row[minutesCol] || "").toString().trim();
         if (!name) continue;
+        // If a rank column is configured and the rank matches an excluded rank, skip this row
+        if (typeof rankCol === 'number' && excludeRanks.length) {
+          const rank = (row[rankCol] || "").toString().trim().toLowerCase();
+          if (rank && excludeRanks.includes(rank)) continue;
+        }
         // If the sheet cell contains exactly a single hyphen, treat it as ignored
         if (raw === "-") continue;
         if (raw !== "") {
