@@ -69,17 +69,23 @@ async function updateMinutesForUser(username, minutesToAdd) {
       const weeklyA1 = `${parsed.sheetName}!${weeklyColLetter}${targetRowNumber}`;
       const totalA1 = `${parsed.sheetName}!${totalColLetter}${targetRowNumber}`;
 
-      // Batch update both weekly and total columns
-      await sheets.spreadsheets.values.batchUpdate({
-        spreadsheetId: config.GOOGLE_SHEET_ID,
-        resource: {
-          valueInputOption: 'RAW',
-          data: [
-            { range: weeklyA1, values: [[String(updatedWeekly)]] },
-            { range: totalA1, values: [[String(updatedTotal)]] }
-          ]
-        }
-      });
+      // Debug: log current/updated values and target A1 ranges
+      console.log(`Updating sheet for ${username}: weekly ${currentWeekly} -> ${updatedWeekly} (${weeklyA1}), total ${currentTotal} -> ${updatedTotal} (${totalA1})`);
+      try {
+        const resp = await sheets.spreadsheets.values.batchUpdate({
+          spreadsheetId: config.GOOGLE_SHEET_ID,
+          resource: {
+            valueInputOption: 'RAW',
+            data: [
+              { range: weeklyA1, values: [[String(updatedWeekly)]] },
+              { range: totalA1, values: [[String(updatedTotal)]] }
+            ]
+          }
+        });
+        console.log('Sheets batchUpdate response status:', resp.status || (resp && resp.statusText) || 'unknown');
+      } catch (err) {
+        console.error('Error writing to sheet for', username, err);
+      }
 
       return { updatedWeekly, updatedTotal, row: targetRowNumber, weeklyCol: weeklyColLetter, totalCol: totalColLetter };
     }
@@ -107,7 +113,7 @@ async function handleGameWebhookMessage(message) {
 
     const res = await updateMinutesForUser(parsed.username, parsed.minutes);
     if (res) {
-      console.log(`Updated ${parsed.username}: +${parsed.minutes} -> ${res.updated} (cell ${res.col}${res.row})`);
+      console.log(`Updated ${parsed.username}: +${parsed.minutes} weekly=${res.updatedWeekly} total=${res.updatedTotal} (weekly ${res.weeklyCol}${res.row}, total ${res.totalCol}${res.row})`);
     } else {
       console.log(`Username not found in sheet: ${parsed.username}`);
     }
