@@ -45,6 +45,34 @@ async function handleMessageCommands(message, client) {
     }
   }
 
+  if (lower.includes("!help")) {
+    try {
+      const adminWhitelist = config.ADMIN_WHITELIST || [];
+      const adminLabel = adminWhitelist.length > 0 ? 'Admin (whitelist)' : 'Admin';
+      const commands = [
+        { name: '!ping', auth: 'Public' },
+        { name: '!help', auth: 'Public' },
+        { name: '!changelog', auth: 'Public' },
+        { name: '!errorindex', auth: 'Public' },
+        { name: '!admin', auth: adminLabel },
+        { name: '!agentoslog', auth: adminLabel }
+      ];
+
+      const embed = new EmbedBuilder()
+        .setTitle('Help — Ping Commands')
+        .setColor(config.EMBED_COLOR || 0x00aff1)
+        .setFooter({ text: `User: ${message.author.tag}` });
+
+      for (const c of commands) {
+        embed.addFields({ name: c.name, value: `Authorization: ${c.auth}`, inline: false });
+      }
+
+      await message.reply({ embeds: [embed] });
+    } catch (err) {
+      console.error('Failed to send help reply:', err);
+    }
+  }
+
   if (lower.includes("!admin")) {
     const authorId = message.author.id;
     const whitelist = config.ADMIN_WHITELIST || [];
@@ -95,7 +123,7 @@ async function handleMessageCommands(message, client) {
     } catch (e) { console.error('Failed to send changelog:', e); }
   }
 
-  if (lower.includes("!agentos")) {
+  if (lower.includes("!agentoslog")) {
     const authorId = message.author.id;
     const whitelist = config.ADMIN_WHITELIST || [];
     if (!whitelist.includes(authorId)) {
