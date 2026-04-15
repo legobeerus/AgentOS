@@ -14,7 +14,7 @@ const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
 
 (async () => {
   try {
-    console.log("Registering slash commands...");
+    console.log("Registering slash commands... :3");
     await rest.put(
       Routes.applicationCommands("1433761317038198874"),
       { body: commands }

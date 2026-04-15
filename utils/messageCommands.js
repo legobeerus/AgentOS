@@ -45,6 +45,34 @@ async function handleMessageCommands(message, client) {
     }
   }
 
+  if (lower.includes("!roleid")) {
+    try {
+      if (!message.guild) return; // must be in a server to resolve roles
+      const idx = lower.indexOf("!roleid");
+      const after = message.content.slice(idx + "!roleid".length).trim();
+      const m = String(after).match(/(\d{16,20})/);
+      const roleId = m ? m[1] : null;
+      if (!roleId) {
+        await message.reply('Usage: `@Bot !roleID <roleId or role mention>` — provide a numeric role ID or mention.');
+        return;
+      }
+
+      let role = message.guild.roles.cache.get(roleId);
+      if (!role) {
+        try { role = await message.guild.roles.fetch(roleId); } catch (e) { role = null; }
+      }
+      if (!role) {
+        await message.reply(`Role not found for ID ${roleId}.`);
+        return;
+      }
+
+      await message.reply({ content: `<@&${roleId}>`, allowedMentions: { roles: [roleId] } });
+    } catch (err) {
+      console.error('Failed to handle !roleid message command:', err);
+      try { await message.reply('An error occurred while resolving that role.'); } catch (e) {}
+    }
+  }
+
   if (lower.includes("!help")) {
     try {
       const adminWhitelist = config.ADMIN_WHITELIST || [];

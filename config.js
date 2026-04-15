@@ -34,19 +34,19 @@ module.exports = {
   // Range to fetch (e.g. 'Sheet1!A:C'). Defaults to the first 3 columns.
   GOOGLE_SHEETS_RANGE: process.env.GOOGLE_SHEETS_RANGE || 'Blacklists!A4:B1000',
 
-  // Game webhook sheet settings: range to search for usernames and minutes
-  GAME_LOG_SHEET_RANGE: process.env.GAME_LOG_SHEET_RANGE || 'Master!A4:J1000',
+  // Time webhook sheet settings: range to search for usernames and minutes
+  TIME_LOG_SHEET_RANGE: process.env.TIME_LOG_SHEET_RANGE || 'Master!A4:K1000',
   // Zero-based indices within the fetched range rows for username and minutes columns
-  GAME_LOG_NAME_COL: process.env.GAME_LOG_NAME_COL !== undefined ? Number(process.env.GAME_LOG_NAME_COL) : 0,
-  GAME_LOG_MINUTES_COL: process.env.GAME_LOG_MINUTES_COL !== undefined ? Number(process.env.GAME_LOG_MINUTES_COL) : 8,
+  TIME_LOG_NAME_COL: process.env.TIME_LOG_NAME_COL !== undefined ? Number(process.env.TIME_LOG_NAME_COL) : 0,
+  TIME_LOG_MINUTES_COL: process.env.TIME_LOG_MINUTES_COL !== undefined ? Number(process.env.TIME_LOG_MINUTES_COL) : 9,
   // Channel ID for the webhook messages to listen to (set via env)
-  GAME_LOG_CHANNEL_ID: process.env.GAME_LOG_CHANNEL_ID || "1484714859592552498",
-  // Optional: zero-based index of the rank column within GAME_LOG_SHEET_RANGE
-  GAME_LOG_RANK_COL: process.env.GAME_LOG_RANK_COL !== undefined ? Number(process.env.GAME_LOG_RANK_COL) : 3,
+  TIME_LOG_CHANNEL_ID: process.env.TIME_LOG_CHANNEL_ID || "1484714859592552498",
+  // Optional: zero-based index of the rank column within TIME_LOG_SHEET_RANGE
+  TIME_LOG_RANK_COL: process.env.TIME_LOG_RANK_COL !== undefined ? Number(process.env.TIME_LOG_RANK_COL) : 3,
   // Comma-separated list of rank names (case-insensitive) to exclude from quota checks
-  GAME_QUOTA_EXCLUDE_RANKS: process.env.GAME_QUOTA_EXCLUDE_RANKS || "Probationary Agent,Overseer",
+  GAME_QUOTA_EXCLUDE_RANKS: process.env.GAME_QUOTA_EXCLUDE_RANKS || "Probationary Agent,Chief of Investigations,Deputy Chief of Investigations,Superintendent,Overseer",
   // Channel to post quota check reports
-    GAME_QUOTA_CHANNEL_ID: process.env.GAME_QUOTA_CHANNEL_ID || "1290094295956848700",
+    GAME_QUOTA_CHANNEL_ID: process.env.GAME_QUOTA_CHANNEL_ID || "1494043062991847546",
     // Probation detection: comma-separated rank names to consider probationary
     PROBATION_RANK_NAMES: process.env.PROBATION_RANK_NAMES || 'Probationary Agent',
     // Comma-separated role IDs that should trigger an alert if a probationary agent has them
@@ -59,10 +59,10 @@ module.exports = {
   INACTIVITY_CHANNEL_ID: process.env.INACTIVITY_CHANNEL_ID || "1107773216140832878",
   // Comma-separated role IDs allowed to approve inactivity notices
   INACTIVITY_APPROVER_ROLE_IDS: process.env.INACTIVITY_APPROVER_ROLE_IDS || "1449861438012133566",
-  // Zero-based index (within GAME_LOG_SHEET_RANGE) of the column to write the end-date to
-  GAME_LOG_ENDDATE_COL: process.env.GAME_LOG_ENDDATE_COL !== undefined ? Number(process.env.GAME_LOG_ENDDATE_COL) : 6,
+  // Zero-based index (within TIME_LOG_SHEET_RANGE) of the column to write the end-date to
+  TIME_LOG_ENDDATE_COL: process.env.TIME_LOG_ENDDATE_COL !== undefined ? Number(process.env.TIME_LOG_ENDDATE_COL) : 6,
   // Optional: column index (zero-based) for the running total time column (adjacent to minutes column)
-  GAME_LOG_TOTAL_COL: process.env.GAME_LOG_TOTAL_COL !== undefined ? Number(process.env.GAME_LOG_TOTAL_COL) : 9,
+  TIME_LOG_TOTAL_COL: process.env.TIME_LOG_TOTAL_COL !== undefined ? Number(process.env.TIME_LOG_TOTAL_COL) : 10,
 
   // Which columns in the fetched range contain the name and the blacklist type.
   // These are zero-based indices into the returned row array. Adjust if your

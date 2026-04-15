@@ -5,7 +5,7 @@ const { loadCommands } = require("./utils/loadCommands");
 const { handleInteraction } = require("./utils/handleInteraction");
 const { handleTrelloIngest } = require("./utils/trelloMessageIngest");
 const { handleMessageCommands } = require("./utils/messageCommands");
-const { handleGameWebhookMessage } = require("./utils/gameWebhookHandler");
+const { handleTimeWebhookMessage } = require("./utils/timeWebhookHandler");
 const { startSuspensionScheduler } = require("./utils/trelloSuspensionScheduler");
 const { createFormServer } = require("./utils/createFormServer");
 
@@ -52,7 +52,7 @@ client.on("interactionCreate", async interaction => {
 client.on("messageCreate", async message => {
   await handleMessageCommands(message, client);
   await handleTrelloIngest(message);
-  await handleGameWebhookMessage(message);
+  await handleTimeWebhookMessage(message);
 });
 // Login to Discord
 client.login(process.env.DISCORD_TOKEN);

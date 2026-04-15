@@ -52,7 +52,7 @@ async function handleApproveButton(interaction) {
   // Persist a follow-up message to be sent after 48 hours and schedule it
   try {
     const sendAt = Date.now() + 48 * 60 * 60 * 1000;
-    const content = `<@1449860815086813224>\n\nPunishment Discussion ${casenumber} is complete (48 hours has passed).`;
+    const content = `<@&$1449860815086813224>\n\nPunishment Discussion ${casenumber} is complete (48 hours has passed).`;
     const entry = await addFollowup({ guildId: interaction.guildId, threadId: thread.id, sendAt, content });
     // Try to schedule now (scheduler will also pick this up on restart)
     try { scheduleFollowup(entry); } catch (e) {}

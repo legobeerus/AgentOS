@@ -37,12 +37,12 @@ module.exports = {
 
     try {
       if (!config.GOOGLE_SHEET_ID) return interaction.editReply("Google sheet not configured.");
-      const range = config.GAME_LOG_SHEET_RANGE;
+      const range = config.TIME_LOG_SHEET_RANGE;
       const rows = await getSheetRows(range);
 
-      const nameCol = config.GAME_LOG_NAME_COL || 0;
-      const minutesCol = config.GAME_LOG_MINUTES_COL || 2;
-      const rankCol = (config.GAME_LOG_RANK_COL !== undefined && config.GAME_LOG_RANK_COL !== null) ? Number(config.GAME_LOG_RANK_COL) : undefined;
+      const nameCol = config.TIME_LOG_NAME_COL || 0;
+      const minutesCol = config.TIME_LOG_MINUTES_COL || 2;
+      const rankCol = (config.TIME_LOG_RANK_COL !== undefined && config.TIME_LOG_RANK_COL !== null) ? Number(config.TIME_LOG_RANK_COL) : undefined;
       const excludeRanks = (config.GAME_QUOTA_EXCLUDE_RANKS || "").split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
 
       const failed = [];
@@ -98,13 +98,13 @@ module.exports = {
         console.error('Failed to filter by IN DB:', err);
       }
 
-      const channelId = config.GAME_QUOTA_CHANNEL_ID || config.TARGET_CHANNEL_ID;
+      const channelId = config.GAME_QUOTA_CHANNEL_ID || null;
       if (!channelId) return interaction.editReply("No target channel configured for quota reports.");
 
       const channel = await interaction.client.channels.fetch(channelId).catch(() => null);
       if (!channel) return interaction.editReply("Could not fetch the target channel.");
 
-      const pingRoleId = config.GAME_QUOTA_PING_ROLE_ID || config.PING_ROLE_ID;
+      const pingRoleId = config.GAME_QUOTA_PING_ROLE_ID || null;
       const rolePing = pingRoleId ? `<@&${pingRoleId}>` : "";
 
       const failedList = failed.length ? failed.map(n => `- ${n}`).join("\n") : "- None";

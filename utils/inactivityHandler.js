@@ -37,9 +37,9 @@ function parseRange(range) {
 
 async function setEndDateForUser({ discordId, username }, endDateStr) {
   if (!config.GOOGLE_SHEET_ID) throw new Error('Google sheet not configured');
-  const range = config.GAME_LOG_SHEET_RANGE;
+  const range = config.TIME_LOG_SHEET_RANGE;
   const parsed = parseRange(range);
-  if (!parsed) throw new Error('Unsupported GAME_LOG_SHEET_RANGE format');
+  if (!parsed) throw new Error('Unsupported TIME_LOG_SHEET_RANGE format');
 
   const sheets = await getSheets();
   const resp = await sheets.spreadsheets.values.get({ spreadsheetId: config.GOOGLE_SHEET_ID, range });
@@ -47,11 +47,11 @@ async function setEndDateForUser({ discordId, username }, endDateStr) {
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
-    const cellName = (row[config.GAME_LOG_NAME_COL] || "").toString().trim();
+    const cellName = (row[config.TIME_LOG_NAME_COL] || "").toString().trim();
     if (!cellName) continue;
     if (username && cellName.toLowerCase() === String(username).toLowerCase()) {
       const startColIndex = colLetterToIndex(parsed.startCol);
-      const targetColIndex = startColIndex + config.GAME_LOG_ENDDATE_COL;
+      const targetColIndex = startColIndex + config.TIME_LOG_ENDDATE_COL;
       const targetColLetter = indexToColLetter(targetColIndex);
       const targetRowNumber = parsed.startRow + i;
       const targetA1 = `${parsed.sheetName}!${targetColLetter}${targetRowNumber}`;
@@ -229,8 +229,8 @@ async function handleApprove(interaction) {
 }
 
 async function handleDeny(interaction) {
-  await interaction.deferUpdate();
-  // show feedback modal routed through existing review modal processor
+  // Show feedback modal routed through existing review modal processor
+  // Do NOT call deferUpdate() before showModal — showing a modal must be the immediate response.
   const modal = new ModalBuilder().setCustomId(`feedback_deny_${interaction.message.id}`).setTitle('Denial Feedback');
   const feedbackInput = new TextInputBuilder().setCustomId('feedback').setLabel('Feedback for submitter').setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(1000);
   modal.addComponents(new ActionRowBuilder().addComponents(feedbackInput));
