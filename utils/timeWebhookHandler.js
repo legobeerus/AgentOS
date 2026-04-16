@@ -123,9 +123,11 @@ async function handleTimeWebhookMessage(message) {
   try {
     // Early debug: show incoming message routing info
     try {
+      // Support legacy single ID or comma-separated list
+      const configuredList = String(config.TIME_LOG_CHANNEL_ID || '').split(',').map(s => s.trim()).filter(Boolean);
       console.log('timeWebhookHandler invoked', {
         channelId: message?.channel?.id,
-        configuredTimeLogChannelId: config.TIME_LOG_CHANNEL_ID,
+        configuredTimeLogChannelIds: configuredList,
         guildId: message?.guild?.id,
         authorBot: !!(message && message.author && message.author.bot),
         webhookId: message && message.webhookId,
@@ -139,8 +141,10 @@ async function handleTimeWebhookMessage(message) {
     let state = { debugMode: false };
     try { state = await getState(); } catch (e) { /* ignore */ }
     if (message.author && message.author.bot && !(message.webhookId) && !state.debugMode) return; // ignore normal bots unless webhook
-    if (config.TIME_LOG_CHANNEL_ID && message.channel && message.channel.id !== config.TIME_LOG_CHANNEL_ID) {
-      console.log('timeWebhookHandler: message channel does not match TIME_LOG_CHANNEL_ID, skipping', { messageChannelId: message.channel.id, configured: config.TIME_LOG_CHANNEL_ID });
+    // Allow comma-separated list of channel IDs in config.TIME_LOG_CHANNEL_ID (legacy single ID supported)
+    const allowedChannels = String(config.TIME_LOG_CHANNEL_ID || '').split(',').map(s => s.trim()).filter(Boolean);
+    if (allowedChannels.length > 0 && message.channel && !allowedChannels.includes(message.channel.id)) {
+      console.log('timeWebhookHandler: message channel does not match configured TIME_LOG_CHANNEL_ID(s), skipping', { messageChannelId: message.channel.id, allowedChannels });
       return;
     }
 
