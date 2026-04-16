@@ -196,13 +196,13 @@ async function handleTimeWebhookMessage(message) {
               // Check for missing required roles
               const required = String(config.PROBATION_REQUIRED_ROLE_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
               console.log('Required role ids:', required);
-              const missing = required.filter(rid => !member.roles.cache.has(rid));
-              console.log('Missing required roles:', missing);
-              if (missing.length) {
+                const hasAnyRequired = required.length === 0 ? false : required.some(rid => member.roles.cache.has(rid));
+                console.log('Has any required role:', hasAnyRequired);
+                if (!hasAnyRequired) {
                 const alertChanId = config.PROBATION_ALERT_CHANNEL_ID || config.LOG_CHANNEL_ID;
                 const chan = await message.client.channels.fetch(alertChanId).catch(() => null);
-                const missingNames = missing.map(rid => message.guild.roles.cache.get(rid)?.name || rid).join(', ');
-                const alertTxt = `Probationary agent missing required roles: ${member.user.tag} (<@${member.user.id}>) — missing: ${missingNames} — Rank: ${parsed.rank}`;
+                  const requiredNames = required.map(rid => message.guild.roles.cache.get(rid)?.name || rid).join(', ');
+                  const alertTxt = `Probationary agent missing required roles (has none of): ${member.user.tag} (<@${member.user.id}>) — required: ${requiredNames} — Rank: ${parsed.rank}`;
                 if (chan) {
                   await chan.send({ content: alertTxt }).catch(e => console.error('Failed to send probation missing-roles alert:', e));
                   console.log('Probation missing-roles alert sent:', alertTxt);
