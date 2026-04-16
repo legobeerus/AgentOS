@@ -196,8 +196,10 @@ async function handleTimeWebhookMessage(message) {
               // Check for missing required roles
               const required = String(config.PROBATION_REQUIRED_ROLE_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
               console.log('Required role ids:', required);
-                const hasAnyRequired = required.length === 0 ? false : required.some(rid => member.roles.cache.has(rid));
-                console.log('Has any required role:', hasAnyRequired);
+              const requiredInfo = required.map(rid => ({ id: rid, name: message.guild.roles.cache.get(rid)?.name || null, has: !!member.roles.cache.has(rid) }));
+              console.log('Required role details for member:', requiredInfo);
+              const hasAnyRequired = requiredInfo.some(r => r.has);
+              console.log('Has any required role:', hasAnyRequired);
                 if (!hasAnyRequired) {
                 const alertChanId = config.PROBATION_ALERT_CHANNEL_ID || config.LOG_CHANNEL_ID;
                 const chan = await message.client.channels.fetch(alertChanId).catch(() => null);
