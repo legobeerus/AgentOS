@@ -140,13 +140,16 @@ async function handleTimeWebhookMessage(message) {
     try {
       const probNames = String(config.PROBATION_RANK_NAMES || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
       const rank = parsed.rank ? String(parsed.rank).toLowerCase() : '';
+      console.log('Probation check:', { username: parsed.username, rank: parsed.rank, probNames });
       if (rank && probNames.some(pn => rank.includes(pn))) {
         // Attempt to resolve a guild member for role checking. Prefer verified binding (Roblox->Discord).
         let member = null;
         try {
           if (message.guild) {
             // Try verification store first
-            const v = await verificationStore.getByRoblox(parsed.username).catch(() => null);
+            let v = null;
+            try { v = await verificationStore.getByRoblox(parsed.username); } catch (e) { console.warn('verificationStore.getByRoblox failed:', e); }
+            console.log('verification lookup result for', parsed.username, v ? { discord_id: v.discord_id, roblox_userid: v.roblox_userid } : null);
             if (v && v.discord_id) {
               member = await message.guild.members.fetch(v.discord_id).catch(() => null);
             }
@@ -162,28 +165,40 @@ async function handleTimeWebhookMessage(message) {
             }
 
             if (member) {
+              console.log('Resolved guild member for probation check:', { id: member.user.id, tag: member.user.tag });
               // Check for missing required roles
               const required = String(config.PROBATION_REQUIRED_ROLE_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
+              console.log('Required role ids:', required);
               const missing = required.filter(rid => !member.roles.cache.has(rid));
+              console.log('Missing required roles:', missing);
               if (missing.length) {
                 const alertChanId = config.PROBATION_ALERT_CHANNEL_ID || config.LOG_CHANNEL_ID;
                 const chan = await message.client.channels.fetch(alertChanId).catch(() => null);
                 const missingNames = missing.map(rid => message.guild.roles.cache.get(rid)?.name || rid).join(', ');
                 const alertTxt = `Probationary agent missing required roles: ${member.user.tag} (<@${member.user.id}>) — missing: ${missingNames} — Rank: ${parsed.rank}`;
-                if (chan) await chan.send({ content: alertTxt }).catch(() => null);
-                console.log('Probation missing-roles alert sent:', alertTxt);
+                if (chan) {
+                  await chan.send({ content: alertTxt }).catch(e => console.error('Failed to send probation missing-roles alert:', e));
+                  console.log('Probation missing-roles alert sent:', alertTxt);
+                } else {
+                  console.warn('Probation alert channel not found:', alertChanId);
+                }
               }
 
               // Also keep prior suspicious-role detection
               const suspicious = String(config.PROBATION_SUSPICIOUS_ROLE_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
+              console.log('Suspicious role ids:', suspicious);
               for (const rid of suspicious) {
                 if (member.roles.cache.has(rid)) {
                   const alertChanId = config.PROBATION_ALERT_CHANNEL_ID || config.LOG_CHANNEL_ID;
                   const chan = await message.client.channels.fetch(alertChanId).catch(() => null);
                   const roleName = message.guild.roles.cache.get(rid)?.name || rid;
                   const alertTxt = `Unauthorized probationary agent on-site: ${member.user.tag} (<@${member.user.id}>) — triggering role: ${roleName} (<@&${rid}>) — Rank: ${parsed.rank}`;
-                  if (chan) await chan.send({ content: alertTxt }).catch(() => null);
-                  console.log('Probation alert sent:', alertTxt);
+                  if (chan) {
+                    await chan.send({ content: alertTxt }).catch(e => console.error('Failed to send probation suspicious-role alert:', e));
+                    console.log('Probation alert sent:', alertTxt);
+                  } else {
+                    console.warn('Probation alert channel not found:', alertChanId);
+                  }
                   break;
                 }
               }
