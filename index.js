@@ -1,5 +1,6 @@
 require("dotenv").config();
 const { startKeepAlive } = require("./utils/dbKeepAlive");
+const verificationStore = require('./utils/verificationStore');
 const { Client, GatewayIntentBits } = require("discord.js");
 const { loadCommands } = require("./utils/loadCommands");
 const { handleInteraction } = require("./utils/handleInteraction");
@@ -23,6 +24,13 @@ const { startFollowupScheduler } = require("./utils/followupScheduler");
 
 // Start DB keep-alive (if configured)
 startKeepAlive();
+
+// Initialize verification tables when a database is configured
+if (process.env.DATABASE_URL) {
+  verificationStore.init().catch(err => console.error('verificationStore.init failed:', err));
+} else {
+  console.info('DATABASE_URL not set — skipping verificationStore init.');
+}
 
 // Load all commands
 loadCommands(client);
