@@ -4,7 +4,7 @@ const axios = require('axios');
 
 module.exports = {
   data: new SlashCommandBuilder()
-    .setName('verify')
+    .setName('agentos-verify')
     .setDescription('Link your Discord account to a Roblox username')
     .addStringOption(opt => opt.setName('roblox').setDescription('Roblox username').setRequired(true)),
   async execute(interaction) {
