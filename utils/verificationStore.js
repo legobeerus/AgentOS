@@ -80,5 +80,6 @@ async function clearChallenge(robloxUsername, discordId) {
 
 module.exports = { addVerification, removeByRoblox, removeByDiscord, getByRoblox, getByDiscord, createChallenge, getChallenge, clearChallenge, init };
 
-module.exports = { addVerification, removeByRoblox, removeByDiscord, getByRoblox, getByDiscord };
+// Export public API (includes challenge helpers and init)
+module.exports = { addVerification, removeByRoblox, removeByDiscord, getByRoblox, getByDiscord, createChallenge, getChallenge, clearChallenge, init };
 
