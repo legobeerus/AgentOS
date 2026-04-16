@@ -88,7 +88,7 @@ module.exports = {
   EMBED_COLOR: process.env.EMBED_COLOR ? Number(process.env.EMBED_COLOR) : 0x00aff1,
 
   // Arrest logging: channel where arrest embeds are posted
-  ARREST_LOG_CHANNEL_ID: process.env.ARREST_LOG_CHANNEL_ID || "1041577711845519384",
+  ARREST_LOG_CHANNEL_ID: process.env.ARREST_LOG_CHANNEL_ID || "1221224045429915759",
   // Comma-separated role IDs that may edit/delete any arrest
   ARREST_ADMIN_ROLE_IDS: process.env.ARREST_ADMIN_ROLE_IDS || "1449861438012133566,1106739929540730921",
 
