@@ -143,19 +143,21 @@ async function handleTimeWebhookMessage(message) {
     if (message.author && message.author.bot && !(message.webhookId) && !state.debugMode) return; // ignore normal bots unless webhook
     // Allow comma-separated list of channel IDs in config.TIME_LOG_CHANNEL_ID (legacy single ID supported)
     const allowedChannels = String(config.TIME_LOG_CHANNEL_ID || '').split(',').map(s => s.trim()).filter(Boolean);
-    if (allowedChannels.length > 0 && message.channel && !allowedChannels.includes(message.channel.id)) {
-      console.log('timeWebhookHandler: message channel does not match configured TIME_LOG_CHANNEL_ID(s), skipping', { messageChannelId: message.channel.id, allowedChannels });
-      return;
-    }
+    const isTimeLogChannel = (allowedChannels.length === 0) || (message.channel && allowedChannels.includes(message.channel.id));
+    if (!isTimeLogChannel) console.log('timeWebhookHandler: message is not in configured TIME_LOG_CHANNEL_ID(s); skipping sheet update but continuing probation checks', { messageChannelId: message.channel?.id, allowedChannels });
 
     const parsed = parseGameMessage(message.content);
     if (!parsed) return; // not in expected format
 
-    const res = await updateMinutesForUser(parsed.username, parsed.minutes);
-    if (res) {
-      console.log(`Updated ${parsed.username}: +${parsed.minutes} weekly=${res.updatedWeekly} total=${res.updatedTotal} (weekly ${res.weeklyCol}${res.row}, total ${res.totalCol}${res.row})`);
+    if (isTimeLogChannel) {
+      const res = await updateMinutesForUser(parsed.username, parsed.minutes);
+      if (res) {
+        console.log(`Updated ${parsed.username}: +${parsed.minutes} weekly=${res.updatedWeekly} total=${res.updatedTotal} (weekly ${res.weeklyCol}${res.row}, total ${res.totalCol}${res.row})`);
+      } else {
+        console.log(`Username not found in sheet: ${parsed.username}`);
+      }
     } else {
-      console.log(`Username not found in sheet: ${parsed.username}`);
+      console.log('Skipping sheet update because message is not in TIME_LOG_CHANNEL_ID; continuing to probation checks.');
     }
 
     // Probationary detection and role check
