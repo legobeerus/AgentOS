@@ -120,9 +120,25 @@ function parseGameMessage(content) {
 
 async function handleTimeWebhookMessage(message) {
   try {
+    // Early debug: show incoming message routing info
+    try {
+      console.log('timeWebhookHandler invoked', {
+        channelId: message?.channel?.id,
+        configuredTimeLogChannelId: config.TIME_LOG_CHANNEL_ID,
+        guildId: message?.guild?.id,
+        authorBot: !!(message && message.author && message.author.bot),
+        webhookId: message && message.webhookId,
+        hasContent: !!(message && message.content),
+        preview: (message && message.content) ? String(message.content).slice(0,160) : null
+      });
+    } catch (e) { /* ignore logging failures */ }
+
     if (!message || !message.content) return;
     if (message.author && message.author.bot && !(message.webhookId)) return; // ignore normal bots unless webhook
-    if (config.TIME_LOG_CHANNEL_ID && message.channel.id !== config.TIME_LOG_CHANNEL_ID) return;
+    if (config.TIME_LOG_CHANNEL_ID && message.channel && message.channel.id !== config.TIME_LOG_CHANNEL_ID) {
+      console.log('timeWebhookHandler: message channel does not match TIME_LOG_CHANNEL_ID, skipping', { messageChannelId: message.channel.id, configured: config.TIME_LOG_CHANNEL_ID });
+      return;
+    }
 
     const parsed = parseGameMessage(message.content);
     if (!parsed) return; // not in expected format
