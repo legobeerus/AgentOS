@@ -1,5 +1,6 @@
 const config = require("../config");
 const { google } = require("googleapis");
+const { getState } = require('./adminState');
 const verificationStore = require('./verificationStore');
 
 function colLetterToIndex(letter) {
@@ -134,7 +135,10 @@ async function handleTimeWebhookMessage(message) {
     } catch (e) { /* ignore logging failures */ }
 
     if (!message || !message.content) return;
-    if (message.author && message.author.bot && !(message.webhookId)) return; // ignore normal bots unless webhook
+    // Allow overriding the bot-author guard when admin debug mode is enabled
+    let state = { debugMode: false };
+    try { state = await getState(); } catch (e) { /* ignore */ }
+    if (message.author && message.author.bot && !(message.webhookId) && !state.debugMode) return; // ignore normal bots unless webhook
     if (config.TIME_LOG_CHANNEL_ID && message.channel && message.channel.id !== config.TIME_LOG_CHANNEL_ID) {
       console.log('timeWebhookHandler: message channel does not match TIME_LOG_CHANNEL_ID, skipping', { messageChannelId: message.channel.id, configured: config.TIME_LOG_CHANNEL_ID });
       return;
