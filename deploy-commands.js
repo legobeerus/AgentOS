@@ -7,7 +7,32 @@ const commandFiles = fs.readdirSync("./commands").filter(file => file.endsWith("
 
 for (const file of commandFiles) {
   const command = require(`./commands/${file}`);
-  commands.push(command.data.toJSON());
+  // Safety: log command name and validate shape before pushing
+  try {
+    if (!command || !command.data) {
+      console.error('Command file missing `data` export:', file);
+    } else {
+      console.log('Found command:', file, '->', command.data.name || command.data?.toJSON?.().name);
+      commands.push(command.data.toJSON());
+    }
+  } catch (e) {
+    console.error('Failed to process command file:', file, e);
+  }
+}
+
+// Detect duplicate command names before sending to Discord
+const nameMap = {};
+for (let i = 0; i < commands.length; i++) {
+  const c = commands[i];
+  const n = c.name;
+  if (!n) continue;
+  nameMap[n] = nameMap[n] || [];
+  nameMap[n].push(i);
+}
+for (const [n, idxs] of Object.entries(nameMap)) {
+  if (idxs.length > 1) {
+    console.error('Duplicate command name detected in local files:', n, 'indexes:', idxs);
+  }
 }
 
 const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);

@@ -11,7 +11,8 @@ async function init() {
   );
 }
 
-init().catch(err => console.error('Failed to init bot_verifications table:', err));
+// Note: table initialization is intentionally not run at require-time here.
+// Call `init()` from app startup when a real DATABASE_URL is configured.
 
 async function addVerification(robloxUsername, robloxUserId, discordId) {
   // Enforce one-to-one: check existing bindings

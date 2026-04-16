@@ -42,9 +42,15 @@ async function init() {
   console.info('Ensured bot_paused_commands table exists');
 }
 
-// Initialize at require-time (fire-and-forget)
-init().catch(err => {
-  console.error('Failed to initialize DB schema:', err);
-});
+// Initialize at require-time only when an explicit DATABASE_URL is provided.
+// This prevents deploy scripts (which load command modules) from attempting
+// to connect to a database when none is configured locally.
+if (process.env.DATABASE_URL) {
+  init().catch(err => {
+    console.error('Failed to initialize DB schema:', err);
+  });
+} else {
+  console.info('DATABASE_URL not set — skipping DB schema initialization.');
+}
 
 module.exports = { pool };

@@ -87,11 +87,11 @@ module.exports = {
 
         const sendOptions = { embeds: [embed] };
         if (evidence) {
-          sendOptions.files = [evidence.url];
+          // Only embed the evidence image; do not attach the file to the message
           embed.setImage(evidence.url);
         }
 
-        await channel.send(sendOptions);
+        await channel.send({ embeds: [embed] });
         await interaction.editReply("✅ Anonymous request submitted successfully.");
         return;
       }
