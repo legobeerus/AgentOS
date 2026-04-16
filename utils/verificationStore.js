@@ -9,6 +9,17 @@ async function init() {
       created_at TIMESTAMPTZ DEFAULT NOW()
     )`
   );
+  await pool.query(
+    `CREATE TABLE IF NOT EXISTS bot_verification_challenges (
+      roblox_username TEXT,
+      roblox_userid TEXT,
+      discord_id TEXT,
+      code TEXT,
+      expires_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      PRIMARY KEY (roblox_username, discord_id)
+    )`
+  );
 }
 
 // Note: table initialization is intentionally not run at require-time here.
@@ -50,4 +61,24 @@ async function getByDiscord(discordId) {
   return res.rows[0] || null;
 }
 
+// Challenge helpers for two-step verification
+async function createChallenge(robloxUsername, robloxUserId, discordId, code, expiresAt) {
+  const q = `INSERT INTO bot_verification_challenges (roblox_username, roblox_userid, discord_id, code, expires_at)
+    VALUES ($1, $2, $3, $4, $5)
+    ON CONFLICT (roblox_username, discord_id) DO UPDATE SET code = EXCLUDED.code, expires_at = EXCLUDED.expires_at, created_at = NOW()`;
+  await pool.query(q, [robloxUsername.toLowerCase(), robloxUserId ? String(robloxUserId) : null, discordId, String(code), expiresAt]);
+}
+
+async function getChallenge(robloxUsername, discordId) {
+  const res = await pool.query('SELECT roblox_username, roblox_userid, discord_id, code, expires_at, created_at FROM bot_verification_challenges WHERE roblox_username = $1 AND discord_id = $2', [String(robloxUsername).toLowerCase(), discordId]);
+  return res.rows[0] || null;
+}
+
+async function clearChallenge(robloxUsername, discordId) {
+  await pool.query('DELETE FROM bot_verification_challenges WHERE roblox_username = $1 AND discord_id = $2', [String(robloxUsername).toLowerCase(), discordId]);
+}
+
+module.exports = { addVerification, removeByRoblox, removeByDiscord, getByRoblox, getByDiscord, createChallenge, getChallenge, clearChallenge, init };
+
 module.exports = { addVerification, removeByRoblox, removeByDiscord, getByRoblox, getByDiscord };
+

@@ -52,8 +52,6 @@ module.exports = {
     PROBATION_RANK_NAMES: process.env.PROBATION_RANK_NAMES || 'Probationary Agent',
     // Comma-separated role IDs that should trigger an alert if a probationary agent has them
     PROBATION_SUSPICIOUS_ROLE_IDS: process.env.PROBATION_SUSPICIOUS_ROLE_IDS || "1487506799400849518,1396886896616931420,1396886903185215539",
-    // Comma-separated role IDs that are required for probationary agents; alert if missing
-    PROBATION_REQUIRED_ROLE_IDS: process.env.PROBATION_REQUIRED_ROLE_IDS || "1449861438012133566",
     // Channel to post probation alerts
     PROBATION_ALERT_CHANNEL_ID: process.env.PROBATION_ALERT_CHANNEL_ID || "1041577711845519384",
   // Role to ping in quota reports (separate from general PING_ROLE_ID)
