@@ -67,7 +67,7 @@ module.exports = {
   // Optional: column index (zero-based) for the running total time column (adjacent to minutes column)
   TIME_LOG_TOTAL_COL: process.env.TIME_LOG_TOTAL_COL !== undefined ? Number(process.env.TIME_LOG_TOTAL_COL) : 10,
   // Column index (zero-based) for the SGC/main-group rank within TIME_LOG_SHEET_RANGE
-  TIME_LOG_SGC_RANK_COL: process.env.TIME_LOG_SGC_RANK_COL !== undefined ? Number(process.env.TIME_LOG_SGC_RANK_COL) : 5,
+  TIME_LOG_SGC_RANK_COL: process.env.TIME_LOG_SGC_RANK_COL !== undefined ? Number(process.env.TIME_LOG_SGC_RANK_COL) : 1,
   // Roblox group id for the main SGC group used when fetching ranks
   TIME_SGC_GROUP_ID: process.env.TIME_SGC_GROUP_ID !== undefined ? Number(process.env.TIME_SGC_GROUP_ID) : 6762663,
 

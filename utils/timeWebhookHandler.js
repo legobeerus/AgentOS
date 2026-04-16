@@ -106,7 +106,7 @@ function parseGameMessage(content) {
   const usernameMatch = content.match(/Username:\s*([^|\r\n]+)/i);
   const timeMatch = content.match(/Time:\s*(\d+)\s*(?:mins?|minutes?)?/i);
   const rankMatch = content.match(/Rank:\s*([^|\r\n]+)/i);
-  if (!timeMatch) return null;
+  // Time is optional for join/leave messages; default minutes to 0 when absent
 
   let username = usernameMatch ? usernameMatch[1].trim() : null;
   if (!username) {
@@ -116,7 +116,8 @@ function parseGameMessage(content) {
   }
   if (!username) return null;
 
-  return { username, minutes: Number(timeMatch[1]), rank: rankMatch ? rankMatch[1].trim() : null };
+  const minutes = timeMatch ? Number(timeMatch[1]) : 0;
+  return { username, minutes, rank: rankMatch ? rankMatch[1].trim() : null };
 }
 
 async function handleTimeWebhookMessage(message) {
