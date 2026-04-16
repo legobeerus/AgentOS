@@ -193,44 +193,42 @@ async function handleTimeWebhookMessage(message) {
 
             if (member) {
               console.log('Resolved guild member for probation check:', { id: member.user.id, tag: member.user.tag });
-              // Check for missing required roles
-              const required = String(config.PROBATION_REQUIRED_ROLE_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
-              console.log('Required role ids:', required);
-              const requiredInfo = required.map(rid => ({ id: rid, name: message.guild.roles.cache.get(rid)?.name || null, has: !!member.roles.cache.has(rid) }));
-              console.log('Required role details for member:', requiredInfo);
-              const hasAnyRequired = requiredInfo.some(r => r.has);
-              console.log('Has any required role:', hasAnyRequired);
-                if (!hasAnyRequired) {
-                const alertChanId = config.PROBATION_ALERT_CHANNEL_ID || config.LOG_CHANNEL_ID;
-                const chan = await message.client.channels.fetch(alertChanId).catch(() => null);
-                  const requiredNames = required.map(rid => message.guild.roles.cache.get(rid)?.name || rid).join(', ');
-                  const alertTxt = `Probationary agent missing required roles (has none of): ${member.user.tag} (<@${member.user.id}>) — required: ${requiredNames} — Rank: ${parsed.rank}`;
-                if (chan) {
-                  await chan.send({ content: alertTxt }).catch(e => console.error('Failed to send probation missing-roles alert:', e));
-                  console.log('Probation missing-roles alert sent:', alertTxt);
-                } else {
-                  console.warn('Probation alert channel not found:', alertChanId);
-                }
-              }
-
-              // Also keep prior suspicious-role detection
-              const suspicious = String(config.PROBATION_SUSPICIOUS_ROLE_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
-              console.log('Suspicious role ids:', suspicious);
-              for (const rid of suspicious) {
-                if (member.roles.cache.has(rid)) {
+                // First, check suspicious roles (highest priority). If any found, alert with those.
+                const suspicious = String(config.PROBATION_SUSPICIOUS_ROLE_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
+                console.log('Suspicious role ids:', suspicious);
+                const matchedSuspicious = suspicious.map(rid => ({ id: rid, name: message.guild.roles.cache.get(rid)?.name || rid, has: !!member.roles.cache.has(rid) })).filter(x => x.has);
+                if (matchedSuspicious.length > 0) {
                   const alertChanId = config.PROBATION_ALERT_CHANNEL_ID || config.LOG_CHANNEL_ID;
                   const chan = await message.client.channels.fetch(alertChanId).catch(() => null);
-                  const roleName = message.guild.roles.cache.get(rid)?.name || rid;
-                  const alertTxt = `Unauthorized probationary agent on-site: ${member.user.tag} (<@${member.user.id}>) — triggering role: ${roleName} (<@&${rid}>) — Rank: ${parsed.rank}`;
+                  const names = matchedSuspicious.map(x => x.name).join(', ');
+                  const alertTxt = `Has the following role: ${names} — ${member.user.tag} (<@${member.user.id}>) — Rank: ${parsed.rank}`;
                   if (chan) {
                     await chan.send({ content: alertTxt }).catch(e => console.error('Failed to send probation suspicious-role alert:', e));
-                    console.log('Probation alert sent:', alertTxt);
+                    console.log('Probation suspicious-role alert sent:', alertTxt);
                   } else {
                     console.warn('Probation alert channel not found:', alertChanId);
                   }
-                  break;
+                } else {
+                  // No suspicious roles — check required roles (pass if member has ANY of them). If none present, alert with missing list.
+                  const required = String(config.PROBATION_REQUIRED_ROLE_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
+                  console.log('Required role ids:', required);
+                  const requiredInfo = required.map(rid => ({ id: rid, name: message.guild.roles.cache.get(rid)?.name || rid, has: !!member.roles.cache.has(rid) }));
+                  console.log('Required role details for member:', requiredInfo);
+                  const hasAnyRequired = requiredInfo.some(r => r.has);
+                  console.log('Has any required role:', hasAnyRequired);
+                  if (!hasAnyRequired) {
+                    const alertChanId = config.PROBATION_ALERT_CHANNEL_ID || config.LOG_CHANNEL_ID;
+                    const chan = await message.client.channels.fetch(alertChanId).catch(() => null);
+                    const requiredNames = requiredInfo.map(x => x.name).join(', ');
+                    const alertTxt = `Missing roles: ${requiredNames} — ${member.user.tag} (<@${member.user.id}>) — Rank: ${parsed.rank}`;
+                    if (chan) {
+                      await chan.send({ content: alertTxt }).catch(e => console.error('Failed to send probation missing-roles alert:', e));
+                      console.log('Probation missing-roles alert sent:', alertTxt);
+                    } else {
+                      console.warn('Probation alert channel not found:', alertChanId);
+                    }
+                  }
                 }
-              }
             } else {
               console.log('Probationary user detected but could not resolve guild member to check roles:', parsed.username);
             }
