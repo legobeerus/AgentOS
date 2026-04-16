@@ -3,11 +3,12 @@ const { handleApproveButton } = require("./handleApproveButton");
 const { handleFormReview } = require("./handleFormReview");
 const { handleReviewModal } = require("./handleReviewModal");
 const { handleModalSubmit: handleInactivityModal, handleApprove: handleInactivityApprove, handleDeny: handleInactivityDeny } = require('./inactivityHandler');
-const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, EmbedBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, EmbedBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require('discord.js');
 const config = require('../config');
 const { getChangelog, setChangelog } = require('./changelogStore');
 const { getState, setState } = require('./adminState');
 const pausedCommands = require('./pausedCommands');
+const arrestStore = require('./arrestStore');
 
 /**
  * Main interaction handler that routes to appropriate handlers
@@ -144,6 +145,167 @@ async function handleInteraction(interaction, client) {
         }
         return;
       }
+
+      // Arrest modification flow: show select list of editable arrests for the username
+      if (typeof interaction.customId === 'string' && interaction.customId.startsWith('arrest_modify:')) {
+        await interaction.deferReply({ ephemeral: true });
+        try {
+          const username = interaction.customId.split(':')[1];
+          const arrests = await arrestStore.getArrestsByRoblox(username);
+          if (!arrests || arrests.length === 0) {
+            await interaction.editReply({ content: `No arrests found for ${username}.`, ephemeral: true });
+            return;
+          }
+
+          const adminRoleIds = (config.ARREST_ADMIN_ROLE_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
+          const member = interaction.member;
+          const options = [];
+          for (const a of arrests) {
+            const owner = a.submitted_by === interaction.user.id;
+            const isAdmin = member && member.roles && adminRoleIds.some(r => member.roles.cache.has(r));
+            if (!owner && !isAdmin) continue; // not editable by this user
+            options.push({ label: `ID ${a.id} • ${a.roblox_username}`, value: `${a.id}`, description: (a.charges || '').slice(0, 80) || 'No charges' });
+          }
+
+          if (!options.length) {
+            await interaction.editReply({ content: 'You have no editable arrests for that username.', ephemeral: true });
+            return;
+          }
+
+          const select = new StringSelectMenuBuilder()
+            .setCustomId(`arrest_select:${username}`)
+            .setPlaceholder('Select an arrest to view/edit')
+            .addOptions(options.slice(0, 25));
+
+          const row = new ActionRowBuilder().addComponents(select);
+          await interaction.editReply({ content: 'Select an arrest to modify:', components: [row], ephemeral: true });
+        } catch (e) {
+          console.error('Failed arrest_modify flow:', e);
+          try { await interaction.editReply({ content: 'Failed to build modification list.', ephemeral: true }); } catch (_) {}
+        }
+        return;
+      }
+
+      
+
+      if (typeof interaction.customId === 'string' && interaction.customId.startsWith('arrest_edit:')) {
+        // Format: arrest_edit:<field>:<id>
+        try {
+          const parts = interaction.customId.split(':');
+          const field = parts[1];
+          const id = parts[2];
+          const modal = new ModalBuilder().setCustomId(`arrest_modal:${field}:${id}`).setTitle(`Edit Arrest ${id} — ${field}`);
+          const input = new TextInputBuilder().setCustomId('value').setLabel(`New ${field}`).setStyle(TextInputStyle.Paragraph).setRequired(true);
+          modal.addComponents(new ActionRowBuilder().addComponents(input));
+          await interaction.showModal(modal);
+        } catch (e) {
+          console.error('Failed to show arrest edit modal:', e);
+        }
+        return;
+      }
+
+      if (typeof interaction.customId === 'string' && interaction.customId.startsWith('arrest_view_edits:')) {
+        await interaction.deferReply({ ephemeral: true });
+        try {
+          const id = interaction.customId.split(':')[1];
+          const edits = await arrestStore.getEditsForArrest(id);
+          if (!edits || edits.length === 0) {
+            await interaction.editReply({ content: 'No edits found for that arrest.', ephemeral: true });
+            return;
+          }
+          const lines = edits.map(e => `By ${e.edited_by_tag || e.edited_by} at ${new Date(e.edited_at).toISOString()}\nSummary: ${e.before_incident_summary || 'None'}\nCharges: ${e.before_charges || 'None'}\nSentence: ${e.before_sentence || 'None'}\nProof: ${e.before_proof || 'None'}`).join('\n\n----\n\n');
+          // send as ephemeral follow-up (may be large)
+          await interaction.editReply({ content: `Edits for arrest ${id}:\n\n${lines}`, ephemeral: true });
+        } catch (e) {
+          console.error('Failed to fetch edits:', e);
+          try { await interaction.editReply({ content: 'Failed to fetch edits.', ephemeral: true }); } catch (_) {}
+        }
+        return;
+      }
+
+      if (typeof interaction.customId === 'string' && interaction.customId.startsWith('arrest_delete:')) {
+        await interaction.deferReply({ ephemeral: true });
+        try {
+          const id = interaction.customId.split(':')[1];
+          const adminRoleIds = (config.ARREST_ADMIN_ROLE_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
+          const member = interaction.member;
+          const isAdmin = member && member.roles && adminRoleIds.some(r => member.roles.cache.has(r));
+          if (!isAdmin) {
+            await interaction.editReply({ content: 'You do not have permission to delete arrests.', ephemeral: true });
+            return;
+          }
+          const deleted = await arrestStore.deleteArrest(id);
+          if (deleted) {
+            await interaction.editReply({ content: `Deleted arrest ${id}.`, ephemeral: true });
+          } else {
+            await interaction.editReply({ content: 'Arrest not found or could not be deleted.', ephemeral: true });
+          }
+        } catch (e) {
+          console.error('Failed to delete arrest:', e);
+          try { await interaction.editReply({ content: 'Failed to delete arrest.', ephemeral: true }); } catch (_) {}
+        }
+        return;
+      }
+    }
+
+    // Handle select menu interactions
+    if (interaction.isStringSelectMenu && interaction.isStringSelectMenu()) {
+      if (typeof interaction.customId === 'string' && interaction.customId.startsWith('arrest_select:')) {
+        await interaction.deferReply({ ephemeral: true });
+        try {
+          const id = interaction.values ? interaction.values[0] : null;
+          if (!id) {
+            await interaction.editReply({ content: 'No arrest selected.', ephemeral: true });
+            return;
+          }
+          const arrest = await arrestStore.getArrestById(id);
+          if (!arrest) {
+            await interaction.editReply({ content: 'Arrest not found.', ephemeral: true });
+            return;
+          }
+
+          const embed = new EmbedBuilder()
+            .setTitle(`Arrest ID ${arrest.id} — ${arrest.roblox_username}`)
+            .setColor(config.EMBED_COLOR)
+            .addFields(
+              { name: 'Incident Summary', value: arrest.incident_summary || 'None', inline: false },
+              { name: 'Charges', value: arrest.charges || 'None', inline: false },
+              { name: 'Sentence', value: arrest.sentence || 'None', inline: false },
+              { name: 'Proof', value: arrest.proof || 'None', inline: false },
+              { name: 'Submitted By', value: arrest.submitted_by_tag || arrest.submitted_by || 'Unknown', inline: true },
+              { name: 'Created', value: new Date(arrest.created_at).toISOString(), inline: true }
+            );
+
+          const adminRoleIds = (config.ARREST_ADMIN_ROLE_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
+          const member = interaction.member;
+          const isAdmin = member && member.roles && adminRoleIds.some(r => member.roles.cache.has(r));
+          const isOwner = arrest.submitted_by === interaction.user.id;
+
+          const rows = [];
+          const editRow = new ActionRowBuilder();
+          editRow.addComponents(
+            new ButtonBuilder().setCustomId(`arrest_edit:summary:${arrest.id}`).setLabel('Edit Summary').setStyle(ButtonStyle.Primary),
+            new ButtonBuilder().setCustomId(`arrest_edit:charges:${arrest.id}`).setLabel('Edit Charges').setStyle(ButtonStyle.Primary),
+            new ButtonBuilder().setCustomId(`arrest_edit:sentence:${arrest.id}`).setLabel('Edit Sentence').setStyle(ButtonStyle.Primary),
+            new ButtonBuilder().setCustomId(`arrest_edit:proof:${arrest.id}`).setLabel('Edit Proof').setStyle(ButtonStyle.Primary)
+          );
+          rows.push(editRow);
+
+          const viewRow = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`arrest_view_edits:${arrest.id}`).setLabel('View Edits').setStyle(ButtonStyle.Secondary));
+          rows.push(viewRow);
+
+          if (isAdmin) {
+            const delRow = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`arrest_delete:${arrest.id}`).setLabel('Delete Arrest').setStyle(ButtonStyle.Danger));
+            rows.push(delRow);
+          }
+
+          await interaction.editReply({ embeds: [embed], components: rows, ephemeral: true });
+        } catch (e) {
+          console.error('Failed arrest_select flow:', e);
+          try { await interaction.editReply({ content: 'Failed to load arrest.', ephemeral: true }); } catch (_) {}
+        }
+        return;
+      }
     }
 
     // Handle modal submissions
@@ -167,6 +329,57 @@ async function handleInteraction(interaction, client) {
         } catch (e) {
           console.error('Failed to process changelog modal:', e);
           try { await interaction.reply({ content: 'Failed to update changelog.', ephemeral: true }); } catch (_) {}
+        }
+        return;
+      }
+      if (interaction.customId && interaction.customId.startsWith('arrest_modal:')) {
+        await interaction.deferReply({ ephemeral: true });
+        try {
+          // Format: arrest_modal:<field>:<id>
+          const parts = interaction.customId.split(':');
+          const field = parts[1];
+          const id = parts[2];
+          const newValue = interaction.fields.getTextInputValue('value');
+          const arrest = await arrestStore.getArrestById(id);
+          if (!arrest) {
+            await interaction.editReply({ content: 'Arrest not found.', ephemeral: true });
+            return;
+          }
+
+          // Permission check: owner or admin
+          const adminRoleIds = (config.ARREST_ADMIN_ROLE_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
+          const member = interaction.member;
+          const isAdmin = member && member.roles && adminRoleIds.some(r => member.roles.cache.has(r));
+          const isOwner = arrest.submitted_by === interaction.user.id;
+          if (!isOwner && !isAdmin) {
+            await interaction.editReply({ content: 'You do not have permission to edit this arrest.', ephemeral: true });
+            return;
+          }
+
+          // Save prior state
+          await arrestStore.addEdit({ arrest_id: arrest.id, edited_by: interaction.user.id, edited_by_tag: interaction.user.tag, before: {
+            incident_summary: arrest.incident_summary,
+            charges: arrest.charges,
+            sentence: arrest.sentence,
+            proof: arrest.proof
+          }});
+
+          const updatePayload = {
+            incident_summary: arrest.incident_summary,
+            charges: arrest.charges,
+            sentence: arrest.sentence,
+            proof: arrest.proof
+          };
+          if (field === 'summary') updatePayload.incident_summary = newValue;
+          if (field === 'charges') updatePayload.charges = newValue;
+          if (field === 'sentence') updatePayload.sentence = newValue;
+          if (field === 'proof') updatePayload.proof = newValue;
+
+          const updated = await arrestStore.updateArrest(id, updatePayload);
+          await interaction.editReply({ content: `Arrest ${id} updated.`, ephemeral: true });
+        } catch (e) {
+          console.error('Failed to process arrest modal:', e);
+          try { await interaction.editReply({ content: 'Failed to update arrest.', ephemeral: true }); } catch (_) {}
         }
         return;
       }

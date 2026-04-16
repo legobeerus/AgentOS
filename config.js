@@ -87,6 +87,11 @@ module.exports = {
   // Standard embed color (hex). Can be set via env as number (e.g. 0x5865f2) or decimal.
   EMBED_COLOR: process.env.EMBED_COLOR ? Number(process.env.EMBED_COLOR) : 0x00aff1,
 
+  // Arrest logging: channel where arrest embeds are posted
+  ARREST_LOG_CHANNEL_ID: process.env.ARREST_LOG_CHANNEL_ID || "1041577711845519384",
+  // Comma-separated role IDs that may edit/delete any arrest
+  ARREST_ADMIN_ROLE_IDS: process.env.ARREST_ADMIN_ROLE_IDS || "1449861438012133566,1106739929540730921",
+
   // Service account credentials for private sheets. Provide the full JSON
   // as a string in `GOOGLE_SERVICE_ACCOUNT_JSON` (preferred) or a filesystem
   // path in `GOOGLE_SERVICE_ACCOUNT_PATH` (legacy).

@@ -1,5 +1,6 @@
 const config = require("../config");
 const { google } = require("googleapis");
+const { EmbedBuilder } = require('discord.js');
 const { getState } = require('./adminState');
 const verificationStore = require('./verificationStore');
 
@@ -201,10 +202,19 @@ async function handleTimeWebhookMessage(message) {
                   const alertChanId = config.PROBATION_ALERT_CHANNEL_ID || config.LOG_CHANNEL_ID;
                   const chan = await message.client.channels.fetch(alertChanId).catch(() => null);
                   const names = matchedSuspicious.map(x => x.name).join(', ');
-                  const alertTxt = `Has the following role: ${names} — ${member.user.tag} (<@${member.user.id}>) — Rank: ${parsed.rank}`;
+                  const alertTxt = `ALERT: Probationary agent with prohibited roles has joined OSI. Has the following roles: ${names} — ${member.user.tag} (<@${member.user.id}>) — Rank: ${parsed.rank}`;
                   if (chan) {
-                    await chan.send({ content: alertTxt }).catch(e => console.error('Failed to send probation suspicious-role alert:', e));
-                    console.log('Probation suspicious-role alert sent:', alertTxt);
+                    const embed = new EmbedBuilder()
+                      .setTitle('Probation Alert')
+                      .setColor(config.EMBED_COLOR || 0xffa500)
+                      .setDescription(`Probationary agent with prohibited roles has joined OSI. Has the following roles: ${names}`)
+                      .addFields(
+                        { name: 'Member', value: `${member.user.tag} (<@${member.user.id}>)`, inline: true },
+                        { name: 'Rank', value: parsed.rank || 'Unknown', inline: true }
+                      )
+                      .setTimestamp();
+                    await chan.send({ embeds: [embed] }).catch(e => console.error('Failed to send probation suspicious-role alert:', e));
+                    console.log('Probation suspicious-role alert sent (embed):', names, member.user.id);
                   } else {
                     console.warn('Probation alert channel not found:', alertChanId);
                   }
@@ -220,10 +230,19 @@ async function handleTimeWebhookMessage(message) {
                     const alertChanId = config.PROBATION_ALERT_CHANNEL_ID || config.LOG_CHANNEL_ID;
                     const chan = await message.client.channels.fetch(alertChanId).catch(() => null);
                     const requiredNames = requiredInfo.map(x => x.name).join(', ');
-                    const alertTxt = `Missing roles: ${requiredNames} — ${member.user.tag} (<@${member.user.id}>) — Rank: ${parsed.rank}`;
+                    const alertTxt = `ALERT: Probationary agent missing required roles has joined OSI. Missing roles: ${requiredNames} — ${member.user.tag} (<@${member.user.id}>) — Rank: ${parsed.rank}`;
                     if (chan) {
-                      await chan.send({ content: alertTxt }).catch(e => console.error('Failed to send probation missing-roles alert:', e));
-                      console.log('Probation missing-roles alert sent:', alertTxt);
+                      const embed = new EmbedBuilder()
+                        .setTitle('Probation Alert')
+                        .setColor(config.EMBED_COLOR || 0xffa500)
+                        .setDescription(`Probationary agent missing required roles has joined OSI. Missing roles: ${requiredNames}`)
+                        .addFields(
+                          { name: 'Member', value: `${member.user.tag} (<@${member.user.id}>)`, inline: true },
+                          { name: 'Rank', value: parsed.rank || 'Unknown', inline: true }
+                        )
+                        .setTimestamp();
+                      await chan.send({ embeds: [embed] }).catch(e => console.error('Failed to send probation missing-roles alert:', e));
+                      console.log('Probation missing-roles alert sent (embed):', requiredNames, member.user.id);
                     } else {
                       console.warn('Probation alert channel not found:', alertChanId);
                     }
