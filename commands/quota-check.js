@@ -34,6 +34,17 @@ module.exports = {
 
   async execute(interaction) {
     await interaction.deferReply({ ephemeral: true });
+    // Restrict to the same approver role used for case approvals
+    try {
+      if (!interaction.member.roles.cache.has(require('../config').REQUIRED_ROLE_ID)) {
+        await interaction.editReply({ content: '❌ You do not have permission to run this command.', ephemeral: true });
+        return;
+      }
+    } catch (err) {
+      // If anything goes wrong resolving roles, deny by default
+      try { await interaction.editReply({ content: '❌ You do not have permission to run this command.', ephemeral: true }); } catch (e) {}
+      return;
+    }
 
     try {
       if (!config.GOOGLE_SHEET_ID) return interaction.editReply("Google sheet not configured.");
@@ -49,6 +60,8 @@ module.exports = {
       let topName = null;
       let topMinutes = -1;
 
+      const strikeCol = (config.TIME_LOG_STRIKE_COL !== undefined && config.TIME_LOG_STRIKE_COL !== null) ? Number(config.TIME_LOG_STRIKE_COL) : undefined;
+
       for (const row of rows) {
         const name = (row[nameCol] || "").toString().trim();
         const raw = (row[minutesCol] || "").toString().trim();
@@ -63,7 +76,7 @@ module.exports = {
         if (raw !== "") {
           const val = Number(raw);
           if (!Number.isNaN(val)) {
-            if (val < 60) failed.push(name);
+            if (val < 60) failed.push({ name, row });
             if (val > topMinutes) { topMinutes = val; topName = name; }
           }
         }
@@ -74,10 +87,18 @@ module.exports = {
         const { getActiveRobloxUsernames } = require('../utils/inactivityStore');
         const active = await getActiveRobloxUsernames();
         const activeLower = new Set(active.map(a => String(a).toLowerCase()));
-        // Filter failed list
-        const filtered = failed.filter(n => !activeLower.has(String(n).toLowerCase()));
-        // Use filtered list for posting
-        const failedList = filtered.length ? filtered.map(n => `- ${n}`).join("\n") : "- None";
+        // Filter failed list (preserve row data)
+        const filtered = failed.filter(obj => !activeLower.has(String(obj.name).toLowerCase()));
+        // Use filtered list for posting; include strike info if configured
+        const failedList = filtered.length ? filtered.map(obj => {
+          if (typeof strikeCol === 'number') {
+            const rawStrike = (obj.row[strikeCol] || '').toString().trim();
+            const cur = Number(rawStrike) || 0;
+            const next = Math.min(cur + 1, 3);
+            return `- ${obj.name} **|** Strike ${next}`;
+          }
+          return `- ${obj.name}`;
+        }).join("\n") : "- None";
         const agent = topName ? `- ${topName}` : "- None";
 
         const channelId = config.GAME_QUOTA_CHANNEL_ID || config.TARGET_CHANNEL_ID;
@@ -107,7 +128,15 @@ module.exports = {
       const pingRoleId = config.GAME_QUOTA_PING_ROLE_ID || null;
       const rolePing = pingRoleId ? `<@&${pingRoleId}>` : "";
 
-      const failedList = failed.length ? failed.map(n => `- ${n}`).join("\n") : "- None";
+      const failedList = failed.length ? failed.map(obj => {
+        if (typeof strikeCol === 'number') {
+          const rawStrike = (obj.row[strikeCol] || '').toString().trim();
+          const cur = Number(rawStrike) || 0;
+          const next = Math.min(cur + 1, 3);
+          return `- ${obj.name} **|** Strike ${next}`;
+        }
+        return `- ${obj.name}`;
+      }).join("\n") : "- None";
       const agent = topName ? `- ${topName}` : "- None";
 
       const content = `# <:osi:1448992108500357150> Quota Check <:osi:1448992108500357150> #\n${rolePing}\n\nThis week's quota has been reset! Here are the people who failed, and have recieved one strike:\n${failedList}\n\n**Agent of the week:**\n${agent}\n\n*The roster will be manually reset shortly.*`;

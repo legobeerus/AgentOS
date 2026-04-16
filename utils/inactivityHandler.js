@@ -35,6 +35,11 @@ function parseRange(range) {
   return { sheetName: m[1], startCol: m[2], startRow: Number(m[3]) };
 }
 
+function stripLeadingApostrophe(s) {
+  if (s === undefined || s === null) return s;
+  return String(s).replace(/^[\u0027\u2018\u2019]+/, '');
+}
+
 async function setEndDateForUser({ discordId, username }, endDateStr) {
   if (!config.GOOGLE_SHEET_ID) throw new Error('Google sheet not configured');
   const range = config.TIME_LOG_SHEET_RANGE;
@@ -47,20 +52,25 @@ async function setEndDateForUser({ discordId, username }, endDateStr) {
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
-    const cellName = (row[config.TIME_LOG_NAME_COL] || "").toString().trim();
+    const cellNameRaw = (row[config.TIME_LOG_NAME_COL] || "").toString();
+    const cellName = stripLeadingApostrophe(cellNameRaw).trim();
     if (!cellName) continue;
-    if (username && cellName.toLowerCase() === String(username).toLowerCase()) {
+    if (username && stripLeadingApostrophe(String(username)).toLowerCase() === cellName.toLowerCase()) {
       const startColIndex = colLetterToIndex(parsed.startCol);
       const targetColIndex = startColIndex + config.TIME_LOG_ENDDATE_COL;
       const targetColLetter = indexToColLetter(targetColIndex);
       const targetRowNumber = parsed.startRow + i;
       const targetA1 = `${parsed.sheetName}!${targetColLetter}${targetRowNumber}`;
 
+      // Log exactly what we're about to write so we can diagnose stray characters
+      try { console.log('Writing end date to sheet:', targetA1, JSON.stringify(endDateStr)); } catch (e) {}
+      // If the endDateStr was prefixed with an apostrophe inadvertently, strip it before writing
+      const outVal = stripLeadingApostrophe(endDateStr);
       await sheets.spreadsheets.values.update({
         spreadsheetId: config.GOOGLE_SHEET_ID,
         range: targetA1,
         valueInputOption: 'RAW',
-        resource: { values: [[endDateStr]] }
+        resource: { values: [[outVal]] }
       });
 
       return { row: targetRowNumber, col: targetColLetter };

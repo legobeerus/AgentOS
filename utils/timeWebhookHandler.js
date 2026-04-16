@@ -1,5 +1,6 @@
 const config = require("../config");
 const { google } = require("googleapis");
+const verificationStore = require('./verificationStore');
 
 function colLetterToIndex(letter) {
   let index = 0;
@@ -23,6 +24,11 @@ function parseRange(range) {
   const m = range.match(/^([^!]+)!([A-Z]+)(\d+)(?::[A-Z]+\d+)?$/);
   if (!m) return null;
   return { sheetName: m[1], startCol: m[2], startRow: Number(m[3]) };
+}
+
+function stripLeadingApostrophe(s) {
+  if (s === undefined || s === null) return s;
+  return String(s).replace(/^[\u0027\u2018\u2019]+/, '');
 }
 
 async function getSheets() {
@@ -71,6 +77,7 @@ async function updateMinutesForUser(username, minutesToAdd) {
 
       // Debug: log current/updated values and target A1 ranges
       console.log(`Updating sheet for ${username}: weekly ${currentWeekly} -> ${updatedWeekly} (${weeklyA1}), total ${currentTotal} -> ${updatedTotal} (${totalA1})`);
+      try { console.log('Writing values:', weeklyA1, JSON.stringify(String(updatedWeekly)), totalA1, JSON.stringify(String(updatedTotal))); } catch (e) {}
       try {
         const resp = await sheets.spreadsheets.values.batchUpdate({
           spreadsheetId: config.GOOGLE_SHEET_ID,
@@ -134,36 +141,58 @@ async function handleTimeWebhookMessage(message) {
       const probNames = String(config.PROBATION_RANK_NAMES || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
       const rank = parsed.rank ? String(parsed.rank).toLowerCase() : '';
       if (rank && probNames.some(pn => rank.includes(pn))) {
-        // Attempt to resolve a guild member for role checking
+        // Attempt to resolve a guild member for role checking. Prefer verified binding (Roblox->Discord).
         let member = null;
-        // First, look for a direct mention in the message
-        const mentionMatch = message.content.match(/<@!?(\d+)>/);
-        if (mentionMatch && message.guild) {
-          const id = mentionMatch[1];
-          member = await message.guild.members.fetch(id).catch(() => null);
-        }
-        // Fallback: try to find by username in guild cache
-        if (!member && message.guild) {
-          const uname = parsed.username;
-          member = message.guild.members.cache.find(m => (m.user.username && m.user.username.toLowerCase() === String(uname).toLowerCase()) || (m.user.tag && m.user.tag.toLowerCase().startsWith(String(uname).toLowerCase())) ) || null;
-        }
+        try {
+          if (message.guild) {
+            // Try verification store first
+            const v = await verificationStore.getByRoblox(parsed.username).catch(() => null);
+            if (v && v.discord_id) {
+              member = await message.guild.members.fetch(v.discord_id).catch(() => null);
+            }
+            // Fallback: direct mention in message
+            if (!member) {
+              const mentionMatch = message.content.match(/<@!?(\d+)>/);
+              if (mentionMatch) member = await message.guild.members.fetch(mentionMatch[1]).catch(() => null);
+            }
+            // Final fallback: find by username/tag in cache
+            if (!member) {
+              const uname = parsed.username;
+              member = message.guild.members.cache.find(m => (m.user.username && m.user.username.toLowerCase() === String(uname).toLowerCase()) || (m.user.tag && m.user.tag.toLowerCase().startsWith(String(uname).toLowerCase())) ) || null;
+            }
 
-        if (member) {
-          const suspicious = String(config.PROBATION_SUSPICIOUS_ROLE_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
-          for (const rid of suspicious) {
-            if (member.roles.cache.has(rid)) {
-              // send alert
-              const alertChanId = config.PROBATION_ALERT_CHANNEL_ID || config.LOG_CHANNEL_ID;
-              const chan = await message.client.channels.fetch(alertChanId).catch(() => null);
-              const roleName = message.guild.roles.cache.get(rid)?.name || rid;
-              const alertTxt = `Unauthorized probationary agent on-site: ${member.user.tag} (<@${member.user.id}>) — triggering role: ${roleName} (<@&${rid}>) — Rank: ${parsed.rank}`;
-              if (chan) await chan.send({ content: alertTxt }).catch(() => null);
-              console.log('Probation alert sent:', alertTxt);
-              break;
+            if (member) {
+              // Check for missing required roles
+              const required = String(config.PROBATION_REQUIRED_ROLE_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
+              const missing = required.filter(rid => !member.roles.cache.has(rid));
+              if (missing.length) {
+                const alertChanId = config.PROBATION_ALERT_CHANNEL_ID || config.LOG_CHANNEL_ID;
+                const chan = await message.client.channels.fetch(alertChanId).catch(() => null);
+                const missingNames = missing.map(rid => message.guild.roles.cache.get(rid)?.name || rid).join(', ');
+                const alertTxt = `Probationary agent missing required roles: ${member.user.tag} (<@${member.user.id}>) — missing: ${missingNames} — Rank: ${parsed.rank}`;
+                if (chan) await chan.send({ content: alertTxt }).catch(() => null);
+                console.log('Probation missing-roles alert sent:', alertTxt);
+              }
+
+              // Also keep prior suspicious-role detection
+              const suspicious = String(config.PROBATION_SUSPICIOUS_ROLE_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
+              for (const rid of suspicious) {
+                if (member.roles.cache.has(rid)) {
+                  const alertChanId = config.PROBATION_ALERT_CHANNEL_ID || config.LOG_CHANNEL_ID;
+                  const chan = await message.client.channels.fetch(alertChanId).catch(() => null);
+                  const roleName = message.guild.roles.cache.get(rid)?.name || rid;
+                  const alertTxt = `Unauthorized probationary agent on-site: ${member.user.tag} (<@${member.user.id}>) — triggering role: ${roleName} (<@&${rid}>) — Rank: ${parsed.rank}`;
+                  if (chan) await chan.send({ content: alertTxt }).catch(() => null);
+                  console.log('Probation alert sent:', alertTxt);
+                  break;
+                }
+              }
+            } else {
+              console.log('Probationary user detected but could not resolve guild member to check roles:', parsed.username);
             }
           }
-        } else {
-          console.log('Probationary user detected but could not resolve guild member to check roles:', parsed.username);
+        } catch (err) {
+          console.error('Probation detection error:', err);
         }
       }
     } catch (err) {
