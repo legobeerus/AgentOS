@@ -194,10 +194,23 @@ async function handleTimeWebhookMessage(message) {
 
             if (member) {
               console.log('Resolved guild member for probation check:', { id: member.user.id, tag: member.user.tag });
+              // Force-fetch fresh member data to ensure role cache is up-to-date
+              try { member = await message.guild.members.fetch(member.user.id).catch(() => member); } catch (e) { /* ignore */ }
+              // Log member roles briefly for diagnosis
+              try {
+                const roleList = Array.from(member.roles.cache.values()).map(r => `${r.id}:${r.name}`);
+                console.log('Member roles:', roleList.slice(0,50));
+              } catch (e) { /* ignore logging errors */ }
                 // First, check suspicious roles (highest priority). If any found, alert with those.
-                const suspicious = String(config.PROBATION_SUSPICIOUS_ROLE_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
-                console.log('Suspicious role ids:', suspicious);
-                const matchedSuspicious = suspicious.map(rid => ({ id: rid, name: message.guild.roles.cache.get(rid)?.name || rid, has: !!member.roles.cache.has(rid) })).filter(x => x.has);
+                const suspiciousTokens = String(config.PROBATION_SUSPICIOUS_ROLE_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
+                console.log('Suspicious role tokens:', suspiciousTokens);
+                const matchedSuspicious = suspiciousTokens.map(tok => {
+                  const role = message.guild.roles.cache.get(tok) || message.guild.roles.cache.find(r => r.name.toLowerCase() === String(tok).toLowerCase());
+                  const id = role ? role.id : tok;
+                  const name = role ? role.name : tok;
+                  const has = !!member.roles.cache.has(id);
+                  return { id, name, has };
+                }).filter(x => x.has);
                 if (matchedSuspicious.length > 0) {
                   const alertChanId = config.PROBATION_ALERT_CHANNEL_ID || config.LOG_CHANNEL_ID;
                   const chan = await message.client.channels.fetch(alertChanId).catch(() => null);
@@ -220,9 +233,15 @@ async function handleTimeWebhookMessage(message) {
                   }
                 } else {
                   // No suspicious roles — check required roles (pass if member has ANY of them). If none present, alert with missing list.
-                  const required = String(config.PROBATION_REQUIRED_ROLE_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
-                  console.log('Required role ids:', required);
-                  const requiredInfo = required.map(rid => ({ id: rid, name: message.guild.roles.cache.get(rid)?.name || rid, has: !!member.roles.cache.has(rid) }));
+                  const requiredTokens = String(config.PROBATION_REQUIRED_ROLE_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
+                  console.log('Required role tokens:', requiredTokens);
+                  const requiredInfo = requiredTokens.map(tok => {
+                    const role = message.guild.roles.cache.get(tok) || message.guild.roles.cache.find(r => r.name.toLowerCase() === String(tok).toLowerCase());
+                    const id = role ? role.id : tok;
+                    const name = role ? role.name : tok;
+                    const has = !!member.roles.cache.has(id);
+                    return { id, name, has };
+                  });
                   console.log('Required role details for member:', requiredInfo);
                   const hasAnyRequired = requiredInfo.some(r => r.has);
                   console.log('Has any required role:', hasAnyRequired);
