@@ -273,7 +273,38 @@ async function handleTimeWebhookMessage(message) {
                     const chan = await message.client.channels.fetch(alertChanId).catch(() => null);
                     const requiredNames = requiredInfo.map(x => x.name).join(', ');
                     const alertTxt = `ALERT: Probationary agent missing required roles has joined OSI. Missing roles: ${requiredNames} — ${member.user.tag} (<@${member.user.id}>) — Rank: ${parsed.rank}`;
-                    if (chan) {
+                      // Diagnostic: try fetching the role objects by ID and re-fetch member after short delay
+                      try {
+                        for (const r of requiredInfo) {
+                          try {
+                            const fetchedRole = await message.guild.roles.fetch(r.id).catch(() => null);
+                            console.log(`Diagnostic: fetched role ${r.id} ->`, fetchedRole ? fetchedRole.name : null);
+                          } catch (e) { console.warn('Diagnostic: role fetch failed for', r.id, e); }
+                        }
+                        // Wait a moment for role sync to propagate, then re-fetch member and re-evaluate
+                        await new Promise(res => setTimeout(res, 1000));
+                        try {
+                          const refetched = await message.guild.members.fetch(member.user.id, { force: true }).catch(() => null);
+                          if (refetched) {
+                            const reInfo = requiredTokens.map(tok => {
+                              const role = resolveRoleToken(tok, message.guild);
+                              const id = role ? role.id : String(tok).trim();
+                              const name = role ? role.name : String(tok).trim();
+                              const has = !!refetched.roles.cache.has(id);
+                              return { id, name, has };
+                            });
+                            console.log('Diagnostic: rechecked required role details for member:', reInfo);
+                            const reHasAny = reInfo.some(r => r.has);
+                            if (reHasAny) {
+                              console.log('Diagnostic: member gained required role after recheck, skipping alert for', member.user.id);
+                              return;
+                            }
+                          }
+                        } catch (e) { console.warn('Diagnostic: member re-fetch failed', e); }
+                      } catch (e) {
+                        console.warn('Diagnostic: error during role recheck', e);
+                      }
+                      if (chan) {
                       const embed = new EmbedBuilder()
                         .setTitle('Probation Alert')
                         .setColor(config.EMBED_COLOR || 0xffa500)
