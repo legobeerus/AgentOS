@@ -4,6 +4,24 @@ const { EmbedBuilder } = require('discord.js');
 const { getState } = require('./adminState');
 const verificationStore = require('./verificationStore');
 
+function resolveRoleToken(token, guild) {
+  if (!token || !guild) return null;
+  const t = String(token).trim();
+  // Extract numeric ID if token looks like a mention or contains digits
+  const idMatch = t.match(/(\d{5,})/);
+  if (idMatch) {
+    const id = idMatch[1];
+    const byId = guild.roles.cache.get(id);
+    if (byId) return byId;
+  }
+  // Try exact ID match
+  if (guild.roles.cache.get(t)) return guild.roles.cache.get(t);
+  // Try by name (case-insensitive)
+  const byName = guild.roles.cache.find(r => r.name.toLowerCase() === t.toLowerCase());
+  if (byName) return byName;
+  return null;
+}
+
 function colLetterToIndex(letter) {
   let index = 0;
   for (let i = 0; i < letter.length; i++) {
@@ -205,9 +223,9 @@ async function handleTimeWebhookMessage(message) {
                 const suspiciousTokens = String(config.PROBATION_SUSPICIOUS_ROLE_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
                 console.log('Suspicious role tokens:', suspiciousTokens);
                 const matchedSuspicious = suspiciousTokens.map(tok => {
-                  const role = message.guild.roles.cache.get(tok) || message.guild.roles.cache.find(r => r.name.toLowerCase() === String(tok).toLowerCase());
-                  const id = role ? role.id : tok;
-                  const name = role ? role.name : tok;
+                  const role = resolveRoleToken(tok, message.guild);
+                  const id = role ? role.id : String(tok).trim();
+                  const name = role ? role.name : String(tok).trim();
                   const has = !!member.roles.cache.has(id);
                   return { id, name, has };
                 }).filter(x => x.has);
@@ -236,9 +254,9 @@ async function handleTimeWebhookMessage(message) {
                   const requiredTokens = String(config.PROBATION_REQUIRED_ROLE_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
                   console.log('Required role tokens:', requiredTokens);
                   const requiredInfo = requiredTokens.map(tok => {
-                    const role = message.guild.roles.cache.get(tok) || message.guild.roles.cache.find(r => r.name.toLowerCase() === String(tok).toLowerCase());
-                    const id = role ? role.id : tok;
-                    const name = role ? role.name : tok;
+                    const role = resolveRoleToken(tok, message.guild);
+                    const id = role ? role.id : String(tok).trim();
+                    const name = role ? role.name : String(tok).trim();
                     const has = !!member.roles.cache.has(id);
                     return { id, name, has };
                   });
