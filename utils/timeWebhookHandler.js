@@ -236,25 +236,8 @@ async function handleTimeWebhookMessage(message) {
                   return { id, name, has };
                 }).filter(x => x.has);
                 if (matchedSuspicious.length > 0) {
-                  const alertChanId = config.PROBATION_ALERT_CHANNEL_ID || config.LOG_CHANNEL_ID;
-                  const chan = await message.client.channels.fetch(alertChanId).catch(() => null);
-                  const names = matchedSuspicious.map(x => x.name).join(', ');
-                  const alertTxt = `ALERT: Probationary agent with prohibited roles has joined OSI. Has the following roles: ${names} — ${member.user.tag} (<@${member.user.id}>) — Rank: ${parsed.rank}`;
-                  if (chan) {
-                    const embed = new EmbedBuilder()
-                      .setTitle('Probation Alert')
-                      .setColor(config.EMBED_COLOR || 0xffa500)
-                      .setDescription(`Probationary agent with prohibited roles has joined OSI. Has the following roles: ${names}`)
-                      .addFields(
-                        { name: 'Member', value: `${member.user.tag} (<@${member.user.id}>)`, inline: true },
-                        { name: 'Rank', value: parsed.rank || 'Unknown', inline: true }
-                      )
-                      .setTimestamp();
-                    await chan.send({ embeds: [embed] }).catch(e => console.error('Failed to send probation suspicious-role alert:', e));
-                    console.log('Probation suspicious-role alert sent (embed):', names, member.user.id);
-                  } else {
-                    console.warn('Probation alert channel not found:', alertChanId);
-                  }
+                  // Detected suspicious roles — defer to probationWatcher via pending registration
+                  console.log('Detected suspicious roles; deferring alert to probationWatcher:', matchedSuspicious.map(x => x.name).join(', '));
                 } else {
                   // No suspicious roles — check required roles (pass if member has ANY of them). If none present, alert with missing list.
                   const requiredTokens = String(config.PROBATION_REQUIRED_ROLE_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
@@ -270,55 +253,37 @@ async function handleTimeWebhookMessage(message) {
                   const hasAnyRequired = requiredInfo.some(r => r.has);
                   console.log('Has any required role:', hasAnyRequired);
                   if (!hasAnyRequired) {
-                    const alertChanId = config.PROBATION_ALERT_CHANNEL_ID || config.LOG_CHANNEL_ID;
-                    const chan = await message.client.channels.fetch(alertChanId).catch(() => null);
-                    const requiredNames = requiredInfo.map(x => x.name).join(', ');
-                    const alertTxt = `ALERT: Probationary agent missing required roles has joined OSI. Missing roles: ${requiredNames} — ${member.user.tag} (<@${member.user.id}>) — Rank: ${parsed.rank}`;
-                      // Diagnostic: try fetching the role objects by ID and re-fetch member after short delay
-                      try {
-                        for (const r of requiredInfo) {
-                          try {
-                            const fetchedRole = await message.guild.roles.fetch(r.id).catch(() => null);
-                            console.log(`Diagnostic: fetched role ${r.id} ->`, fetchedRole ? fetchedRole.name : null);
-                          } catch (e) { console.warn('Diagnostic: role fetch failed for', r.id, e); }
-                        }
-                        // Wait a moment for role sync to propagate, then re-fetch member and re-evaluate
-                        await new Promise(res => setTimeout(res, 1000));
+                    // Missing required roles — defer to probationWatcher via pending registration
+                    console.log('Member missing required roles; deferring alert to probationWatcher:', requiredInfo.map(x => x.name).join(', '));
+                    // Diagnostic recheck remains in place below (will still run), but final alert is sent by probationWatcher
+                    try {
+                      for (const r of requiredInfo) {
                         try {
-                          const refetched = await message.guild.members.fetch(member.user.id, { force: true }).catch(() => null);
-                          if (refetched) {
-                            const reInfo = requiredTokens.map(tok => {
-                              const role = resolveRoleToken(tok, message.guild);
-                              const id = role ? role.id : String(tok).trim();
-                              const name = role ? role.name : String(tok).trim();
-                              const has = !!refetched.roles.cache.has(id);
-                              return { id, name, has };
-                            });
-                            console.log('Diagnostic: rechecked required role details for member:', reInfo);
-                            const reHasAny = reInfo.some(r => r.has);
-                            if (reHasAny) {
-                              console.log('Diagnostic: member gained required role after recheck, skipping alert for', member.user.id);
-                              return;
-                            }
-                          }
-                        } catch (e) { console.warn('Diagnostic: member re-fetch failed', e); }
-                      } catch (e) {
-                        console.warn('Diagnostic: error during role recheck', e);
+                          const fetchedRole = await message.guild.roles.fetch(r.id).catch(() => null);
+                          console.log(`Diagnostic: fetched role ${r.id} ->`, fetchedRole ? fetchedRole.name : null);
+                        } catch (e) { console.warn('Diagnostic: role fetch failed for', r.id, e); }
                       }
-                      if (chan) {
-                      const embed = new EmbedBuilder()
-                        .setTitle('Probation Alert')
-                        .setColor(config.EMBED_COLOR || 0xffa500)
-                        .setDescription(`Probationary agent missing required roles has joined OSI. Missing roles: ${requiredNames}`)
-                        .addFields(
-                          { name: 'Member', value: `${member.user.tag} (<@${member.user.id}>)`, inline: true },
-                          { name: 'Rank', value: parsed.rank || 'Unknown', inline: true }
-                        )
-                        .setTimestamp();
-                      await chan.send({ embeds: [embed] }).catch(e => console.error('Failed to send probation missing-roles alert:', e));
-                      console.log('Probation missing-roles alert sent (embed):', requiredNames, member.user.id);
-                    } else {
-                      console.warn('Probation alert channel not found:', alertChanId);
+                      await new Promise(res => setTimeout(res, 1000));
+                      try {
+                        const refetched = await message.guild.members.fetch(member.user.id, { force: true }).catch(() => null);
+                        if (refetched) {
+                          const reInfo = requiredTokens.map(tok => {
+                            const role = resolveRoleToken(tok, message.guild);
+                            const id = role ? role.id : String(tok).trim();
+                            const name = role ? role.name : String(tok).trim();
+                            const has = !!refetched.roles.cache.has(id);
+                            return { id, name, has };
+                          });
+                          console.log('Diagnostic: rechecked required role details for member:', reInfo);
+                          const reHasAny = reInfo.some(r => r.has);
+                          if (reHasAny) {
+                            console.log('Diagnostic: member gained required role after recheck, skipping alert for', member.user.id);
+                            return;
+                          }
+                        }
+                      } catch (e) { console.warn('Diagnostic: member re-fetch failed', e); }
+                    } catch (e) {
+                      console.warn('Diagnostic: error during role recheck', e);
                     }
                   }
                 }
