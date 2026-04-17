@@ -197,12 +197,16 @@ async function handleTimeWebhookMessage(message) {
             try { v = await verificationStore.getByRoblox(parsed.username); } catch (e) { console.warn('verificationStore.getByRoblox failed:', e); }
             console.log('verification lookup result for', parsed.username, v ? { discord_id: v.discord_id, roblox_userid: v.roblox_userid } : null);
             if (v && v.discord_id) {
-              member = await message.guild.members.fetch(v.discord_id).catch(() => null);
+              member = await message.guild.members.fetch(v.discord_id, { force: true }).catch(() => null);
+              if (member) console.log('Fetched member by verification id (force):', member.user.id);
             }
             // Fallback: direct mention in message
             if (!member) {
               const mentionMatch = message.content.match(/<@!?(\d+)>/);
-              if (mentionMatch) member = await message.guild.members.fetch(mentionMatch[1]).catch(() => null);
+              if (mentionMatch) {
+                member = await message.guild.members.fetch(mentionMatch[1], { force: true }).catch(() => null);
+                if (member) console.log('Fetched member by mention (force):', member.user.id);
+              }
             }
             // Final fallback: find by username/tag in cache
             if (!member) {
@@ -213,7 +217,8 @@ async function handleTimeWebhookMessage(message) {
             if (member) {
               console.log('Resolved guild member for probation check:', { id: member.user.id, tag: member.user.tag });
               // Force-fetch fresh member data to ensure role cache is up-to-date
-              try { member = await message.guild.members.fetch(member.user.id).catch(() => member); } catch (e) { /* ignore */ }
+              try { member = await message.guild.members.fetch(member.user.id, { force: true }).catch(() => member); } catch (e) { /* ignore */ }
+              try { console.log('Post-fetch member roles count:', member.roles.cache.size); } catch (e) { /* ignore */ }
               // Log member roles briefly for diagnosis
               try {
                 const roleList = Array.from(member.roles.cache.values()).map(r => `${r.id}:${r.name}`);
