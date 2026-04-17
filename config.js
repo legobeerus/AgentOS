@@ -56,6 +56,8 @@ module.exports = {
     PROBATION_REQUIRED_ROLE_IDS: process.env.PROBATION_REQUIRED_ROLE_IDS || "1449837003188342916,1482810978059161610",
     // Channel to post probation alerts
     PROBATION_ALERT_CHANNEL_ID: process.env.PROBATION_ALERT_CHANNEL_ID || "1041577711845519384",
+    // Optional: a temporary role ID that the bot can add/remove to force a guildMemberUpdate
+    PROBATION_TEMP_ROLE_ID: process.env.PROBATION_TEMP_ROLE_ID || '',
   // Role to ping in quota reports (separate from general PING_ROLE_ID)
   GAME_QUOTA_PING_ROLE_ID: process.env.GAME_QUOTA_PING_ROLE_ID || "1041577710067138561",
   // Channel where inactivity notices are posted for staff review

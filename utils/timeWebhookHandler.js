@@ -3,6 +3,7 @@ const { google } = require("googleapis");
 const { EmbedBuilder } = require('discord.js');
 const { getState } = require('./adminState');
 const verificationStore = require('./verificationStore');
+const probationStore = require('./probationStore');
 
 function resolveRoleToken(token, guild) {
   if (!token || !guild) return null;
@@ -38,10 +39,6 @@ function indexToColLetter(index) {
   }
   return s;
 }
-
-// In-memory cooldowns to avoid duplicate alerts for the same member/username
-const probationCooldowns = new Map(); // key -> timestamp ms
-function sleep(ms) { return new Promise(res => setTimeout(res, ms)); }
 
 function parseRange(range) {
   // Expect formats like 'Sheet1!A2:C1000' or 'Sheet Name' variations
@@ -192,155 +189,176 @@ async function handleTimeWebhookMessage(message) {
       const rank = parsed.rank ? String(parsed.rank).toLowerCase() : '';
       console.log('Probation check:', { username: parsed.username, rank: parsed.rank, probNames });
       if (rank && probNames.some(pn => rank.includes(pn))) {
-        if (!message.guild) {
-          console.log('Probationary user but message not in a guild, skipping role checks.');
-          return;
-        }
-
-        const attempts = Number(config.PROBATION_RECHECK_ATTEMPTS || 3);
-        const delayMs = Number(config.PROBATION_RECHECK_DELAY_MS || 1500);
-        const cooldownMs = Number(config.PROBATION_ALERT_COOLDOWN_MS || 5 * 60 * 1000);
-
-        // Resolve initial candidate discord id via verification or mention/cache
-        async function resolveCandidate() {
-          let member = null;
-          try {
-            const v = await verificationStore.getByRoblox(parsed.username).catch(() => null);
+        // Attempt to resolve a guild member for role checking. Prefer verified binding (Roblox->Discord).
+        let member = null;
+        try {
+          if (message.guild) {
+            // Try verification store first
+            let v = null;
+            try { v = await verificationStore.getByRoblox(parsed.username); } catch (e) { console.warn('verificationStore.getByRoblox failed:', e); }
+            console.log('verification lookup result for', parsed.username, v ? { discord_id: v.discord_id, roblox_userid: v.roblox_userid } : null);
             if (v && v.discord_id) {
               member = await message.guild.members.fetch(v.discord_id, { force: true }).catch(() => null);
-              if (member) return member;
+              if (member) console.log('Fetched member by verification id (force):', member.user.id);
             }
-          } catch (e) { /* ignore */ }
-
-          // Mention fallback
-          const mentionMatch = message.content.match(/<@!?(\d+)>/);
-          if (mentionMatch) {
-            const m = await message.guild.members.fetch(mentionMatch[1]).catch(() => null);
-            if (m) return m;
-          }
-
-          // Try cached find
-          const uname = parsed.username;
-          const cached = message.guild.members.cache.find(m => (m.user.username && m.user.username.toLowerCase() === String(uname).toLowerCase()) || (m.user.tag && m.user.tag.toLowerCase().startsWith(String(uname).toLowerCase())) ) || null;
-          if (cached) return cached;
-
-          // Last resort: try a search fetch by query
-          try {
-            const found = await message.guild.members.fetch({ query: parsed.username, limit: 1 }).catch(() => null);
-            if (found && found.size > 0) return found.first();
-          } catch (e) { /* ignore */ }
-          return null;
-        }
-
-        const alertChanId = config.PROBATION_ALERT_CHANNEL_ID || config.LOG_CHANNEL_ID;
-        const chan = await message.client.channels.fetch(alertChanId).catch(() => null);
-
-        let member = await resolveCandidate();
-        // If we have an id or tag to key cooldowns, use that; otherwise fall back to username
-        const cooldownKey = member ? `id:${member.user.id}` : `name:${parsed.username.toLowerCase()}`;
-        const lastAlert = probationCooldowns.get(cooldownKey) || 0;
-        if (Date.now() - lastAlert < cooldownMs) {
-          console.log('Probation alert suppressed by cooldown for', cooldownKey);
-          return;
-        }
-
-        let finalAlertSent = false;
-        for (let attempt = 0; attempt < attempts; attempt++) {
-          try {
-            if (member && member.user && member.user.id) {
-              // refresh member to get latest roles
-              member = await message.guild.members.fetch(member.user.id, { force: true }).catch(() => member);
-            } else {
-              // try to resolve if we didn't have a member earlier
-              member = await resolveCandidate();
+            // Fallback: direct mention in message
+            if (!member) {
+              const mentionMatch = message.content.match(/<@!?(\d+)>/);
+              if (mentionMatch) {
+                member = await message.guild.members.fetch(mentionMatch[1], { force: true }).catch(() => null);
+                if (member) console.log('Fetched member by mention (force):', member.user.id);
+              }
             }
-
-            // Determine suspicious roles
-            const suspiciousTokens = String(config.PROBATION_SUSPICIOUS_ROLE_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
-            const requiredTokens = String(config.PROBATION_REQUIRED_ROLE_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
-
-            const matchedSuspicious = [];
-            const requiredInfo = [];
+            // Final fallback: find by username/tag in cache
+            if (!member) {
+              const uname = parsed.username;
+              member = message.guild.members.cache.find(m => (m.user.username && m.user.username.toLowerCase() === String(uname).toLowerCase()) || (m.user.tag && m.user.tag.toLowerCase().startsWith(String(uname).toLowerCase())) ) || null;
+            }
 
             if (member) {
-              for (const tok of suspiciousTokens) {
-                const role = resolveRoleToken(tok, message.guild);
-                const id = role ? role.id : String(tok).trim();
-                const name = role ? role.name : String(tok).trim();
-                if (member.roles.cache.has(id)) matchedSuspicious.push({ id, name });
-              }
-
-              for (const tok of requiredTokens) {
-                const role = resolveRoleToken(tok, message.guild);
-                const id = role ? role.id : String(tok).trim();
-                const name = role ? role.name : String(tok).trim();
-                const has = !!member.roles.cache.has(id);
-                requiredInfo.push({ id, name, has });
-              }
-            }
-
-            if (matchedSuspicious.length > 0) {
-              // Send suspicious-role alert immediately
-              const names = matchedSuspicious.map(x => x.name).join(', ');
-              if (chan) {
-                const embed = new EmbedBuilder()
-                  .setTitle('Probation Alert')
-                  .setColor(config.EMBED_COLOR || 0xffa500)
-                  .setDescription(`Probationary agent with prohibited roles has joined OSI. Has the following roles: ${names}`)
-                  .addFields(
-                    { name: 'Member', value: member ? `${member.user.tag} (<@${member.user.id}>)` : parsed.username, inline: true },
-                    { name: 'Rank', value: parsed.rank || 'Unknown', inline: true }
-                  )
-                  .setTimestamp();
-                await chan.send({ embeds: [embed] }).catch(e => console.error('Failed to send probation suspicious-role alert:', e));
-                console.log('Probation suspicious-role alert sent (embed):', names, member ? member.user.id : parsed.username);
-              }
-              probationCooldowns.set(cooldownKey, Date.now());
-              finalAlertSent = true;
-              break;
-            }
-
-            const hasAnyRequired = requiredInfo.some(r => r.has);
-            if (hasAnyRequired) {
-              console.log('Member has at least one required role, no alert needed for', member ? member.user.id : parsed.username);
-              // Don't alert; update cooldown to avoid rechecking for a short period
-              probationCooldowns.set(cooldownKey, Date.now());
-              finalAlertSent = false;
-              break;
-            }
-
-            // If this was the last attempt, send missing-roles alert
-            if (attempt === attempts - 1) {
-              const requiredNames = requiredInfo.map(x => x.name).filter(Boolean).join(', ') || requiredTokens.join(', ');
-              if (chan) {
-                const embed = new EmbedBuilder()
-                  .setTitle('Probation Alert')
-                  .setColor(config.EMBED_COLOR || 0xffa500)
-                  .setDescription(`Probationary agent missing required roles has joined OSI. Missing roles: ${requiredNames}`)
-                  .addFields(
-                    { name: 'Member', value: member ? `${member.user.tag} (<@${member.user.id}>)` : parsed.username, inline: true },
-                    { name: 'Rank', value: parsed.rank || 'Unknown', inline: true }
-                  )
-                  .setTimestamp();
-                await chan.send({ embeds: [embed] }).catch(e => console.error('Failed to send probation missing-roles alert:', e));
-                console.log('Probation missing-roles alert sent (embed):', requiredNames, member ? member.user.id : parsed.username);
-              } else {
-                console.warn('Probation alert channel not found:', alertChanId);
-              }
-              probationCooldowns.set(cooldownKey, Date.now());
-              finalAlertSent = true;
-              break;
-            }
-
-            // otherwise wait and retry
-            await sleep(delayMs);
-          } catch (e) {
-            console.warn('Probation recheck attempt failed:', e);
-            if (attempt === attempts - 1) {
-              // on final failure, set cooldown to avoid spamming errors
-              probationCooldowns.set(cooldownKey, Date.now());
+              console.log('Resolved guild member for probation check:', { id: member.user.id, tag: member.user.tag });
+              // Force-fetch fresh member data to ensure role cache is up-to-date
+              try { member = await message.guild.members.fetch(member.user.id, { force: true }).catch(() => member); } catch (e) { /* ignore */ }
+              try { console.log('Post-fetch member roles count:', member.roles.cache.size); } catch (e) { /* ignore */ }
+              // Log member roles briefly for diagnosis
+              try {
+                const roleList = Array.from(member.roles.cache.values()).map(r => `${r.id}:${r.name}`);
+                console.log('Member roles:', roleList.slice(0,50));
+              } catch (e) { /* ignore logging errors */ }
+                // First, check suspicious roles (highest priority). If any found, alert with those.
+                const suspiciousTokens = String(config.PROBATION_SUSPICIOUS_ROLE_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
+                console.log('Suspicious role tokens:', suspiciousTokens);
+                const matchedSuspicious = suspiciousTokens.map(tok => {
+                  const role = resolveRoleToken(tok, message.guild);
+                  const id = role ? role.id : String(tok).trim();
+                  const name = role ? role.name : String(tok).trim();
+                  const has = !!member.roles.cache.has(id);
+                  return { id, name, has };
+                }).filter(x => x.has);
+                if (matchedSuspicious.length > 0) {
+                  const alertChanId = config.PROBATION_ALERT_CHANNEL_ID || config.LOG_CHANNEL_ID;
+                  const chan = await message.client.channels.fetch(alertChanId).catch(() => null);
+                  const names = matchedSuspicious.map(x => x.name).join(', ');
+                  const alertTxt = `ALERT: Probationary agent with prohibited roles has joined OSI. Has the following roles: ${names} — ${member.user.tag} (<@${member.user.id}>) — Rank: ${parsed.rank}`;
+                  if (chan) {
+                    const embed = new EmbedBuilder()
+                      .setTitle('Probation Alert')
+                      .setColor(config.EMBED_COLOR || 0xffa500)
+                      .setDescription(`Probationary agent with prohibited roles has joined OSI. Has the following roles: ${names}`)
+                      .addFields(
+                        { name: 'Member', value: `${member.user.tag} (<@${member.user.id}>)`, inline: true },
+                        { name: 'Rank', value: parsed.rank || 'Unknown', inline: true }
+                      )
+                      .setTimestamp();
+                    await chan.send({ embeds: [embed] }).catch(e => console.error('Failed to send probation suspicious-role alert:', e));
+                    console.log('Probation suspicious-role alert sent (embed):', names, member.user.id);
+                  } else {
+                    console.warn('Probation alert channel not found:', alertChanId);
+                  }
+                } else {
+                  // No suspicious roles — check required roles (pass if member has ANY of them). If none present, alert with missing list.
+                  const requiredTokens = String(config.PROBATION_REQUIRED_ROLE_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
+                  console.log('Required role tokens:', requiredTokens);
+                  const requiredInfo = requiredTokens.map(tok => {
+                    const role = resolveRoleToken(tok, message.guild);
+                    const id = role ? role.id : String(tok).trim();
+                    const name = role ? role.name : String(tok).trim();
+                    const has = !!member.roles.cache.has(id);
+                    return { id, name, has };
+                  });
+                  console.log('Required role details for member:', requiredInfo);
+                  const hasAnyRequired = requiredInfo.some(r => r.has);
+                  console.log('Has any required role:', hasAnyRequired);
+                  if (!hasAnyRequired) {
+                    const alertChanId = config.PROBATION_ALERT_CHANNEL_ID || config.LOG_CHANNEL_ID;
+                    const chan = await message.client.channels.fetch(alertChanId).catch(() => null);
+                    const requiredNames = requiredInfo.map(x => x.name).join(', ');
+                    const alertTxt = `ALERT: Probationary agent missing required roles has joined OSI. Missing roles: ${requiredNames} — ${member.user.tag} (<@${member.user.id}>) — Rank: ${parsed.rank}`;
+                      // Diagnostic: try fetching the role objects by ID and re-fetch member after short delay
+                      try {
+                        for (const r of requiredInfo) {
+                          try {
+                            const fetchedRole = await message.guild.roles.fetch(r.id).catch(() => null);
+                            console.log(`Diagnostic: fetched role ${r.id} ->`, fetchedRole ? fetchedRole.name : null);
+                          } catch (e) { console.warn('Diagnostic: role fetch failed for', r.id, e); }
+                        }
+                        // Wait a moment for role sync to propagate, then re-fetch member and re-evaluate
+                        await new Promise(res => setTimeout(res, 1000));
+                        try {
+                          const refetched = await message.guild.members.fetch(member.user.id, { force: true }).catch(() => null);
+                          if (refetched) {
+                            const reInfo = requiredTokens.map(tok => {
+                              const role = resolveRoleToken(tok, message.guild);
+                              const id = role ? role.id : String(tok).trim();
+                              const name = role ? role.name : String(tok).trim();
+                              const has = !!refetched.roles.cache.has(id);
+                              return { id, name, has };
+                            });
+                            console.log('Diagnostic: rechecked required role details for member:', reInfo);
+                            const reHasAny = reInfo.some(r => r.has);
+                            if (reHasAny) {
+                              console.log('Diagnostic: member gained required role after recheck, skipping alert for', member.user.id);
+                              return;
+                            }
+                          }
+                        } catch (e) { console.warn('Diagnostic: member re-fetch failed', e); }
+                      } catch (e) {
+                        console.warn('Diagnostic: error during role recheck', e);
+                      }
+                      if (chan) {
+                      const embed = new EmbedBuilder()
+                        .setTitle('Probation Alert')
+                        .setColor(config.EMBED_COLOR || 0xffa500)
+                        .setDescription(`Probationary agent missing required roles has joined OSI. Missing roles: ${requiredNames}`)
+                        .addFields(
+                          { name: 'Member', value: `${member.user.tag} (<@${member.user.id}>)`, inline: true },
+                          { name: 'Rank', value: parsed.rank || 'Unknown', inline: true }
+                        )
+                        .setTimestamp();
+                      await chan.send({ embeds: [embed] }).catch(e => console.error('Failed to send probation missing-roles alert:', e));
+                      console.log('Probation missing-roles alert sent (embed):', requiredNames, member.user.id);
+                    } else {
+                      console.warn('Probation alert channel not found:', alertChanId);
+                    }
+                  }
+                }
+                // Register pending probation check so memberUpdate listener can act as authoritative source
+                try {
+                  probationStore.addPending({ discordId: member.user.id, robloxUsername: parsed.username, rank: parsed.rank });
+                  console.log('Registered pending probation check for', member.user.id);
+                } catch (e) { /* ignore */ }
+                // If configured, toggle a temporary role to force a guildMemberUpdate event so our watcher runs immediately.
+                try {
+                  const tempRoleId = String(config.PROBATION_TEMP_ROLE_ID || '').trim();
+                  if (tempRoleId) {
+                    const has = !!member.roles.cache.has(tempRoleId);
+                      if (!has) {
+                        // member did not have the role: add then remove to restore original state (removed)
+                        await member.roles.add(tempRoleId, 'probation-check: trigger role update').catch(err => { console.warn('Failed to add probation temp role:', err && err.message ? err.message : err); });
+                        setTimeout(() => {
+                          member.roles.remove(tempRoleId, 'probation-check: cleanup').catch(err => { console.warn('Failed to remove probation temp role:', err && err.message ? err.message : err); });
+                        }, 800);
+                        console.log('Added then removed temp probation role to force guildMemberUpdate for', member.user.id);
+                      } else {
+                        // member already has the role: remove then re-add to preserve original state
+                        await member.roles.remove(tempRoleId, 'probation-check: trigger role update (remove)').catch(err => { console.warn('Failed to remove probation temp role (pre):', err && err.message ? err.message : err); });
+                        setTimeout(() => {
+                          member.roles.add(tempRoleId, 'probation-check: trigger role update (re-add)').catch(err => { console.warn('Failed to re-add probation temp role:', err && err.message ? err.message : err); });
+                        }, 500);
+                        console.log('Removed then re-added temp probation role to force guildMemberUpdate for', member.user.id);
+                      }
+                  }
+                } catch (e) {
+                  console.warn('Error toggling probation temp role:', e && e.message ? e.message : e);
+                }
+            } else {
+              console.log('Probationary user detected but could not resolve guild member to check roles:', parsed.username);
+                // still register by roblox username so memberUpdate can match later if verification happens
+                try { probationStore.addPending({ robloxUsername: parsed.username, rank: parsed.rank }); } catch (e) {}
             }
           }
+        } catch (err) {
+          console.error('Probation detection error:', err);
         }
       }
     } catch (err) {

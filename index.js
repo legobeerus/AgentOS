@@ -22,6 +22,7 @@ const client = new Client({
 
 const { startInactivityScheduler } = require("./utils/inactivityScheduler");
 const { startFollowupScheduler } = require("./utils/followupScheduler");
+const probationWatcher = require('./utils/probationWatcher');
 
 // Start DB keep-alive (if configured)
 startKeepAlive();
@@ -51,6 +52,8 @@ client.once("ready", () => {
   app.listen(PORT, () => {
     console.log(`Form submission server listening on port ${PORT}`);
   });
+  // Start probation watcher to handle role-change based alerts
+  try { probationWatcher.init(client); } catch (e) { console.error('Failed to init probationWatcher:', e); }
 });
 
 // Interaction handler
