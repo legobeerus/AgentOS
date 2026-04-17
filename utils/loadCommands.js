@@ -17,7 +17,7 @@ function loadCommands(client) {
     client.commands.set(command.data.name, command);
   }
 
-  console.log(`Loaded ${client.commands.size} command(s)`);
+  console.info && console.info(`Loaded ${client.commands.size} command(s)`);
 }
 
 module.exports = { loadCommands };

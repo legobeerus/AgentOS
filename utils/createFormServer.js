@@ -15,7 +15,7 @@ function createFormServer(client) {
 
   // Log all incoming requests
   app.use((req, res, next) => {
-    console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+    console.debug && console.debug(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
     next();
   });
 
@@ -32,7 +32,7 @@ function createFormServer(client) {
    * }
    */
   app.post("/form-submission", async (req, res) => {
-    console.log("📨 Form submission received:", req.body);
+    console.debug && console.debug("📨 Form submission received:", req.body);
     if (!client || !client.user) {
       console.warn("Bot not ready yet - rejecting form submission");
       return res.status(503).json({ error: "Bot not ready" });
@@ -442,13 +442,12 @@ function createFormServer(client) {
         }
         try {
           const sent = await channel.send(payload);
-          console.log(`Sent embed part ${i} to channel ${channelId} (message id: ${sent.id})`);
+          console.debug && console.debug(`Sent embed part ${i} to channel ${channelId} (message id: ${sent.id})`);
         } catch (err) {
           console.error(`Failed to send embed part ${i} to channel ${channelId}:`, err);
         }
       }
-
-      console.log("✅ Form posted to Discord successfully.");
+      console.info("✅ Form posted to Discord successfully.");
       res.status(200).json({ success: true, message: "Form submitted successfully" });
     } catch (error) {
       console.error("Error handling form submission:", error);
@@ -458,7 +457,7 @@ function createFormServer(client) {
 
   // Health check endpoint
   app.get("/health", (req, res) => {
-    console.log("✅ Health check received");
+    console.debug && console.debug("✅ Health check received");
     res.status(200).json({ status: "ok" });
   });
 

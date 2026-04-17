@@ -30,7 +30,7 @@ async function getSheetRows(range) {
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("quota-check")
-    .setDescription("Run a weekly quota check and post a report to the configured channel"),
+    .setDescription("Run a weekly quota check and post a report to the configured channel (ASK BEFORE USE)"),
 
   async execute(interaction) {
     await interaction.deferReply({ ephemeral: true });
@@ -60,7 +60,7 @@ module.exports = {
       let topName = null;
       let topMinutes = -1;
 
-      const strikeCol = (config.TIME_LOG_STRIKE_COL !== undefined && config.TIME_LOG_STRIKE_COL !== null) ? Number(config.TIME_LOG_STRIKE_COL) : undefined;
+      const strikeCol = (config.GAME_LOG_STRIKE_COL !== undefined && config.GAME_LOG_STRIKE_COL !== null) ? Number(config.GAME_LOG_STRIKE_COL) : undefined;
 
       for (const row of rows) {
         const name = (row[nameCol] || "").toString().trim();

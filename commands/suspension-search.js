@@ -1,4 +1,4 @@
-const { SlashCommandBuilder } = require("discord.js");
+const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
 const axios = require("axios");
 
 const BOARD_ID = process.env.TRELLO_SUSPENSIONS_BOARD_ID || "693f1533319531ec08ae2ff4";
@@ -19,11 +19,13 @@ module.exports = {
 	async execute(interaction) {
 		const query = (interaction.options.getString("query") || "").trim();
 		if (!query) {
-			await interaction.reply({ content: "Provide a search query.", ephemeral: false });
+			const e = new EmbedBuilder().setTitle('Suspension Search').setColor(0xed4245).setDescription('Provide a search query.');
+			await interaction.reply({ embeds: [e], ephemeral: false });
 			return;
 		}
 		if (!TRELLO_KEY || !TRELLO_TOKEN) {
-			await interaction.reply({ content: "Trello credentials are not configured.", ephemeral: false });
+			const e = new EmbedBuilder().setTitle('Suspension Search').setColor(0xed4245).setDescription('Trello credentials are not configured.');
+			await interaction.reply({ embeds: [e], ephemeral: false });
 			return;
 		}
 
@@ -54,12 +56,15 @@ module.exports = {
 			});
 
 			if (!matches.length) {
-				await interaction.editReply(`No results found for "${query}".`);
+				const no = new EmbedBuilder().setTitle('No Results').setColor(0xedd400).setDescription(`No results found for "${query}".`);
+				await interaction.editReply({ embeds: [no] });
 				return;
 			}
 
 			const MAX = 10;
-			const out = matches.slice(0, MAX).map(c => {
+			const embed = new EmbedBuilder().setTitle(`Results for "${query}"`).setColor(0x00aff1).setTimestamp(new Date());
+			const slice = matches.slice(0, MAX);
+			for (const c of slice) {
 				const listName = c.idList ? (listNameById[c.idList] || "") : "";
 				let dueText;
 				if (c.due) {
@@ -70,14 +75,15 @@ module.exports = {
 					dueText = "Permanent";
 				}
 				const labels = Array.isArray(c.labels) ? c.labels.map(l => l.name).filter(Boolean).join(", ") : "";
-				return `**${c.name}** — ${dueText}${labels ? ` — ${labels}` : ""}\n${c.url}`;
-			});
-
-			const more = matches.length > MAX ? `\n…and ${matches.length - MAX} more result(s)` : "";
-			await interaction.editReply(`Results for "${query}":\n\n${out.join("\n\n")}${more}`);
+				const value = `${dueText}${labels ? ` — ${labels}` : ""}\n${c.url}`;
+				embed.addFields({ name: String(c.name).slice(0, 256) || '(untitled)', value: value.slice(0, 1024) });
+			}
+			if (matches.length > MAX) embed.setFooter({ text: `+${matches.length - MAX} more result(s)` });
+			await interaction.editReply({ embeds: [embed] });
 		} catch (err) {
 			console.error("suspension-search error:", err);
-			await interaction.editReply("Could not search the suspensions board.");
+			const e = new EmbedBuilder().setTitle('Search Error').setColor(0xed4245).setDescription('Could not search the suspensions board.');
+			await interaction.editReply({ embeds: [e] });
 		}
 	}
 };

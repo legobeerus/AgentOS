@@ -47,6 +47,22 @@ const ERROR_CODES = {
     title: "Database error",
     description: "Failed to read or write persistent data (local file or DB). Try again later.",
   },
+  71: {
+    title: "Verification reminder persistence error",
+    description: "Failed to read or write verification reminder entries (DB or local file). Check storage configuration and logs.",
+  },
+  72: {
+    title: "Probation watcher error",
+    description: "Failed to evaluate or post probation alerts. Verify role IDs, watcher initialization, and member intent settings.",
+  },
+  73: {
+    title: "Arrest store error",
+    description: "Failed to read or write arrest records. Check database connectivity and permissions.",
+  },
+  74: {
+    title: "Follow-up scheduling error",
+    description: "Failed to schedule or deliver a follow-up message. Check scheduler logs and follow-up store.",
+  },
   80: {
     title: "Discord rate limited",
     description: "Discord returned HTTP 429 while sending or editing a message. Wait and try again.",

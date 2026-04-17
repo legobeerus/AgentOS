@@ -41,7 +41,7 @@ module.exports = {
         const casenumber = interaction.options.getString("casenumber");
         const verdict = interaction.options.getString("verdict");
         const suspect = interaction.options.getString("suspect");
-        await interaction.deferReply();
+        await interaction.deferReply({ ephemeral: true });
 
         try {
 
@@ -60,6 +60,9 @@ module.exports = {
         
         let components = []; // default: no button
 
+        const config = require('../config');
+        const targetChannelId = (verdict === 'Guilty') ? config.SUBMIT_GUILTY_CHANNEL_ID : config.SUBMIT_INNOCENT_CHANNEL_ID;
+
         if (verdict === "Guilty") {
             const approveButton = new ButtonBuilder()
             .setCustomId("approve_request")
@@ -67,12 +70,21 @@ module.exports = {
             .setStyle(ButtonStyle.Success);
 
             components.push(new ActionRowBuilder().addComponents(approveButton));
-            }
+        }
 
-            await interaction.editReply({
-                embeds: [embed],
-                components
-            });
+        try {
+            const targetChannel = await interaction.client.channels.fetch(targetChannelId).catch(() => null);
+            if (!targetChannel) {
+                await interaction.editReply({ content: `Failed to find target channel <#${targetChannelId}>.`, ephemeral: true });
+                return;
+            }
+            const sent = await targetChannel.send({ embeds: [embed], components });
+            const link = sent && sent.url ? sent.url : `https://discord.com/channels/${interaction.guildId}/${targetChannelId}/${sent.id}`;
+            await interaction.editReply({ content: `Submitted to <#${targetChannelId}>: ${link}`, ephemeral: true });
+        } catch (err) {
+            console.error('submit send error:', err);
+            await interaction.editReply({ content: '⚠️ Something went wrong sending the submission.', ephemeral: true });
+        }
 
         
         } catch (err) {

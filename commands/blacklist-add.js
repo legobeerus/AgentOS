@@ -14,7 +14,7 @@ const ALLOWED_USER_IDS = [
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("blacklist-add")
-    .setDescription("Add a Roblox username to the application blacklist")
+    .setDescription("Add a user to the application blacklist")
     .addStringOption(option =>
       option
         .setName("username")

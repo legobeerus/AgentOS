@@ -9,6 +9,8 @@ const TRELLO_LABEL_NAME = process.env.TRELLO_LABEL_NAME || "OSI Approved";
 const TRELLO_LABEL_COLOR = process.env.TRELLO_LABEL_COLOR || "blue";
 
 let cachedLabelId = null;
+// Optional: comma-separated list of channel IDs to ignore for Trello ingest
+const DISABLED_CHANNEL_IDS = String(process.env.TRELLO_INGEST_DISABLED_CHANNEL_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
 
 function parseMessage(content) {
   const pattern = /Suspect:\s*([\s\S]*?)\s*Incident Summary:\s*([\s\S]*?)\s*(?:Charge\(s\)|Charges?)\s*:\s*([\s\S]*?)\s*Sentence:\s*([\s\S]*?)\s*Proof:\s*([\s\S]*)/i;
@@ -85,6 +87,8 @@ async function handleTrelloIngest(message) {
   if (!message || message.author?.bot) return;
   if (!message.guild) return;
   if (message.channelId !== WATCH_CHANNEL_ID) return;
+  // If ingestion is explicitly disabled for this channel, skip creating cards
+  if (DISABLED_CHANNEL_IDS.includes(String(message.channelId))) return;
   if (!message.content) return;
 
   if (!TRELLO_KEY || !TRELLO_TOKEN || !TRELLO_LIST_ID) {

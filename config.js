@@ -8,6 +8,9 @@ module.exports = {
 
   VOTING_CHANNEL_ID: process.env.VOTING_CHANNEL_ID || "1467678462302093334",
   RESULT_CHANNEL_ID: process.env.RESULT_CHANNEL_ID || "1320064034963325068",
+  // Channels to post submissions based on verdict
+  SUBMIT_GUILTY_CHANNEL_ID: process.env.SUBMIT_GUILTY_CHANNEL_ID || "1449832030291492925",
+  SUBMIT_INNOCENT_CHANNEL_ID: process.env.SUBMIT_INNOCENT_CHANNEL_ID || "1449832086818128025",
   LOG_CHANNEL_ID: process.env.LOG_CHANNEL_ID || "1467682055298089131",
   // Channel to notify when a DM to an applicant fails. If unset, code falls back to LOG_CHANNEL_ID then RESULT_CHANNEL_ID.
   DM_FAIL_CHANNEL_ID: process.env.DM_FAIL_CHANNEL_ID || "1041577711845519384",

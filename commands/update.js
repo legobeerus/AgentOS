@@ -47,12 +47,12 @@ module.exports = {
   data: new SlashCommandBuilder()
     .setName('update')
     .setDescription("Update a user's SGC rank on the sheet from Roblox")
-    .addStringOption(o => o.setName('roblox').setDescription('Roblox username to update').setRequired(true)),
+    .addStringOption(o => o.setName('username').setDescription('Roblox username to update').setRequired(true)),
 
   async execute(interaction) {
     await interaction.deferReply({ ephemeral: true });
 
-    const roblox = String(interaction.options.getString('roblox') || '').trim();
+    const roblox = String(interaction.options.getString('username') || '').trim();
     if (!roblox) return interaction.editReply({ content: 'Provide a Roblox username.', ephemeral: true });
 
     // Clear expired cooldowns
@@ -123,7 +123,7 @@ module.exports = {
       const targetA1 = `${parsed.sheetName}!${targetColLetter}${targetRowNumber}`;
 
       // Write the SGC rank (role name) to the sheet
-      try { console.log('Updating SGC rank for', roblox, '->', sgcRole, 'cell', targetA1); } catch (e) {}
+      try { console.debug && console.debug('Updating SGC rank for', roblox, '->', sgcRole, 'cell', targetA1); } catch (e) {}
       await sheets.spreadsheets.values.update({
         spreadsheetId: config.GOOGLE_SHEET_ID,
         range: targetA1,

@@ -46,13 +46,13 @@ async function handleApproveButton(interaction) {
   const threadName = `Punishment Discussion - ${casenumber}`;
   const thread = await parentMsg.startThread({ name: threadName });
 
-  // Ping the role inside the newly created thread for visibility
-  await thread.send({ content: `<@&${config.PING_ROLE_ID}> | ${messageLink}` });
+    // Ping the regular alert role inside the newly created thread for visibility
+    await thread.send({ content: `<@&${config.PING_ROLE_ID}> | ${messageLink}` });
 
   // Persist a follow-up message to be sent after 48 hours and schedule it
   try {
     const sendAt = Date.now() + 48 * 60 * 60 * 1000;
-    const content = `<@&$1449860815086813224>\n\nPunishment Discussion ${casenumber} is complete (48 hours has passed).`;
+    const content = `<@&${config.REQUIRED_ROLE_ID}>\n\nPunishment Discussion ${casenumber} is complete (48 hours has passed).`;
     const entry = await addFollowup({ guildId: interaction.guildId, threadId: thread.id, sendAt, content });
     // Try to schedule now (scheduler will also pick this up on restart)
     try { scheduleFollowup(entry); } catch (e) {}

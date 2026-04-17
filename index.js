@@ -24,6 +24,7 @@ const client = new Client({
 const { startInactivityScheduler } = require("./utils/inactivityScheduler");
 const { startFollowupScheduler } = require("./utils/followupScheduler");
 const probationWatcher = require('./utils/probationWatcher');
+const verifyReminderScheduler = require('./utils/verifyReminderScheduler');
 
 // Start DB keep-alive (if configured)
 startKeepAlive();
@@ -55,6 +56,16 @@ client.once("ready", () => {
   });
   // Start probation watcher to handle role-change based alerts
   try { probationWatcher.init(client); } catch (e) { console.error('Failed to init probationWatcher:', e); }
+  // Start verification reminder scheduler
+  try { verifyReminderScheduler.initScheduler(client); } catch (e) { console.error('Failed to init verifyReminderScheduler:', e); }
+});
+
+// Guild member join/leave hooks for verification reminders
+client.on('guildMemberAdd', async (member) => {
+  try { await verifyReminderScheduler.onGuildMemberAdd(member); } catch (e) { console.error('verifyReminderScheduler onGuildMemberAdd failed', e); }
+});
+client.on('guildMemberRemove', async (member) => {
+  try { await verifyReminderScheduler.onGuildMemberRemove(member); } catch (e) { console.error('verifyReminderScheduler onGuildMemberRemove failed', e); }
 });
 
 // Interaction handler

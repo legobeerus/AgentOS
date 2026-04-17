@@ -56,13 +56,13 @@ async function handleReviewModal(interaction) {
   ];
 
   let applicantUserId = null;
-  console.log("Embed fields available:", embed.fields.map(f => f.name)); // Debug: log all field names
+  console.debug && console.debug("Embed fields available:", embed.fields.map(f => f.name)); // Debug: log all field names
 
   for (const key of idCandidateKeys) {
     const idField = embed.fields.find(f => f.name && f.name.toLowerCase() === key.toLowerCase());
     if (idField) {
       applicantUserId = idField.value?.toString().trim();
-      console.log(`Found user ID field "${key}": ${applicantUserId}`);
+      console.debug && console.debug(`Found user ID field "${key}": ${applicantUserId}`);
       break;
     }
   }
@@ -72,7 +72,7 @@ async function handleReviewModal(interaction) {
     const idField = embed.fields.find(f => /\bid\b/i.test(f.name));
     if (idField) {
       applicantUserId = idField.value?.toString().trim();
-      console.log(`Found user ID via regex match on "${idField.name}": ${applicantUserId}`);
+      console.debug && console.debug(`Found user ID via regex match on "${idField.name}": ${applicantUserId}`);
     }
   }
 
@@ -87,7 +87,7 @@ async function handleReviewModal(interaction) {
     try {
       applicantUser = await interaction.client.users.fetch(userId).catch(() => null);
       if (applicantUser) {
-        console.log(`Successfully fetched user: ${applicantUser.username} (${applicantUser.id})`);
+        console.debug && console.debug(`Successfully fetched user: ${applicantUser.username} (${applicantUser.id})`);
         applicantUsername = applicantUser.tag || applicantUser.username;
       } else {
         console.warn(`Could not fetch user by ID ${userId}`);
@@ -111,7 +111,7 @@ async function handleReviewModal(interaction) {
       const usernameField = embed.fields.find(f => f.name && f.name.toLowerCase() === key.toLowerCase());
       if (usernameField) {
         applicantUsername = usernameField.value?.toString().trim();
-        console.log(`Found username field "${key}": ${applicantUsername}`);
+        console.debug && console.debug(`Found username field "${key}": ${applicantUsername}`);
         break;
       }
     }
@@ -128,10 +128,10 @@ async function handleReviewModal(interaction) {
           const guildMembers = await interaction.guild.members.fetch().catch(() => null);
           if (guildMembers) {
             const member = guildMembers.find(m => m.user.username === applicantUsername);
-            if (member) {
+              if (member) {
               applicantUser = member.user;
               applicantUsername = applicantUser.tag || applicantUser.username;
-              console.log(`Found user in guild members: ${applicantUser.username} (${applicantUser.id})`);
+              console.debug && console.debug(`Found user in guild members: ${applicantUser.username} (${applicantUser.id})`);
             }
           }
         } catch (err) {
@@ -333,7 +333,7 @@ async function handleReviewModal(interaction) {
         const invite = await inviteChannel.createInvite({ maxAge: 24 * 3600, maxUses: 1, unique: true, reason: `Invite for approved applicant ${applicantUsername || applicantUser.tag}` });
 
         // DM the applicant with the invite
-        const dmContent = `Your OSI application has been approved. You must send a request to join the group, and join the server linked. \n\nOnce you have joined, it is important that you **read the guidelines**. You can **not** get on the team until you have *passed* Phase 2. \n\nThis invite will remain valid for 24 hours: ${invite.url}`;
+        const dmContent = `Your OSI application has been approved. You must send a request to join the group, and join the server linked. \n\nOnce you have joined, it is important that you **read the guidelines** and **verify your account with AgentOS**. You can **not** get on the team until you have *passed* Phase 2. \n\nThis invite will remain valid for 24 hours: ${invite.url}`;
         await applicantUser.send({ content: dmContent }).catch(async (err) => {
           // If DM fails, notify staff in a configured notify channel (see above fallback order)
           console.error("Failed to DM applicant:", err);
@@ -343,6 +343,22 @@ async function handleReviewModal(interaction) {
             await notifyChannel.send({ content: `⚠️ Failed to DM approved user <@${applicantUser.id}>. Please contact them manually. Message: ${messageLink}` }).catch(() => null);
           }
         });
+        // Schedule verification reminders: start 24h after they join the guild.
+        try {
+          const verifyReminderStore = require('./verifyReminderStore');
+          const DAY_MS = 24 * 60 * 60 * 1000;
+          let nextSendAt = null;
+          try {
+            const member = await interaction.guild.members.fetch(applicantUser.id).catch(() => null);
+            if (member && member.joinedTimestamp) {
+              const joinTime = member.joinedTimestamp;
+              nextSendAt = new Date(Math.max(joinTime + DAY_MS, Date.now() + DAY_MS)).toISOString();
+            }
+          } catch (e) {}
+          await verifyReminderStore.addReminder({ discordId: applicantUser.id, guildId: interaction.guild.id, nextSendAt });
+        } catch (e) {
+          console.warn('Failed to schedule verification reminder:', e && e.message);
+        }
       }
     } catch (err) {
       console.error("Error creating invite or sending DM:", err);

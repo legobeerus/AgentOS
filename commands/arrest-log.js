@@ -7,10 +7,10 @@ module.exports = {
     .setName('arrest-log')
     .setDescription('Log an arrest record')
     .addStringOption(opt => opt.setName('suspect').setDescription('Roblox username of suspect').setRequired(true))
-    .addStringOption(opt => opt.setName('summary').setDescription('Incident summary').setRequired(true))
-    .addStringOption(opt => opt.setName('charges').setDescription('Charge(s)').setRequired(true))
-    .addStringOption(opt => opt.setName('sentence').setDescription('Sentence').setRequired(true))
-    .addStringOption(opt => opt.setName('proof').setDescription('Proof (link or notes)').setRequired(false)),
+    .addStringOption(opt => opt.setName('summary').setDescription('Brief description of the incident').setRequired(true))
+    .addStringOption(opt => opt.setName('charges').setDescription('List of charges, listed as [X.X] Law Name').setRequired(true))
+    .addStringOption(opt => opt.setName('sentence').setDescription('Time jailed').setRequired(true))
+    .addStringOption(opt => opt.setName('proof').setDescription('Link to media evidence').setRequired(true)),
 
   async execute(interaction) {
     await interaction.deferReply({ ephemeral: true });

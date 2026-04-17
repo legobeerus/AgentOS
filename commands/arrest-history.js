@@ -5,7 +5,7 @@ const config = require('../config');
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('arrest-history')
-    .setDescription('Lookup arrest history for a Roblox username')
+    .setDescription('Lookup arrest history for a user')
     .addStringOption(opt => opt.setName('username').setDescription('Roblox username to lookup').setRequired(true)),
 
   async execute(interaction) {
@@ -34,7 +34,7 @@ module.exports = {
       }
 
       const rows = [];
-      const modifyBtn = new ButtonBuilder().setCustomId(`arrest_modify:${username}`).setLabel('Modify Arrests').setStyle(ButtonStyle.Primary);
+      const modifyBtn = new ButtonBuilder().setCustomId(`arrest_modify:${username}`).setLabel('View/Modify Arrests').setStyle(ButtonStyle.Primary);
       rows.push(new ActionRowBuilder().addComponents(modifyBtn));
 
       await interaction.editReply({ embeds: [pages[0]], components: rows, ephemeral: true });

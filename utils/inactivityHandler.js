@@ -62,8 +62,8 @@ async function setEndDateForUser({ discordId, username }, endDateStr) {
       const targetRowNumber = parsed.startRow + i;
       const targetA1 = `${parsed.sheetName}!${targetColLetter}${targetRowNumber}`;
 
-      // Log exactly what we're about to write so we can diagnose stray characters
-      try { console.log('Writing end date to sheet:', targetA1, JSON.stringify(endDateStr)); } catch (e) {}
+      // Log exactly what we're about to write so we can diagnose stray characters (debug-level)
+      try { console.debug && console.debug('Writing end date to sheet:', targetA1, JSON.stringify(endDateStr)); } catch (e) {}
       // If the endDateStr was prefixed with an apostrophe inadvertently, strip it before writing
       const outVal = stripLeadingApostrophe(endDateStr);
       await sheets.spreadsheets.values.update({

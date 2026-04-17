@@ -12,8 +12,8 @@ module.exports = {
   data: new SlashCommandBuilder()
     .setName('cancel-inactivity')
     .setDescription('Cancel an active inactivity (IN) entry prematurely')
-    .addStringOption(o => o.setName('roblox').setDescription('Roblox username whose IN to cancel').setRequired(true)),
-
+    .addStringOption(o => o.setName('username').setDescription('Roblox username whose IN to cancel').setRequired(true)),
+  
   async execute(interaction) {
     await interaction.deferReply({ ephemeral: true });
 
@@ -23,14 +23,14 @@ module.exports = {
     const hasPerm = interaction.member && interaction.member.roles && allowedRoles.some(r => interaction.member.roles.cache.has(r));
     if (!hasPerm) return interaction.editReply({ content: '❌ You do not have permission to cancel inactivity entries.', ephemeral: true });
 
-    const optRoblox = interaction.options.getString('roblox');
-    if (!optRoblox) return interaction.editReply({ content: 'You must provide a Roblox username to cancel.', ephemeral: true });
+    const optUsername = interaction.options.getString('username');
+    if (!optUsername) return interaction.editReply({ content: 'You must provide a Roblox username to cancel.', ephemeral: true });
 
     try {
       const rows = await getAll();
-      const qRoblox = String(optRoblox).toLowerCase();
+      const qUsername = String(optUsername).toLowerCase();
 
-      const found = rows.find(r => String(r.roblox_username).toLowerCase() === qRoblox);
+      const found = rows.find(r => String(r.roblox_username).toLowerCase() === qUsername);
       if (!found) return interaction.editReply({ content: 'No active inactivity entry found for that user.', ephemeral: true });
 
       // Remove DB entry

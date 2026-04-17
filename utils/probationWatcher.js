@@ -41,7 +41,7 @@ async function evaluateMember(member, context = {}) {
         const embed = new EmbedBuilder()
           .setTitle('Probation Alert')
           .setColor(config.EMBED_COLOR || 0xffa500)
-          .setDescription(`Probationary agent with prohibited roles has role-changed. Has the following roles: ${names}`)
+          .setDescription(`Probationary agent with prohibited roles has joined OSI. Has the following roles: ${names}`)
           .addFields(
             { name: 'Member', value: `${member.user.tag} (<@${member.user.id}>)`, inline: true },
             { name: 'Context', value: context.reason || 'role update', inline: true }
@@ -68,7 +68,7 @@ async function evaluateMember(member, context = {}) {
         const embed = new EmbedBuilder()
           .setTitle('Probation Alert')
           .setColor(config.EMBED_COLOR || 0xffa500)
-          .setDescription(`Probationary agent missing required roles after role update. Missing roles: ${requiredNames}`)
+          .setDescription(`Probationary agent missing required roles has joined OSI. Required roles: ${requiredNames}`)
           .addFields(
             { name: 'Member', value: `${member.user.tag} (<@${member.user.id}>)`, inline: true },
             { name: 'Context', value: context.reason || 'role update', inline: true }
