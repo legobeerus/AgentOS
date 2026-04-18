@@ -49,6 +49,8 @@ module.exports = {
   TIME_LOG_MINUTES_COL: process.env.TIME_LOG_MINUTES_COL !== undefined ? Number(process.env.TIME_LOG_MINUTES_COL) : 9,
   // Channel ID for the webhook messages to listen to (set via env)
   TIME_LOG_CHANNEL_ID: process.env.TIME_LOG_CHANNEL_ID || "1484714859592552498",
+  // Enable verbose logging for time webhook handler when true (env: TIME_WEBHOOK_VERBOSE=true)
+  TIME_WEBHOOK_VERBOSE: (process.env.TIME_WEBHOOK_VERBOSE || '').toLowerCase() === 'true' || process.env.TIME_WEBHOOK_VERBOSE === '1',
   // Optional: zero-based index of the rank column within TIME_LOG_SHEET_RANGE
   TIME_LOG_RANK_COL: process.env.TIME_LOG_RANK_COL !== undefined ? Number(process.env.TIME_LOG_RANK_COL) : 3,
   // Comma-separated list of rank names (case-insensitive) to exclude from quota checks

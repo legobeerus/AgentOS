@@ -186,8 +186,26 @@ async function handleMessageCommands(message, client) {
       if (!message.guild) return;
       // Load verified discord IDs from the DB (may be empty if DB not configured)
       const verifiedIds = new Set((await verificationStore.listAllDiscordIds().catch(() => [])) || []);
-      // Role IDs configured to be excluded from verifylist (will not be listed)
-      const excludeRoleIds = new Set(config.VERIFYLIST_EXCLUDE_ROLE_IDS_LIST || []);
+      // Role tokens configured to be excluded from verifylist (IDs, mentions, or names)
+      const excludeTokens = Array.isArray(config.VERIFYLIST_EXCLUDE_ROLE_IDS_LIST) ? config.VERIFYLIST_EXCLUDE_ROLE_IDS_LIST : (config.VERIFYLIST_EXCLUDE_ROLE_IDS_LIST ? [config.VERIFYLIST_EXCLUDE_ROLE_IDS_LIST] : []);
+      const excludeRoleIds = new Set();
+      try {
+        for (const tok of excludeTokens) {
+          if (!tok) continue;
+          const t = String(tok).trim();
+          // direct numeric id
+          const idMatch = t.match(/^(\d{5,20})$/);
+          if (idMatch) { excludeRoleIds.add(idMatch[1]); continue; }
+          // mention-like content
+          const mentionMatch = t.match(/(\d{5,20})/);
+          if (mentionMatch) { excludeRoleIds.add(mentionMatch[1]); continue; }
+          // try to resolve by name in this guild (case-insensitive)
+          if (message.guild) {
+            const roleByName = message.guild.roles.cache.find(r => r.name && r.name.toLowerCase() === t.toLowerCase());
+            if (roleByName) { excludeRoleIds.add(roleByName.id); continue; }
+          }
+        }
+      } catch (e) { /* ignore resolution errors */ }
       const members = await message.guild.members.fetch();
       const unverified = [];
       for (const [id, member] of members) {

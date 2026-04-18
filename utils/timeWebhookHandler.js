@@ -97,8 +97,8 @@ async function updateMinutesForUser(username, minutesToAdd) {
       const totalA1 = `${parsed.sheetName}!${totalColLetter}${targetRowNumber}`;
 
       // Debug: log current/updated values and target A1 ranges (debug-level)
-      console.debug && console.debug(`Updating sheet for ${username}: weekly ${currentWeekly} -> ${updatedWeekly} (${weeklyA1}), total ${currentTotal} -> ${updatedTotal} (${totalA1})`);
-      try { console.debug && console.debug('Writing values:', weeklyA1, JSON.stringify(String(updatedWeekly)), totalA1, JSON.stringify(String(updatedTotal))); } catch (e) {}
+      if (config.TIME_WEBHOOK_VERBOSE) console.debug(`Updating sheet for ${username}: weekly ${currentWeekly} -> ${updatedWeekly} (${weeklyA1}), total ${currentTotal} -> ${updatedTotal} (${totalA1})`);
+      try { if (config.TIME_WEBHOOK_VERBOSE) console.debug('Writing values:', weeklyA1, JSON.stringify(String(updatedWeekly)), totalA1, JSON.stringify(String(updatedTotal))); } catch (e) {}
       try {
         const resp = await sheets.spreadsheets.values.batchUpdate({
           spreadsheetId: config.GOOGLE_SHEET_ID,
@@ -110,7 +110,7 @@ async function updateMinutesForUser(username, minutesToAdd) {
             ]
           }
         });
-        console.debug && console.debug('Sheets batchUpdate response status:', resp.status || (resp && resp.statusText) || 'unknown');
+        if (config.TIME_WEBHOOK_VERBOSE) console.debug('Sheets batchUpdate response status:', resp.status || (resp && resp.statusText) || 'unknown');
       } catch (err) {
         console.error('Error writing to sheet for', username, err);
       }
@@ -142,11 +142,15 @@ function parseGameMessage(content) {
 
 async function handleTimeWebhookMessage(message) {
   try {
+    // Determine debug mode early to gate verbose logging
+    let state = { debugMode: false };
+    try { state = await getState(); } catch (e) { /* ignore */ }
+    const isDebug = !!(state && state.debugMode) || !!config.TIME_WEBHOOK_VERBOSE;
+
     // Early debug: show incoming message routing info
     try {
-      // Support legacy single ID or comma-separated list
       const configuredList = String(config.TIME_LOG_CHANNEL_ID || '').split(',').map(s => s.trim()).filter(Boolean);
-      console.debug && console.debug('timeWebhookHandler invoked', {
+      if (isDebug) console.debug('timeWebhookHandler invoked', {
         channelId: message?.channel?.id,
         configuredTimeLogChannelIds: configuredList,
         guildId: message?.guild?.id,
@@ -159,13 +163,11 @@ async function handleTimeWebhookMessage(message) {
 
     if (!message || !message.content) return;
     // Allow overriding the bot-author guard when admin debug mode is enabled
-    let state = { debugMode: false };
-    try { state = await getState(); } catch (e) { /* ignore */ }
     if (message.author && message.author.bot && !(message.webhookId) && !state.debugMode) return; // ignore normal bots unless webhook
     // Allow comma-separated list of channel IDs in config.TIME_LOG_CHANNEL_ID (legacy single ID supported)
     const allowedChannels = String(config.TIME_LOG_CHANNEL_ID || '').split(',').map(s => s.trim()).filter(Boolean);
     const isTimeLogChannel = (allowedChannels.length === 0) || (message.channel && allowedChannels.includes(message.channel.id));
-    if (!isTimeLogChannel) console.debug && console.debug('timeWebhookHandler: message is not in configured TIME_LOG_CHANNEL_ID(s); skipping sheet update but continuing probation checks', { messageChannelId: message.channel?.id, allowedChannels });
+    if (!isTimeLogChannel && isDebug) console.debug('timeWebhookHandler: message is not in configured TIME_LOG_CHANNEL_ID(s); skipping sheet update but continuing probation checks', { messageChannelId: message.channel?.id, allowedChannels });
 
     const parsed = parseGameMessage(message.content);
     if (!parsed) return; // not in expected format
@@ -173,12 +175,12 @@ async function handleTimeWebhookMessage(message) {
     if (isTimeLogChannel) {
       const res = await updateMinutesForUser(parsed.username, parsed.minutes);
       if (res) {
-        console.debug && console.debug(`Updated ${parsed.username}: +${parsed.minutes} weekly=${res.updatedWeekly} total=${res.updatedTotal} (weekly ${res.weeklyCol}${res.row}, total ${res.totalCol}${res.row})`);
+        if (isDebug) console.debug(`Updated ${parsed.username}: +${parsed.minutes} weekly=${res.updatedWeekly} total=${res.updatedTotal} (weekly ${res.weeklyCol}${res.row}, total ${res.totalCol}${res.row})`);
       } else {
-        console.debug && console.debug(`Username not found in sheet: ${parsed.username}`);
+        if (isDebug) console.debug(`Username not found in sheet: ${parsed.username}`);
       }
     } else {
-      console.debug && console.debug('Skipping sheet update because message is not in TIME_LOG_CHANNEL_ID; continuing to probation checks.');
+      if (isDebug) console.debug('Skipping sheet update because message is not in TIME_LOG_CHANNEL_ID; continuing to probation checks.');
     }
 
     // Probationary detection and role check
@@ -187,7 +189,7 @@ async function handleTimeWebhookMessage(message) {
     try {
       const probNames = String(config.PROBATION_RANK_NAMES || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
       const rank = parsed.rank ? String(parsed.rank).toLowerCase() : '';
-      console.debug && console.debug('Probation check:', { username: parsed.username, rank: parsed.rank, probNames });
+      if (isDebug) console.debug('Probation check:', { username: parsed.username, rank: parsed.rank, probNames });
       if (rank && probNames.some(pn => rank.includes(pn))) {
         // Attempt to resolve a guild member for role checking. Prefer verified binding (Roblox->Discord).
         let member = null;
@@ -196,17 +198,17 @@ async function handleTimeWebhookMessage(message) {
             // Try verification store first
             let v = null;
             try { v = await verificationStore.getByRoblox(parsed.username); } catch (e) { console.warn('verificationStore.getByRoblox failed:', e); }
-            console.debug && console.debug('verification lookup result for', parsed.username, v ? { discord_id: v.discord_id, roblox_userid: v.roblox_userid } : null);
-              if (v && v.discord_id) {
+            if (isDebug) console.debug('verification lookup result for', parsed.username, v ? { discord_id: v.discord_id, roblox_userid: v.roblox_userid } : null);
+            if (v && v.discord_id) {
               member = await message.guild.members.fetch(v.discord_id, { force: true }).catch(() => null);
-              if (member) console.debug && console.debug('Fetched member by verification id (force):', member.user.id);
+              if (member && isDebug) console.debug('Fetched member by verification id (force):', member.user.id);
             }
             // Fallback: direct mention in message
             if (!member) {
               const mentionMatch = message.content.match(/<@!?(\d+)>/);
-                if (mentionMatch) {
+              if (mentionMatch) {
                 member = await message.guild.members.fetch(mentionMatch[1], { force: true }).catch(() => null);
-                if (member) console.debug && console.debug('Fetched member by mention (force):', member.user.id);
+                if (member && isDebug) console.debug('Fetched member by mention (force):', member.user.id);
               }
             }
             // Final fallback: find by username/tag in cache
@@ -216,110 +218,110 @@ async function handleTimeWebhookMessage(message) {
             }
 
             if (member) {
-              console.debug && console.debug('Resolved guild member for probation check:', { id: member.user.id, tag: member.user.tag });
+              if (isDebug) console.debug('Resolved guild member for probation check:', { id: member.user.id, tag: member.user.tag });
               // Force-fetch fresh member data to ensure role cache is up-to-date
               try { member = await message.guild.members.fetch(member.user.id, { force: true }).catch(() => member); } catch (e) { /* ignore */ }
-              try { console.debug && console.debug('Post-fetch member roles count:', member.roles.cache.size); } catch (e) { /* ignore */ }
+              try { if (isDebug) console.debug('Post-fetch member roles count:', member.roles.cache.size); } catch (e) { /* ignore */ }
               // Log member roles briefly for diagnosis
-                try {
+              try {
                 const roleList = Array.from(member.roles.cache.values()).map(r => `${r.id}:${r.name}`);
-                console.debug && console.debug('Member roles:', roleList.slice(0,50));
+                if (isDebug) console.debug('Member roles:', roleList.slice(0,50));
               } catch (e) { /* ignore logging errors */ }
-                // First, check suspicious roles (highest priority). If any found, alert with those.
-                const suspiciousTokens = String(config.PROBATION_SUSPICIOUS_ROLE_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
-                console.debug && console.debug('Suspicious role tokens:', suspiciousTokens);
-                const matchedSuspicious = suspiciousTokens.map(tok => {
+              // First, check suspicious roles (highest priority). If any found, alert with those.
+              const suspiciousTokens = String(config.PROBATION_SUSPICIOUS_ROLE_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
+              if (isDebug) console.debug('Suspicious role tokens:', suspiciousTokens);
+              const matchedSuspicious = suspiciousTokens.map(tok => {
+                const role = resolveRoleToken(tok, message.guild);
+                const id = role ? role.id : String(tok).trim();
+                const name = role ? role.name : String(tok).trim();
+                const has = !!member.roles.cache.has(id);
+                return { id, name, has };
+              }).filter(x => x.has);
+              if (matchedSuspicious.length > 0) {
+                // Detected suspicious roles — defer to probationWatcher via pending registration
+                if (isDebug) console.debug('Detected suspicious roles; deferring alert to probationWatcher:', matchedSuspicious.map(x => x.name).join(', '));
+              } else {
+                // No suspicious roles — check required roles (pass if member has ANY of them). If none present, alert with missing list.
+                const requiredTokens = String(config.PROBATION_REQUIRED_ROLE_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
+                if (isDebug) console.debug('Required role tokens:', requiredTokens);
+                const requiredInfo = requiredTokens.map(tok => {
                   const role = resolveRoleToken(tok, message.guild);
                   const id = role ? role.id : String(tok).trim();
                   const name = role ? role.name : String(tok).trim();
                   const has = !!member.roles.cache.has(id);
                   return { id, name, has };
-                }).filter(x => x.has);
-                if (matchedSuspicious.length > 0) {
-                  // Detected suspicious roles — defer to probationWatcher via pending registration
-                  console.debug && console.debug('Detected suspicious roles; deferring alert to probationWatcher:', matchedSuspicious.map(x => x.name).join(', '));
-                } else {
-                  // No suspicious roles — check required roles (pass if member has ANY of them). If none present, alert with missing list.
-                  const requiredTokens = String(config.PROBATION_REQUIRED_ROLE_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
-                  console.debug && console.debug('Required role tokens:', requiredTokens);
-                  const requiredInfo = requiredTokens.map(tok => {
-                    const role = resolveRoleToken(tok, message.guild);
-                    const id = role ? role.id : String(tok).trim();
-                    const name = role ? role.name : String(tok).trim();
-                    const has = !!member.roles.cache.has(id);
-                    return { id, name, has };
-                  });
-                  console.debug && console.debug('Required role details for member:', requiredInfo);
-                  const hasAnyRequired = requiredInfo.some(r => r.has);
-                  console.debug && console.debug('Has any required role:', hasAnyRequired);
-                  if (!hasAnyRequired) {
-                    // Missing required roles — defer to probationWatcher via pending registration
-                    console.debug && console.debug('Member missing required roles; deferring alert to probationWatcher:', requiredInfo.map(x => x.name).join(', '));
-                    // Diagnostic recheck remains in place below (will still run), but final alert is sent by probationWatcher
-                    try {
-                      for (const r of requiredInfo) {
-                          try {
-                          const fetchedRole = await message.guild.roles.fetch(r.id).catch(() => null);
-                          console.debug && console.debug(`Diagnostic: fetched role ${r.id} ->`, fetchedRole ? fetchedRole.name : null);
-                        } catch (e) { console.warn('Diagnostic: role fetch failed for', r.id, e); }
-                      }
-                      await new Promise(res => setTimeout(res, 1000));
-                      try {
-                        const refetched = await message.guild.members.fetch(member.user.id, { force: true }).catch(() => null);
-                        if (refetched) {
-                          const reInfo = requiredTokens.map(tok => {
-                            const role = resolveRoleToken(tok, message.guild);
-                            const id = role ? role.id : String(tok).trim();
-                            const name = role ? role.name : String(tok).trim();
-                            const has = !!refetched.roles.cache.has(id);
-                            return { id, name, has };
-                          });
-                          console.debug && console.debug('Diagnostic: rechecked required role details for member:', reInfo);
-                          const reHasAny = reInfo.some(r => r.has);
-                          if (reHasAny) {
-                            console.debug && console.debug('Diagnostic: member gained required role after recheck, skipping alert for', member.user.id);
-                            return;
-                          }
-                        }
-                      } catch (e) { console.warn('Diagnostic: member re-fetch failed', e); }
-                    } catch (e) {
-                      console.warn('Diagnostic: error during role recheck', e);
-                    }
-                  }
-                }
-                // Register pending probation check so memberUpdate listener can act as authoritative source
+                });
+                if (isDebug) console.debug('Required role details for member:', requiredInfo);
+                const hasAnyRequired = requiredInfo.some(r => r.has);
+                if (isDebug) console.debug('Has any required role:', hasAnyRequired);
+                if (!hasAnyRequired) {
+                  // Missing required roles — defer to probationWatcher via pending registration
+                  if (isDebug) console.debug('Member missing required roles; deferring alert to probationWatcher:', requiredInfo.map(x => x.name).join(', '));
+                  // Diagnostic recheck remains in place below (will still run), but final alert is sent by probationWatcher
                   try {
-                  probationStore.addPending({ discordId: member.user.id, robloxUsername: parsed.username, rank: parsed.rank });
-                  console.debug && console.debug('Registered pending probation check for', member.user.id);
-                } catch (e) { /* ignore */ }
-                // If configured, toggle a temporary role to force a guildMemberUpdate event so our watcher runs immediately.
-                try {
-                  const tempRoleId = String(config.PROBATION_TEMP_ROLE_ID || '').trim();
-                  if (tempRoleId) {
-                    const has = !!member.roles.cache.has(tempRoleId);
-                      if (!has) {
-                        // member did not have the role: add then remove to restore original state (removed)
-                        await member.roles.add(tempRoleId, 'probation-check: trigger role update').catch(err => { console.warn('Failed to add probation temp role:', err && err.message ? err.message : err); });
-                        setTimeout(() => {
-                          member.roles.remove(tempRoleId, 'probation-check: cleanup').catch(err => { console.warn('Failed to remove probation temp role:', err && err.message ? err.message : err); });
-                        }, 800);
-                        console.debug && console.debug('Added then removed temp probation role to force guildMemberUpdate for', member.user.id);
-                      } else {
-                        // member already has the role: remove then re-add to preserve original state
-                        await member.roles.remove(tempRoleId, 'probation-check: trigger role update (remove)').catch(err => { console.warn('Failed to remove probation temp role (pre):', err && err.message ? err.message : err); });
-                        setTimeout(() => {
-                          member.roles.add(tempRoleId, 'probation-check: trigger role update (re-add)').catch(err => { console.warn('Failed to re-add probation temp role:', err && err.message ? err.message : err); });
-                        }, 500);
-                        console.debug && console.debug('Removed then re-added temp probation role to force guildMemberUpdate for', member.user.id);
+                    for (const r of requiredInfo) {
+                      try {
+                        const fetchedRole = await message.guild.roles.fetch(r.id).catch(() => null);
+                        if (isDebug) console.debug(`Diagnostic: fetched role ${r.id} ->`, fetchedRole ? fetchedRole.name : null);
+                      } catch (e) { console.warn('Diagnostic: role fetch failed for', r.id, e); }
+                    }
+                    await new Promise(res => setTimeout(res, 1000));
+                    try {
+                      const refetched = await message.guild.members.fetch(member.user.id, { force: true }).catch(() => null);
+                      if (refetched) {
+                        const reInfo = requiredTokens.map(tok => {
+                          const role = resolveRoleToken(tok, message.guild);
+                          const id = role ? role.id : String(tok).trim();
+                          const name = role ? role.name : String(tok).trim();
+                          const has = !!refetched.roles.cache.has(id);
+                          return { id, name, has };
+                        });
+                        if (isDebug) console.debug('Diagnostic: rechecked required role details for member:', reInfo);
+                        const reHasAny = reInfo.some(r => r.has);
+                        if (reHasAny) {
+                          if (isDebug) console.debug('Diagnostic: member gained required role after recheck, skipping alert for', member.user.id);
+                          return;
+                        }
                       }
+                    } catch (e) { console.warn('Diagnostic: member re-fetch failed', e); }
+                  } catch (e) {
+                    console.warn('Diagnostic: error during role recheck', e);
                   }
-                } catch (e) {
-                  console.warn('Error toggling probation temp role:', e && e.message ? e.message : e);
                 }
+              }
+              // Register pending probation check so memberUpdate listener can act as authoritative source
+              try {
+                probationStore.addPending({ discordId: member.user.id, robloxUsername: parsed.username, rank: parsed.rank });
+                if (isDebug) console.debug('Registered pending probation check for', member.user.id);
+              } catch (e) { /* ignore */ }
+              // If configured, toggle a temporary role to force a guildMemberUpdate event so our watcher runs immediately.
+              try {
+                const tempRoleId = String(config.PROBATION_TEMP_ROLE_ID || '').trim();
+                if (tempRoleId) {
+                  const has = !!member.roles.cache.has(tempRoleId);
+                  if (!has) {
+                    // member did not have the role: add then remove to restore original state (removed)
+                    await member.roles.add(tempRoleId, 'probation-check: trigger role update').catch(err => { console.warn('Failed to add probation temp role:', err && err.message ? err.message : err); });
+                    setTimeout(() => {
+                      member.roles.remove(tempRoleId, 'probation-check: cleanup').catch(err => { console.warn('Failed to remove probation temp role:', err && err.message ? err.message : err); });
+                    }, 800);
+                    if (isDebug) console.debug('Added then removed temp probation role to force guildMemberUpdate for', member.user.id);
+                  } else {
+                    // member already has the role: remove then re-add to preserve original state
+                    await member.roles.remove(tempRoleId, 'probation-check: trigger role update (remove)').catch(err => { console.warn('Failed to remove probation temp role (pre):', err && err.message ? err.message : err); });
+                    setTimeout(() => {
+                      member.roles.add(tempRoleId, 'probation-check: trigger role update (re-add)').catch(err => { console.warn('Failed to re-add probation temp role:', err && err.message ? err.message : err); });
+                    }, 500);
+                    if (isDebug) console.debug('Removed then re-added temp probation role to force guildMemberUpdate for', member.user.id);
+                  }
+                }
+              } catch (e) {
+                console.warn('Error toggling probation temp role:', e && e.message ? e.message : e);
+              }
             } else {
-              console.debug && console.debug('Probationary user detected but could not resolve guild member to check roles:', parsed.username);
-                // still register by roblox username so memberUpdate can match later if verification happens
-                try { probationStore.addPending({ robloxUsername: parsed.username, rank: parsed.rank }); } catch (e) {}
+              if (isDebug) console.debug('Probationary user detected but could not resolve guild member to check roles:', parsed.username);
+              // still register by roblox username so memberUpdate can match later if verification happens
+              try { probationStore.addPending({ robloxUsername: parsed.username, rank: parsed.rank }); } catch (e) {}
             }
           }
         } catch (err) {
