@@ -61,6 +61,11 @@ async function getByDiscord(discordId) {
   return res.rows[0] || null;
 }
 
+async function listAllDiscordIds() {
+  const res = await pool.query('SELECT discord_id FROM bot_verifications WHERE discord_id IS NOT NULL');
+  return res.rows.map(r => r.discord_id);
+}
+
 // Challenge helpers for two-step verification
 async function createChallenge(robloxUsername, robloxUserId, discordId, code, expiresAt) {
   const q = `INSERT INTO bot_verification_challenges (roblox_username, roblox_userid, discord_id, code, expires_at)
@@ -78,8 +83,8 @@ async function clearChallenge(robloxUsername, discordId) {
   await pool.query('DELETE FROM bot_verification_challenges WHERE roblox_username = $1 AND discord_id = $2', [String(robloxUsername).toLowerCase(), discordId]);
 }
 
-module.exports = { addVerification, removeByRoblox, removeByDiscord, getByRoblox, getByDiscord, createChallenge, getChallenge, clearChallenge, init };
+module.exports = { addVerification, removeByRoblox, removeByDiscord, getByRoblox, getByDiscord, createChallenge, getChallenge, clearChallenge, listAllDiscordIds, init };
 
 // Export public API (includes challenge helpers and init)
-module.exports = { addVerification, removeByRoblox, removeByDiscord, getByRoblox, getByDiscord, createChallenge, getChallenge, clearChallenge, init };
+module.exports = { addVerification, removeByRoblox, removeByDiscord, getByRoblox, getByDiscord, createChallenge, getChallenge, clearChallenge, listAllDiscordIds, init };
 

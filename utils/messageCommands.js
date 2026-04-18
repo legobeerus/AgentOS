@@ -4,6 +4,7 @@ const config = require("../config");
 const agentosStore = require('./agentosStore');
 const { getChangelog, setChangelog } = require("./changelogStore");
 const { getState, setState } = require("./adminState");
+const verificationStore = require('./verificationStore');
 
 async function handleMessageCommands(message, client) {
   // Ignore bots
@@ -177,6 +178,34 @@ async function handleMessageCommands(message, client) {
     } catch (err) {
       console.error('Failed to fetch AgentOS entries:', err);
       try { await message.reply({ content: 'Failed to fetch AgentOS entries.' }); } catch (e) {}
+    }
+  }
+
+  if (lower.includes("!verifylist")) {
+    try {
+      if (!message.guild) return;
+      // Load verified discord IDs from the DB (may be empty if DB not configured)
+      const verifiedIds = new Set((await verificationStore.listAllDiscordIds().catch(() => [])) || []);
+      const members = await message.guild.members.fetch();
+      const unverified = [];
+      for (const [id, member] of members) {
+        if (!member || member.user.bot) continue;
+        if (!verifiedIds.has(id)) unverified.push(`${member.user.tag} (<@${id}>)`);
+      }
+
+      if (unverified.length === 0) {
+        await message.reply('All server members appear to be verified.');
+        return;
+      }
+
+      const max = 50;
+      const shown = unverified.slice(0, max).join('\n');
+      const more = unverified.length > max ? `\n…and ${unverified.length - max} more` : '';
+      const content = `Unverified members (${unverified.length}):\n${shown}${more}`;
+      await message.reply({ content });
+    } catch (err) {
+      console.error('Failed to handle !verifylist:', err);
+      try { await message.reply({ content: 'Failed to generate verify list.' }); } catch (e) {}
     }
   }
 }
