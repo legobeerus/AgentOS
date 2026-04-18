@@ -97,6 +97,9 @@ module.exports = {
   // Standard embed color (hex). Can be set via env as number (e.g. 0x5865f2) or decimal.
   EMBED_COLOR: process.env.EMBED_COLOR ? Number(process.env.EMBED_COLOR) : 0x00aff1,
 
+  // Comma-separated role IDs that should be excluded from the !verifylist output
+  // Example: VERIFYLIST_EXCLUDE_ROLE_IDS=12345,67890
+  VERIFYLIST_EXCLUDE_ROLE_IDS: process.env.VERIFYLIST_EXCLUDE_ROLE_IDS || "1263502224181694467,1250194811521208353,1106779772492718180",
   // Arrest logging: channel where arrest embeds are posted
   ARREST_LOG_CHANNEL_ID: process.env.ARREST_LOG_CHANNEL_ID || "1221224045429915759",
   // Comma-separated role IDs that may edit/delete any arrest
@@ -122,3 +125,5 @@ module.exports = {
 // Admin whitelist: comma-separated user IDs in env var ADMIN_WHITELIST
 // Example: ADMIN_WHITELIST=123,456,789
 module.exports.ADMIN_WHITELIST = (process.env.ADMIN_WHITELIST || "716248402513494027").split(",").map(s => cleanId(s)).map(s => s.trim()).filter(Boolean);
+// Processed list of role IDs to exclude from verifylist (from VERIFYLIST_EXCLUDE_ROLE_IDS)
+module.exports.VERIFYLIST_EXCLUDE_ROLE_IDS_LIST = (process.env.VERIFYLIST_EXCLUDE_ROLE_IDS || "").split(",").map(s => cleanId(s)).map(s => s.trim()).filter(Boolean);

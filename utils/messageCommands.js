@@ -186,10 +186,16 @@ async function handleMessageCommands(message, client) {
       if (!message.guild) return;
       // Load verified discord IDs from the DB (may be empty if DB not configured)
       const verifiedIds = new Set((await verificationStore.listAllDiscordIds().catch(() => [])) || []);
+      // Role IDs configured to be excluded from verifylist (will not be listed)
+      const excludeRoleIds = new Set(config.VERIFYLIST_EXCLUDE_ROLE_IDS_LIST || []);
       const members = await message.guild.members.fetch();
       const unverified = [];
       for (const [id, member] of members) {
         if (!member || member.user.bot) continue;
+        // Skip members who have any excluded role
+        try {
+          if (member.roles && member.roles.cache && member.roles.cache.some(r => excludeRoleIds.has(r.id))) continue;
+        } catch (e) {}
         if (!verifiedIds.has(id)) unverified.push(`${member.user.tag} (<@${id}>)`);
       }
 
