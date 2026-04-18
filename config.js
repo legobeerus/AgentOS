@@ -1,10 +1,15 @@
+function cleanId(v) {
+  if (v === undefined || v === null) return v;
+  return String(v).trim().replace(/^\$+/, '');
+}
+
 module.exports = {
   // Role allowed to approve cases
-  REQUIRED_ROLE_ID: process.env.REQUIRED_ROLE_ID || "1449861438012133566",
+  REQUIRED_ROLE_ID: cleanId(process.env.REQUIRED_ROLE_ID) || "1449861438012133566",
   // Channel where approved cases are posted
-  TARGET_CHANNEL_ID: process.env.TARGET_CHANNEL_ID || "1449832209316839455",
+  TARGET_CHANNEL_ID: cleanId(process.env.TARGET_CHANNEL_ID) || "1449832209316839455",
   // Role to ping when posting approved cases
-  PING_ROLE_ID: process.env.PING_ROLE_ID || "1041577710067138561",
+  PING_ROLE_ID: cleanId(process.env.PING_ROLE_ID) || "1041577710067138561",
 
   VOTING_CHANNEL_ID: process.env.VOTING_CHANNEL_ID || "1467678462302093334",
   RESULT_CHANNEL_ID: process.env.RESULT_CHANNEL_ID || "1320064034963325068",
@@ -60,9 +65,9 @@ module.exports = {
     // Channel to post probation alerts
     PROBATION_ALERT_CHANNEL_ID: process.env.PROBATION_ALERT_CHANNEL_ID || "1041577711845519384",
     // Optional: a temporary role ID that the bot can add/remove to force a guildMemberUpdate
-    PROBATION_TEMP_ROLE_ID: process.env.PROBATION_TEMP_ROLE_ID || '1494728925383757867',
+    PROBATION_TEMP_ROLE_ID: cleanId(process.env.PROBATION_TEMP_ROLE_ID) || '1494728925383757867',
   // Role to ping in quota reports (separate from general PING_ROLE_ID)
-  GAME_QUOTA_PING_ROLE_ID: process.env.GAME_QUOTA_PING_ROLE_ID || "1041577710067138561",
+  GAME_QUOTA_PING_ROLE_ID: cleanId(process.env.GAME_QUOTA_PING_ROLE_ID) || "1041577710067138561",
   // Channel where inactivity notices are posted for staff review
   INACTIVITY_CHANNEL_ID: process.env.INACTIVITY_CHANNEL_ID || "1107773216140832878",
   // Comma-separated role IDs allowed to approve inactivity notices
@@ -116,4 +121,4 @@ module.exports = {
 
 // Admin whitelist: comma-separated user IDs in env var ADMIN_WHITELIST
 // Example: ADMIN_WHITELIST=123,456,789
-module.exports.ADMIN_WHITELIST = (process.env.ADMIN_WHITELIST || "716248402513494027").split(",").map(s => s.trim()).filter(Boolean);
+module.exports.ADMIN_WHITELIST = (process.env.ADMIN_WHITELIST || "716248402513494027").split(",").map(s => cleanId(s)).map(s => s.trim()).filter(Boolean);
