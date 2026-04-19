@@ -102,8 +102,6 @@ module.exports = {
   // Comma-separated role IDs that should be excluded from the !verifylist output
   // Example: VERIFYLIST_EXCLUDE_ROLE_IDS=12345,67890
   VERIFYLIST_EXCLUDE_ROLE_IDS: process.env.VERIFYLIST_EXCLUDE_ROLE_IDS || "1263502224181694467,1250194811521208353,1106779772492718180",
-  // Optional: force-disable pings from !verifylist irrespective of admin state (env true/1)
-  VERIFYLIST_DISABLE_PINGS: (process.env.VERIFYLIST_DISABLE_PINGS || '').toLowerCase() === 'true' || process.env.VERIFYLIST_DISABLE_PINGS === '1',
   // Arrest logging: channel where arrest embeds are posted
   ARREST_LOG_CHANNEL_ID: process.env.ARREST_LOG_CHANNEL_ID || "1221224045429915759",
   // Comma-separated role IDs that may edit/delete any arrest

@@ -206,6 +206,11 @@ async function handleMessageCommands(message, client) {
           }
         }
       } catch (e) { /* ignore resolution errors */ }
+      // Check admin state early so we can avoid building mention syntax when needed
+      let state = { debugMode: false };
+      try { state = await getState(); } catch (e) { /* ignore */ }
+      const disablePings = !!(state && state.debugMode);
+
       const members = await message.guild.members.fetch();
       const unverified = [];
       for (const [id, member] of members) {
@@ -214,7 +219,10 @@ async function handleMessageCommands(message, client) {
         try {
           if (member.roles && member.roles.cache && member.roles.cache.some(r => excludeRoleIds.has(r.id))) continue;
         } catch (e) {}
-        if (!verifiedIds.has(id)) unverified.push(`${member.user.tag} (<@${id}>)`);
+        if (!verifiedIds.has(id)) {
+          if (disablePings) unverified.push(`${member.user.tag} (${id})`);
+          else unverified.push(`${member.user.tag} (<@${id}>)`);
+        }
       }
 
       if (unverified.length === 0) {
@@ -226,10 +234,7 @@ async function handleMessageCommands(message, client) {
       const shown = unverified.slice(0, max).join('\n');
       const more = unverified.length > max ? `\n…and ${unverified.length - max} more` : '';
       const content = `Unverified members (${unverified.length}):\n${shown}${more}`;
-      // Respect admin debug mode: if debug is enabled, do not allow user mentions to ping
-      let state = { debugMode: false };
-      try { state = await getState(); } catch (e) { /* ignore */ }
-      const disablePings = (state && state.debugMode) || !!config.VERIFYLIST_DISABLE_PINGS;
+      // Respect admin debug mode or explicit config: if pings are disabled, also set allowedMentions
       const allowedMentions = disablePings ? { parse: [] } : undefined;
       await message.reply({ content, allowedMentions });
     } catch (err) {

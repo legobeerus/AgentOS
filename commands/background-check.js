@@ -67,7 +67,7 @@ module.exports = {
           }
 
           // Find which division groups the user is in and show each as its own field (match SGC format)
-          const divisions = groups.filter(g => g.group && DIVISION_IDS.includes(Number(g.group.id)));
+          const divisions = groups.filter(g => g.group && DIVISION_IDS.includes(Number(g.group.id)) && Number(g.group.id) !== Number(SGC_ID));
           if (divisions.length) {
             for (const g of divisions) {
               const title = `${g.group.name} Rank`;
