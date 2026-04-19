@@ -53,20 +53,25 @@ module.exports = {
         }
       } catch (e) { /* ignore */ }
 
-      // Groups and SGC rank
+      // Groups: report SGC rank and which Division groups they are in (use same IDs as `checkgroups`)
       try {
         if (robloxUserId) {
           const groupsRes = (await axios.get(`https://groups.roblox.com/v2/users/${robloxUserId}/groups/roles`)).data || {};
           const groups = Array.isArray(groupsRes.data) ? groupsRes.data : [];
           const SGC_ID = config.TIME_SGC_GROUP_ID || 6762663;
+          const DIVISION_IDS = [6762663,7001767,16348435,32481660,16242678,16242644,12327001];
+
           const sgc = groups.find(g => g.group && Number(g.group.id) === Number(SGC_ID));
           if (sgc) {
             embed.addFields({ name: 'SGC Rank', value: `Role: ${sgc.role.name}\nRank: ${sgc.role.rank}`, inline: false });
           }
 
-          // list first N non-SGC groups with role info
-          const other = groups.filter(g => !(g.group && Number(g.group.id) === Number(SGC_ID))).slice(0, 8).map(g => `**${g.group.name}** — ${g.role.name} (rank ${g.role.rank})`);
-          if (other.length) embed.addFields({ name: 'Other Group Memberships', value: other.join('\n'), inline: false });
+          // Find which division groups the user is in and show their role/rank
+          const divisions = groups.filter(g => g.group && DIVISION_IDS.includes(Number(g.group.id)));
+          if (divisions.length) {
+            const divLines = divisions.map(g => `**${g.group.name}** — Role: ${g.role.name} — Rank: ${g.role.rank}`);
+            embed.addFields({ name: 'Division Memberships', value: divLines.join('\n'), inline: false });
+          }
         }
       } catch (e) { /* ignore */ }
 
