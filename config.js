@@ -63,7 +63,7 @@ module.exports = {
     // Comma-separated role IDs that should trigger an alert if a probationary agent has them
     PROBATION_SUSPICIOUS_ROLE_IDS: process.env.PROBATION_SUSPICIOUS_ROLE_IDS || "1487506799400849518",
     // Comma-separated role IDs that are required for probationary agents; alert if missing
-    PROBATION_REQUIRED_ROLE_IDS: process.env.PROBATION_REQUIRED_ROLE_IDS || "1449837003188342916,1482810978059161610",
+    PROBATION_REQUIRED_ROLE_IDS: process.env.PROBATION_REQUIRED_ROLE_IDS || "1482810978059161610",
     // Channel to post probation alerts
     PROBATION_ALERT_CHANNEL_ID: process.env.PROBATION_ALERT_CHANNEL_ID || "1041577711845519384",
     // Optional: a temporary role ID that the bot can add/remove to force a guildMemberUpdate

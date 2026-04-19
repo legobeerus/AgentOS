@@ -226,7 +226,11 @@ async function handleMessageCommands(message, client) {
       const shown = unverified.slice(0, max).join('\n');
       const more = unverified.length > max ? `\n…and ${unverified.length - max} more` : '';
       const content = `Unverified members (${unverified.length}):\n${shown}${more}`;
-      await message.reply({ content });
+      // Respect admin debug mode: if debug is enabled, do not allow user mentions to ping
+      let state = { debugMode: false };
+      try { state = await getState(); } catch (e) { /* ignore */ }
+      const allowedMentions = state && state.debugMode ? { parse: [] } : undefined;
+      await message.reply({ content, allowedMentions });
     } catch (err) {
       console.error('Failed to handle !verifylist:', err);
       try { await message.reply({ content: 'Failed to generate verify list.' }); } catch (e) {}

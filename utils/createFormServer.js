@@ -1,6 +1,7 @@
 const express = require("express");
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType } = require("discord.js");
 const config = require("../config");
+const arrestStore = require('./arrestStore');
 const { findBlacklistEntry } = require("../utils/blacklistSheet");
 const { isSpamAnswers } = require("./spamFilter");
 
@@ -344,6 +345,27 @@ function createFormServer(client) {
           }
         } catch (err) {
           console.warn('Suspensions board mini-search failed:', err?.message || err);
+        }
+
+        // Mini arrest-log DB search (run after robloxUsername/robloxUserId are resolved)
+        try {
+          if (robloxUsername) {
+            const arrests = await arrestStore.getArrestsByRoblox(robloxUsername).catch(() => []);
+            if (arrests && arrests.length) {
+              if (!bgcEmbed) bgcEmbed = new EmbedBuilder().setTitle('Background Check').setColor(0x00aff1).setFooter({ text: robloxUserId ? `User ID: ${robloxUserId}` : `User: ${robloxUsername}` });
+              const maxShowA = 6;
+              const shownA = arrests.slice(0, maxShowA).map(a => {
+                const when = a.created_at ? new Date(a.created_at).toISOString().split('T')[0] : '';
+                const summary = a.incident_summary || a.charges || a.sentence || '(no summary)';
+                return `• ${when} — ${String(summary).slice(0, 200)}`;
+              }).join('\n');
+              const moreA = arrests.length > maxShowA ? `\n+${arrests.length - maxShowA} more` : '';
+              const valueA = (shownA + moreA).slice(0, 1000);
+              bgcEmbed.addFields({ name: 'Arrest Log Search Results', value: valueA, inline: false });
+            }
+          }
+        } catch (err) {
+          console.warn('Arrest log mini-search failed:', err?.message || err);
         }
 
         // Add account creation date / age as the final BGC field
