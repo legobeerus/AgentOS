@@ -23,8 +23,8 @@ module.exports = {
         // ignore
       }
 
-      // Prepare embed
-      const embed = new EmbedBuilder().setTitle(`Background Check — ${username}`).setColor(0x00aff1).setFooter({ text: robloxUserId ? `User ID: ${robloxUserId}` : `User: ${username}` });
+      // Prepare embed (we'll use the author as the linked username with avatar at top-left)
+      const embed = new EmbedBuilder().setColor(0x00aff1).setFooter({ text: robloxUserId ? `User ID: ${robloxUserId}` : `User: ${username}` });
 
       // Fetch Roblox user info (created date) and avatar
       let avatarUrl = null;
@@ -63,14 +63,17 @@ module.exports = {
 
           const sgc = groups.find(g => g.group && Number(g.group.id) === Number(SGC_ID));
           if (sgc) {
-            embed.addFields({ name: 'SGC Rank', value: `Role: ${sgc.role.name}\nRank: ${sgc.role.rank}`, inline: false });
+            embed.addFields({ name: 'SGC Rank', value: `Role: ${sgc.role.name}`, inline: false });
           }
 
-          // Find which division groups the user is in and show their role/rank
+          // Find which division groups the user is in and show each as its own field (match SGC format)
           const divisions = groups.filter(g => g.group && DIVISION_IDS.includes(Number(g.group.id)));
           if (divisions.length) {
-            const divLines = divisions.map(g => `**${g.group.name}** — Role: ${g.role.name} — Rank: ${g.role.rank}`);
-            embed.addFields({ name: 'Division Memberships', value: divLines.join('\n'), inline: false });
+            for (const g of divisions) {
+              const title = `${g.group.name} Rank`;
+              const value = `Role: ${g.role.name}`;
+              embed.addFields({ name: title, value, inline: false });
+            }
           }
         }
       } catch (e) { /* ignore */ }
@@ -111,8 +114,15 @@ module.exports = {
         }
       } catch (e) { /* ignore */ }
 
-      // Set author icon (top-left) to avatar if available
-      if (avatarUrl) embed.setAuthor({ name: username, iconURL: avatarUrl, url: robloxUserId ? `https://www.roblox.com/users/${robloxUserId}/profile` : undefined });
+      // Set author (top-left) to show linked username and avatar if available
+      try {
+        const profileUrl = robloxUserId ? `https://www.roblox.com/users/${robloxUserId}/profile` : undefined;
+        const authorName = `BGC for ${username}:`;
+        const authorOpts = { name: authorName };
+        if (profileUrl) authorOpts.url = profileUrl;
+        if (avatarUrl) authorOpts.iconURL = avatarUrl;
+        embed.setAuthor(authorOpts);
+      } catch (e) { /* ignore author set errors */ }
 
       await interaction.editReply({ embeds: [embed] });
     } catch (err) {

@@ -229,7 +229,8 @@ async function handleMessageCommands(message, client) {
       // Respect admin debug mode: if debug is enabled, do not allow user mentions to ping
       let state = { debugMode: false };
       try { state = await getState(); } catch (e) { /* ignore */ }
-      const allowedMentions = state && state.debugMode ? { parse: [] } : undefined;
+      const disablePings = (state && state.debugMode) || !!config.VERIFYLIST_DISABLE_PINGS;
+      const allowedMentions = disablePings ? { parse: [] } : undefined;
       await message.reply({ content, allowedMentions });
     } catch (err) {
       console.error('Failed to handle !verifylist:', err);
