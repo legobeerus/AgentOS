@@ -69,7 +69,8 @@ async function setEndDateForUser({ discordId, username }, endDateStr) {
       await sheets.spreadsheets.values.update({
         spreadsheetId: config.GOOGLE_SHEET_ID,
         range: targetA1,
-        valueInputOption: 'RAW',
+        // Let Sheets parse the date/text so it stores as a proper date when possible
+        valueInputOption: 'USER_ENTERED',
         resource: { values: [[outVal]] }
       });
 

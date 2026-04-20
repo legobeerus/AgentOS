@@ -103,10 +103,11 @@ async function updateMinutesForUser(username, minutesToAdd) {
         const resp = await sheets.spreadsheets.values.batchUpdate({
           spreadsheetId: config.GOOGLE_SHEET_ID,
           resource: {
-            valueInputOption: 'RAW',
+            // Use USER_ENTERED so Sheets will parse dates/numbers naturally
+            valueInputOption: 'USER_ENTERED',
             data: [
-              { range: weeklyA1, values: [[String(updatedWeekly)]] },
-              { range: totalA1, values: [[String(updatedTotal)]] }
+              { range: weeklyA1, values: [[updatedWeekly]] },
+              { range: totalA1, values: [[updatedTotal]] }
             ]
           }
         });
