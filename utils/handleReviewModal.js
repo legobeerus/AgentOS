@@ -37,12 +37,115 @@ async function handleReviewModal(interaction) {
 
   const embed = message.embeds[0];
   const config = require("../config");
-  const { EmbedBuilder, ChannelType } = require("discord.js");
+  const { EmbedBuilder, ChannelType, ActionRowBuilder, ButtonBuilder } = require("discord.js");
 
   if (!embed) {
     console.error("No embed found in the message");
     try { await interaction.editReply({ content: "⚠️ Could not find embed in message." }); } catch (e) { try { await interaction.followUp({ content: "⚠️ Could not find embed in message.", ephemeral: true }); } catch (_) {} }
     return;
+  }
+
+  // Special-case: inactivity notices should not be treated as OSI applications
+  try {
+    if (embed.title && /inactivity notice/i.test(String(embed.title))) {
+      const updatedEmbedObj = {
+        ...embed.data,
+        color: approved ? 0x57F287 : 0xED4245,
+        fields: [
+          ...embed.fields,
+          { name: 'Result', value: approved ? '✅ Approved' : '❌ Denied', inline: true },
+          { name: 'Feedback', value: feedback || '(no feedback)', inline: false }
+        ]
+      };
+
+      // Disable buttons if present
+      try {
+        const rows = [];
+        if (message.components && message.components.length) {
+          const comp = message.components[0];
+          const newRow = new ActionRowBuilder();
+          if (comp.components && comp.components[0]) newRow.addComponents(ButtonBuilder.from(comp.components[0]).setDisabled(true));
+          if (comp.components && comp.components[1]) newRow.addComponents(ButtonBuilder.from(comp.components[1]).setDisabled(true));
+          rows.push(newRow);
+        }
+        await message.edit({ embeds: [updatedEmbedObj], components: rows }).catch(() => {});
+      } catch (e) {
+        try { await message.edit({ embeds: [updatedEmbedObj], components: [] }).catch(() => {}); } catch (_) {}
+      }
+
+        // Try to DM the target and the submitter with the decision and feedback
+        try {
+          // Resolve target from title (format: "Inactivity Notice — username#1234")
+          let parsedTarget = null;
+          if (embed.title) {
+            const m = String(embed.title).match(/—\s*(.+)$/) || String(embed.title).match(/-\s*(.+)$/);
+            parsedTarget = m ? m[1].trim() : null;
+          }
+
+          let targetUser = null;
+          if (parsedTarget && interaction.guild) {
+            // Try find in guild by tag
+            targetUser = interaction.guild.members.cache.find(m => m.user.tag === parsedTarget)?.user;
+            if (!targetUser) {
+              // Try fetch members by username portion
+              const namePart = parsedTarget.split('#')[0];
+              try {
+                const fetched = await interaction.guild.members.fetch({ query: namePart, limit: 5 }).catch(() => null);
+                if (fetched) targetUser = Array.from(fetched.values()).map(m => m.user).find(u => u.tag === parsedTarget) || Array.from(fetched.values())[0]?.user;
+              } catch (e) {}
+            }
+          }
+
+          // Resolve submitter from embed field 'Submitted by'
+          let submitterUser = null;
+          try {
+            const submitField = embed.fields.find(f => /submitted by/i.test(f.name));
+            if (submitField && submitField.value) {
+              const v = String(submitField.value).trim();
+              const idMatch = v.match(/^<@!?(\d+)>$|^(\d{16,20})$/);
+              if (idMatch) {
+                const id = idMatch[1] || idMatch[2];
+                submitterUser = await interaction.client.users.fetch(id).catch(() => null);
+              } else if (interaction.guild) {
+                // try by tag in guild
+                submitterUser = interaction.guild.members.cache.find(m => m.user.tag === v)?.user;
+                if (!submitterUser) {
+                  const namePart = v.split('#')[0];
+                  try {
+                    const fetched = await interaction.guild.members.fetch({ query: namePart, limit: 5 }).catch(() => null);
+                    if (fetched) submitterUser = Array.from(fetched.values()).map(m => m.user).find(u => u.tag === v) || Array.from(fetched.values())[0]?.user;
+                  } catch (e) {}
+                }
+              } else {
+                // try client cache fallback
+                submitterUser = interaction.client.users.cache.find(u => u.tag === v || u.username === v);
+              }
+            }
+          } catch (e) {}
+
+          const outcomeText = approved ? 'approved' : 'denied';
+          const feedbackText = feedback || '(no feedback)';
+
+          if (targetUser) {
+            try {
+              await targetUser.send({ content: `Your inactivity notice has been ${outcomeText} by ${interaction.user.tag}. Notes: ${feedbackText}` }).catch(() => null);
+            } catch (e) {}
+          }
+
+          if (submitterUser && submitterUser.id !== targetUser?.id) {
+            try {
+              await submitterUser.send({ content: `The inactivity notice you submitted for ${parsedTarget || 'the user'} has been ${outcomeText} by ${interaction.user.tag}. Notes: ${feedbackText}` }).catch(() => null);
+            } catch (e) {}
+          }
+        } catch (e) {
+          console.warn('Failed to DM inactivity parties:', e);
+        }
+
+        try { await interaction.editReply({ content: '✅ Decision recorded for inactivity notice' }); } catch (e) { try { await interaction.followUp({ content: '✅ Decision recorded for inactivity notice', ephemeral: true }); } catch (_) {} }
+        return;
+    }
+  } catch (e) {
+    console.warn('Error in inactivity special-case handler:', e);
   }
 
   // Extract applicant user ID from embed fields (priority: user ID, then fallback to username)
