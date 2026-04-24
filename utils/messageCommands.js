@@ -256,12 +256,16 @@ async function handleMessageCommands(message, client) {
     // Trello config
     const TRELLO_KEY = process.env.TRELLO_KEY;
     const TRELLO_TOKEN = process.env.TRELLO_TOKEN;
-    const BOARD_ID = process.env.TRELLO_SUSPENSIONS_BOARD_ID;
+    const BOARD_ID = process.env.TRELLO_SUSPENSIONS_BOARD_ID || config.TRELLO_SUSPENSIONS_BOARD_ID;
     const ARREST_LIST_ID = process.env.TRELLO_SUSPENSIONS_ARREST_LIST_ID;
     const ARREST_LIST_NAME = process.env.TRELLO_SUSPENSIONS_ARREST_LIST_NAME || 'Arrest';
 
-    if (!TRELLO_KEY || !TRELLO_TOKEN || !BOARD_ID) {
-      try { await message.reply('Trello is not configured (missing TRELLO_KEY/TRELLO_TOKEN/TRELLO_SUSPENSIONS_BOARD_ID).'); } catch (e) {}
+    const missing = [];
+    if (!TRELLO_KEY) missing.push('TRELLO_KEY');
+    if (!TRELLO_TOKEN) missing.push('TRELLO_TOKEN');
+    if (!BOARD_ID) missing.push('TRELLO_SUSPENSIONS_BOARD_ID');
+    if (missing.length > 0) {
+      try { await message.reply(`Trello import cannot run — missing env: ${missing.join(', ')}`); } catch (e) {}
       return;
     }
 
