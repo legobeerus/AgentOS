@@ -5,6 +5,8 @@ const agentosStore = require('./agentosStore');
 const { getChangelog, setChangelog } = require("./changelogStore");
 const { getState, setState } = require("./adminState");
 const verificationStore = require('./verificationStore');
+const axios = require('axios');
+const arrestStore = require('./arrestStore');
 
 async function handleMessageCommands(message, client) {
   // Ignore bots
@@ -240,6 +242,88 @@ async function handleMessageCommands(message, client) {
     } catch (err) {
       console.error('Failed to handle !verifylist:', err);
       try { await message.reply({ content: 'Failed to generate verify list.' }); } catch (e) {}
+    }
+  }
+
+  if (lower.includes("!trelloimport")) {
+    const authorId = message.author.id;
+    const whitelist = config.ADMIN_WHITELIST || [];
+    if (!whitelist.includes(authorId)) {
+      try { await message.reply({ content: 'You are not authorized to use this command.' }); } catch (e) {}
+      return;
+    }
+
+    // Trello config
+    const TRELLO_KEY = process.env.TRELLO_KEY;
+    const TRELLO_TOKEN = process.env.TRELLO_TOKEN;
+    const BOARD_ID = process.env.TRELLO_SUSPENSIONS_BOARD_ID;
+    const ARREST_LIST_ID = process.env.TRELLO_SUSPENSIONS_ARREST_LIST_ID;
+    const ARREST_LIST_NAME = process.env.TRELLO_SUSPENSIONS_ARREST_LIST_NAME || 'Arrest';
+
+    if (!TRELLO_KEY || !TRELLO_TOKEN || !BOARD_ID) {
+      try { await message.reply('Trello is not configured (missing TRELLO_KEY/TRELLO_TOKEN/TRELLO_SUSPENSIONS_BOARD_ID).'); } catch (e) {}
+      return;
+    }
+
+    try {
+      // Resolve list id if not provided
+      let listId = ARREST_LIST_ID || null;
+      if (!listId) {
+        const listsRes = await axios.get(`https://api.trello.com/1/boards/${BOARD_ID}/lists`, { params: { key: TRELLO_KEY, token: TRELLO_TOKEN, fields: 'name' } });
+        const lists = Array.isArray(listsRes.data) ? listsRes.data : [];
+        const found = lists.find(l => String(l.name || '').toLowerCase() === String(ARREST_LIST_NAME).toLowerCase() || String(l.name || '').toLowerCase() === `${String(ARREST_LIST_NAME).toLowerCase()}s`);
+        if (found) listId = found.id;
+      }
+
+      if (!listId) {
+        await message.reply('Could not determine the arrest list ID on the Trello board. Set `TRELLO_SUSPENSIONS_ARREST_LIST_ID` or ensure a list named "Arrest" exists.');
+        return;
+      }
+
+      // Fetch closed (archived) cards on the board, then filter to those from the arrest list
+      const cardsRes = await axios.get(`https://api.trello.com/1/boards/${BOARD_ID}/cards`, { params: { key: TRELLO_KEY, token: TRELLO_TOKEN, filter: 'closed', fields: 'name,desc,idList' } });
+      const cards = Array.isArray(cardsRes.data) ? cardsRes.data : [];
+      const targetCards = cards.filter(c => String(c.idList) === String(listId));
+
+      if (!targetCards || targetCards.length === 0) {
+        await message.reply('No archived arrest cards found to import.');
+        return;
+      }
+
+      // parsing helper (same format as trelloMessageIngest)
+      function parseDesc(desc) {
+        const pattern = /Suspect:\s*([\s\S]*?)\s*Incident Summary:\s*([\s\S]*?)\s*(?:Charge\(s\)|Charges?)\s*:\s*([\s\S]*?)\s*Sentence:\s*([\s\S]*?)\s*Proof:\s*([\s\S]*)/i;
+        const match = String(desc || '').match(pattern);
+        if (!match) return null;
+        return { suspect: match[1].trim(), summary: match[2].trim(), charges: match[3].trim(), sentence: match[4].trim(), proof: match[5].trim() };
+      }
+
+      const results = { imported: 0, skipped: 0, errors: 0 };
+      for (const card of targetCards) {
+        try {
+          const parsed = parseDesc(card.desc || card.name || '');
+          if (!parsed) { results.skipped++; continue; }
+
+          await arrestStore.createArrest({
+            roblox_username: parsed.suspect,
+            incident_summary: parsed.summary,
+            charges: parsed.charges,
+            sentence: parsed.sentence,
+            proof: parsed.proof,
+            submitted_by: message.author.id,
+            submitted_by_tag: message.author.tag
+          });
+          results.imported++;
+        } catch (e) {
+          console.error('Failed to import Trello card:', e);
+          results.errors++;
+        }
+      }
+
+      await message.reply(`Trello import complete — imported: ${results.imported}, skipped: ${results.skipped}, errors: ${results.errors}`);
+    } catch (err) {
+      console.error('Trello import failed:', err);
+      try { await message.reply('Trello import failed — check bot logs.'); } catch (e) {}
     }
   }
 }
