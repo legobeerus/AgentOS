@@ -82,13 +82,22 @@ async function addEntry({ command, params, userId, userTag }) {
     const list = await readAllFile();
     const entry = { id, command: String(command), params: params == null ? null : String(params), userId: userId || null, userTag: userTag || null, createdAt: new Date().toISOString() };
     list.push(entry);
-    await enqueueWriteFile(list);
+    // Trim to last 10 entries before writing
+    const sorted = list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    const trimmed = sorted.slice(0, 10);
+    await enqueueWriteFile(trimmed);
     return entry;
   }
   const ok = await ensureTable();
   if (!ok) throw new Error('db_error');
   const db = getPool();
   await db.query('INSERT INTO agentos_commands (id, command, params, user_id, user_tag) VALUES ($1, $2, $3, $4, $5)', [id, String(command), params == null ? null : String(params), userId || null, userTag || null]);
+  // Purge older entries so only the most recent 10 are kept
+  try {
+    await db.query(`DELETE FROM agentos_commands WHERE id NOT IN (SELECT id FROM agentos_commands ORDER BY created_at DESC LIMIT 10)`);
+  } catch (e) {
+    console.warn('[agentosStore] failed to purge old entries:', e);
+  }
   return { id, command, params, userId, userTag, createdAt: new Date().toISOString() };
 }
 

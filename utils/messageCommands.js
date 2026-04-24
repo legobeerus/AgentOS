@@ -5,8 +5,6 @@ const agentosStore = require('./agentosStore');
 const { getChangelog, setChangelog } = require("./changelogStore");
 const { getState, setState } = require("./adminState");
 const verificationStore = require('./verificationStore');
-const axios = require('axios');
-const arrestStore = require('./arrestStore');
 
 async function handleMessageCommands(message, client) {
   // Ignore bots
@@ -86,7 +84,9 @@ async function handleMessageCommands(message, client) {
         { name: '!changelog', auth: 'Public' },
         { name: '!errorindex', auth: 'Public' },
         { name: '!admin', auth: adminLabel },
-        { name: '!agentoslog', auth: adminLabel }
+        { name: '!agentoslog', auth: adminLabel },
+        { name: '!roleId', auth: adminLabel },
+        { name: '!verifylist', auth: adminLabel }
       ];
 
       const embed = new EmbedBuilder()
@@ -195,16 +195,37 @@ async function handleMessageCommands(message, client) {
         for (const tok of excludeTokens) {
           if (!tok) continue;
           const t = String(tok).trim();
-          // direct numeric id
-          const idMatch = t.match(/^(\d{5,20})$/);
-          if (idMatch) { excludeRoleIds.add(idMatch[1]); continue; }
-          // mention-like content
-          const mentionMatch = t.match(/(\d{5,20})/);
-          if (mentionMatch) { excludeRoleIds.add(mentionMatch[1]); continue; }
+          // exact numeric id
+          const idExact = t.match(/^(\d{5,20})$/);
+          if (idExact) { excludeRoleIds.add(idExact[1]); continue; }
+
+          // mention formats like <@&12345> or plain numbers embedded
+          const mentionMatch = t.match(/<@&?(\d{5,20})>|(\d{5,20})/);
+          const id = mentionMatch ? (mentionMatch[1] || mentionMatch[2]) : null;
+          if (id) {
+            excludeRoleIds.add(id);
+            continue;
+          }
+
           // try to resolve by name in this guild (case-insensitive)
           if (message.guild) {
-            const roleByName = message.guild.roles.cache.find(r => r.name && r.name.toLowerCase() === t.toLowerCase());
+            // prefer exact name match in cache
+            const nameLower = t.toLowerCase();
+            let roleByName = message.guild.roles.cache.find(r => r.name && r.name.toLowerCase() === nameLower);
+            if (!roleByName) {
+              // try partial match or display name fallback
+              roleByName = message.guild.roles.cache.find(r => r.name && r.name.toLowerCase().includes(nameLower));
+            }
             if (roleByName) { excludeRoleIds.add(roleByName.id); continue; }
+
+            // As a last resort, attempt to fetch role by id if t contains digits
+            const maybeId = (t.match(/(\d{5,20})/)||[])[1];
+            if (maybeId) {
+              try {
+                const fetched = await message.guild.roles.fetch(maybeId).catch(() => null);
+                if (fetched) { excludeRoleIds.add(fetched.id); continue; }
+              } catch (e) {}
+            }
           }
         }
       } catch (e) { /* ignore resolution errors */ }
@@ -245,126 +266,7 @@ async function handleMessageCommands(message, client) {
     }
   }
 
-  if (lower.includes("!trelloimport")) {
-    const authorId = message.author.id;
-    const whitelist = config.ADMIN_WHITELIST || [];
-    if (!whitelist.includes(authorId)) {
-      try { await message.reply({ content: 'You are not authorized to use this command.' }); } catch (e) {}
-      return;
-    }
-
-    // Trello config
-    const TRELLO_KEY = process.env.TRELLO_KEY;
-    const TRELLO_TOKEN = process.env.TRELLO_TOKEN;
-    const BOARD_ID = process.env.TRELLO_SUSPENSIONS_BOARD_ID || config.TRELLO_SUSPENSIONS_BOARD_ID;
-    const ARREST_LIST_ID = process.env.TRELLO_SUSPENSIONS_ARREST_LIST_ID;
-    const ARREST_LIST_NAME = process.env.TRELLO_SUSPENSIONS_ARREST_LIST_NAME || 'Arrest';
-
-    const missing = [];
-    if (!TRELLO_KEY) missing.push('TRELLO_KEY');
-    if (!TRELLO_TOKEN) missing.push('TRELLO_TOKEN');
-    if (!BOARD_ID) missing.push('TRELLO_SUSPENSIONS_BOARD_ID');
-    if (missing.length > 0) {
-      try { await message.reply(`Trello import cannot run — missing env: ${missing.join(', ')}`); } catch (e) {}
-      return;
-    }
-
-    try {
-      // Resolve list id if not provided
-      let listId = ARREST_LIST_ID || null;
-      if (!listId) {
-        const listsRes = await axios.get(`https://api.trello.com/1/boards/${BOARD_ID}/lists`, { params: { key: TRELLO_KEY, token: TRELLO_TOKEN, fields: 'name' } });
-        const lists = Array.isArray(listsRes.data) ? listsRes.data : [];
-        const found = lists.find(l => String(l.name || '').toLowerCase() === String(ARREST_LIST_NAME).toLowerCase() || String(l.name || '').toLowerCase() === `${String(ARREST_LIST_NAME).toLowerCase()}s`);
-        if (found) listId = found.id;
-      }
-
-      if (!listId) {
-        await message.reply('Could not determine the arrest list ID on the Trello board. Set `TRELLO_SUSPENSIONS_ARREST_LIST_ID` or ensure a list named "Arrest" exists.');
-        return;
-      }
-
-      // Fetch closed (archived) cards on the board, then filter to those from the arrest list
-      const cardsRes = await axios.get(`https://api.trello.com/1/boards/${BOARD_ID}/cards`, { params: { key: TRELLO_KEY, token: TRELLO_TOKEN, filter: 'closed', fields: 'name,desc,idList' } });
-      const cards = Array.isArray(cardsRes.data) ? cardsRes.data : [];
-      const targetCards = cards.filter(c => String(c.idList) === String(listId));
-
-      if (!targetCards || targetCards.length === 0) {
-        await message.reply('No archived arrest cards found to import.');
-        return;
-      }
-
-      // Robust parsing helper: find labeled sections anywhere in the text
-      function parseDesc(desc, title) {
-        const descText = String(desc || '').replace(/\r/g, '');
-        const titleText = title ? String(title || '') : '';
-        const text = (titleText ? titleText + '\n' : '') + descText;
-        // Find labeled headings like "Suspect:", "Incident Summary:", "Charges:", "Sentence:", "Proof:"
-        const labelRegex = /(Suspect|Incident Summary|Charges|Charge\(s\)|Sentence|Proof)\s*:/gi;
-        const matches = [];
-        let m;
-        while ((m = labelRegex.exec(text)) !== null) {
-          matches.push({ label: m[1], index: m.index, end: m.index + m[0].length });
-        }
-
-        if (matches.length === 0) {
-          // No labeled sections — fallback: try to use title as suspect and whole desc as summary
-          if (titleText && titleText.trim()) {
-            return { suspect: titleText.trim(), summary: descText.trim(), charges: '', sentence: '', proof: '' };
-          }
-          return null;
-        }
-
-        const out = { suspect: '', summary: '', charges: '', sentence: '', proof: '' };
-        for (let i = 0; i < matches.length; i++) {
-          const cur = matches[i];
-          const nextIndex = i + 1 < matches.length ? matches[i + 1].index : text.length;
-          const value = text.slice(cur.end, nextIndex).trim();
-          const key = String(cur.label || '').toLowerCase();
-          if (key.includes('suspect')) out.suspect = value;
-          else if (key.includes('incident')) out.summary = value;
-          else if (key.includes('charg')) out.charges = value;
-          else if (key.includes('sentence')) out.sentence = value;
-          else if (key.includes('proof')) out.proof = value;
-        }
-
-        // If suspect missing, use the card title
-        if (!out.suspect && title && String(title).trim()) out.suspect = String(title).trim();
-
-        // Consider it a valid parse if we have at least a suspect and one of summary/charges
-        if (!out.suspect) return null;
-        if (!out.summary && !out.charges) return null;
-        return out;
-      }
-
-      const results = { imported: 0, skipped: 0, errors: 0 };
-      for (const card of targetCards) {
-        try {
-          const parsed = parseDesc(card.desc || '', card.name || '');
-          if (!parsed) { results.skipped++; continue; }
-
-          await arrestStore.createArrest({
-            roblox_username: parsed.suspect,
-            incident_summary: parsed.summary,
-            charges: parsed.charges,
-            sentence: parsed.sentence,
-            proof: parsed.proof,
-            submitted_by: message.author.id,
-            submitted_by_tag: message.author.tag
-          });
-          results.imported++;
-        } catch (e) {
-          console.error('Failed to import Trello card:', e);
-          results.errors++;
-        }
-      }
-
-      await message.reply(`Trello import complete — imported: ${results.imported}, skipped: ${results.skipped}, errors: ${results.errors}`);
-    } catch (err) {
-      console.error('Trello import failed:', err);
-      try { await message.reply('Trello import failed — check bot logs.'); } catch (e) {}
-    }
-  }
+  
 }
 
 module.exports = { handleMessageCommands };
