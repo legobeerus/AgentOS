@@ -240,7 +240,10 @@ async function handleMessageCommands(message, client) {
         if (!member || member.user.bot) continue;
         // Skip members who have any excluded role
         try {
-          if (member.roles && member.roles.cache && member.roles.cache.some(r => excludeRoleIds.has(r.id))) continue;
+          // Ensure we have an up-to-date member object (avoid stale cache)
+          let freshMember = member;
+          try { freshMember = await message.guild.members.fetch(member.id); } catch (e) { /* fallback to cached member */ }
+          if (freshMember.roles && freshMember.roles.cache && freshMember.roles.cache.some(r => excludeRoleIds.has(r.id))) continue;
         } catch (e) {}
         if (!verifiedIds.has(id)) {
           if (disablePings) unverified.push(`${member.user.tag} (${id})`);
