@@ -128,4 +128,7 @@ module.exports = {
 // Example: ADMIN_WHITELIST=123,456,789
 module.exports.ADMIN_WHITELIST = (process.env.ADMIN_WHITELIST || "716248402513494027").split(",").map(s => cleanId(s)).map(s => s.trim()).filter(Boolean);
 // Processed list of role IDs to exclude from verifylist (from VERIFYLIST_EXCLUDE_ROLE_IDS)
-module.exports.VERIFYLIST_EXCLUDE_ROLE_IDS_LIST = (process.env.VERIFYLIST_EXCLUDE_ROLE_IDS || "").split(",").map(s => cleanId(s)).map(s => s.trim()).filter(Boolean);
+// Build processed list of role IDs to exclude from verifylist. Prefer explicit env var, otherwise use the
+// `VERIFYLIST_EXCLUDE_ROLE_IDS` value defined above in the exported config object.
+const _rawVerifylistExclude = process.env.VERIFYLIST_EXCLUDE_ROLE_IDS || module.exports.VERIFYLIST_EXCLUDE_ROLE_IDS || "";
+module.exports.VERIFYLIST_EXCLUDE_ROLE_IDS_LIST = String(_rawVerifylistExclude).split(",").map(s => cleanId(s)).map(s => s.trim()).filter(Boolean);
