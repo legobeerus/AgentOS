@@ -294,18 +294,53 @@ async function handleMessageCommands(message, client) {
         return;
       }
 
-      // parsing helper (same format as trelloMessageIngest)
-      function parseDesc(desc) {
-        const pattern = /Suspect:\s*([\s\S]*?)\s*Incident Summary:\s*([\s\S]*?)\s*(?:Charge\(s\)|Charges?)\s*:\s*([\s\S]*?)\s*Sentence:\s*([\s\S]*?)\s*Proof:\s*([\s\S]*)/i;
-        const match = String(desc || '').match(pattern);
-        if (!match) return null;
-        return { suspect: match[1].trim(), summary: match[2].trim(), charges: match[3].trim(), sentence: match[4].trim(), proof: match[5].trim() };
+      // Robust parsing helper: find labeled sections anywhere in the text
+      function parseDesc(desc, title) {
+        const descText = String(desc || '').replace(/\r/g, '');
+        const titleText = title ? String(title || '') : '';
+        const text = (titleText ? titleText + '\n' : '') + descText;
+        // Find labeled headings like "Suspect:", "Incident Summary:", "Charges:", "Sentence:", "Proof:"
+        const labelRegex = /(Suspect|Incident Summary|Charges|Charge\(s\)|Sentence|Proof)\s*:/gi;
+        const matches = [];
+        let m;
+        while ((m = labelRegex.exec(text)) !== null) {
+          matches.push({ label: m[1], index: m.index, end: m.index + m[0].length });
+        }
+
+        if (matches.length === 0) {
+          // No labeled sections — fallback: try to use title as suspect and whole desc as summary
+          if (titleText && titleText.trim()) {
+            return { suspect: titleText.trim(), summary: descText.trim(), charges: '', sentence: '', proof: '' };
+          }
+          return null;
+        }
+
+        const out = { suspect: '', summary: '', charges: '', sentence: '', proof: '' };
+        for (let i = 0; i < matches.length; i++) {
+          const cur = matches[i];
+          const nextIndex = i + 1 < matches.length ? matches[i + 1].index : text.length;
+          const value = text.slice(cur.end, nextIndex).trim();
+          const key = String(cur.label || '').toLowerCase();
+          if (key.includes('suspect')) out.suspect = value;
+          else if (key.includes('incident')) out.summary = value;
+          else if (key.includes('charg')) out.charges = value;
+          else if (key.includes('sentence')) out.sentence = value;
+          else if (key.includes('proof')) out.proof = value;
+        }
+
+        // If suspect missing, use the card title
+        if (!out.suspect && title && String(title).trim()) out.suspect = String(title).trim();
+
+        // Consider it a valid parse if we have at least a suspect and one of summary/charges
+        if (!out.suspect) return null;
+        if (!out.summary && !out.charges) return null;
+        return out;
       }
 
       const results = { imported: 0, skipped: 0, errors: 0 };
       for (const card of targetCards) {
         try {
-          const parsed = parseDesc(card.desc || card.name || '');
+          const parsed = parseDesc(card.desc || '', card.name || '');
           if (!parsed) { results.skipped++; continue; }
 
           await arrestStore.createArrest({
