@@ -349,8 +349,20 @@ function createFormServer(client) {
 
         // Mini arrest-log DB search (run after robloxUsername/robloxUserId are resolved)
         try {
+          // If we only have a userId, try to resolve the username so DB lookups succeed
+          if (!robloxUsername && robloxUserId) {
+            try {
+              const userInfoRes = await require('axios').get(`https://users.roblox.com/v1/users/${robloxUserId}`);
+              const userInfo = userInfoRes.data || {};
+              // older API uses 'name' while some responses use 'username'
+              robloxUsername = userInfo.name || userInfo.username || robloxUsername;
+            } catch (e) {
+              // ignore resolution errors and continue — arrest lookup will simply skip
+            }
+          }
+
           if (robloxUsername) {
-            const arrests = await arrestStore.getArrestsByRoblox(robloxUsername).catch(() => []);
+            const arrests = await arrestStore.getArrestsByRoblox(String(robloxUsername).trim()).catch(() => []);
             if (arrests && arrests.length) {
               if (!bgcEmbed) bgcEmbed = new EmbedBuilder().setTitle('Background Check').setColor(0x00aff1).setFooter({ text: robloxUserId ? `User ID: ${robloxUserId}` : `User: ${robloxUsername}` });
               const maxShowA = 6;
