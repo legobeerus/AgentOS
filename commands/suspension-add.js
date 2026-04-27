@@ -104,7 +104,7 @@ module.exports = {
     .addStringOption(option =>
       option
         .setName("divisional_ranks")
-        .setDescription("Divisional Ranks - Follow format of Rank Name (Division), separate multiple ranks with commas")
+        .setDescription("Divisional Ranks - Follow format of (Abbreviation) Rank Name, separate multiple ranks with commas")
         .setRequired(true)
     )
     .addStringOption(option =>
