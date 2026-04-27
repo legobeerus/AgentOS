@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
+const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType } = require("discord.js");
 const axios = require("axios");
 
 const BOARD_ID = process.env.TRELLO_SUSPENSIONS_BOARD_ID || "693f1533319531ec08ae2ff4";
@@ -61,34 +61,77 @@ module.exports = {
 				return;
 			}
 
-			const MAX = 10;
-			const embed = new EmbedBuilder().setTitle(`Results for "${query}"`).setColor(0x00aff1).setTimestamp(new Date());
-			const slice = matches.slice(0, MAX);
-			for (const c of slice) {
-				const listName = c.idList ? (listNameById[c.idList] || "") : "";
-				// Prefer an explicit requested length if present in the card description.
-				// The duration is always whatever follows "Requested Time:" on the same line.
-				let durationText = null;
-				if (c.desc) {
-					const m = String(c.desc).match(/Requested Time:\s*([^\r\n]+)/i);
-					if (m && m[1]) durationText = m[1].trim();
+			const MAX = 10; // results per embed
+			const totalPages = Math.ceil(matches.length / MAX);
+			const embeds = [];
+			for (let p = 0; p < totalPages; p++) {
+				const pageEmbed = new EmbedBuilder()
+					.setTitle(`Results for "${query}"${totalPages > 1 ? ` — Page ${p + 1}/${totalPages}` : ""}`)
+					.setColor(0x00aff1)
+					.setTimestamp(new Date());
+				const slice = matches.slice(p * MAX, (p + 1) * MAX);
+				for (const c of slice) {
+					const listName = c.idList ? (listNameById[c.idList] || "") : "";
+					// Prefer an explicit requested length if present in the card description.
+					// The duration is always whatever follows "Requested Time:" on the same line.
+					let durationText = null;
+					if (c.desc) {
+						const m = String(c.desc).match(/Requested Time:\s*([^\r\n]+)/i);
+						if (m && m[1]) durationText = m[1].replace(/\*/g, '').trim();
+					}
+					let displayText;
+					if (durationText) {
+						displayText = durationText;
+					} else if (c.due) {
+						displayText = new Date(c.due).toISOString().split("T")[0];
+					} else if (listName === "Arrests") {
+						displayText = "Arrest Log";
+					} else {
+						displayText = "Permanent";
+					}
+					const labels = Array.isArray(c.labels) ? c.labels.map(l => l.name).filter(Boolean).join(", ") : "";
+					const value = `${displayText}${labels ? ` — ${labels}` : ""}\n${c.url}`;
+					pageEmbed.addFields({ name: String(c.name).slice(0, 256) || '(untitled)', value: value.slice(0, 1024) });
 				}
-				let displayText;
-				if (durationText) {
-					displayText = durationText;
-				} else if (c.due) {
-					displayText = new Date(c.due).toISOString().split("T")[0];
-				} else if (listName === "Arrests") {
-					displayText = "Arrest Log";
-				} else {
-					displayText = "Permanent";
-				}
-				const labels = Array.isArray(c.labels) ? c.labels.map(l => l.name).filter(Boolean).join(", ") : "";
-				const value = `${displayText}${labels ? ` — ${labels}` : ""}\n${c.url}`;
-				embed.addFields({ name: String(c.name).slice(0, 256) || '(untitled)', value: value.slice(0, 1024) });
+				embeds.push(pageEmbed);
 			}
-			if (matches.length > MAX) embed.setFooter({ text: `+${matches.length - MAX} more result(s)` });
-			await interaction.editReply({ embeds: [embed] });
+			// Send first page and attach navigation buttons if more pages exist.
+			let pageIndex = 0;
+			const makeRow = (idx) => new ActionRowBuilder().addComponents(
+				new ButtonBuilder().setCustomId(`susp_search_prev_${interaction.id}`).setLabel('Prev').setStyle(ButtonStyle.Primary).setDisabled(idx <= 0),
+				new ButtonBuilder().setCustomId(`susp_search_next_${interaction.id}`).setLabel('Next').setStyle(ButtonStyle.Primary).setDisabled(idx >= embeds.length - 1),
+			);
+
+			await interaction.editReply({ embeds: [embeds[0]], components: embeds.length > 1 ? [makeRow(0)] : [] });
+			if (embeds.length <= 1) return;
+
+			const msg = await interaction.fetchReply();
+			const collector = msg.createMessageComponentCollector({ componentType: ComponentType.Button, time: 120000 });
+
+			collector.on('collect', async i => {
+				if (i.user.id !== interaction.user.id) {
+					await i.reply({ content: 'These buttons aren\'t for you.', ephemeral: true });
+					return;
+				}
+				if (i.customId === `susp_search_prev_${interaction.id}`) {
+					pageIndex = Math.max(0, pageIndex - 1);
+				} else if (i.customId === `susp_search_next_${interaction.id}`) {
+					pageIndex = Math.min(embeds.length - 1, pageIndex + 1);
+				}
+				await i.update({ embeds: [embeds[pageIndex]], components: [makeRow(pageIndex)] });
+			});
+
+			collector.on('end', async () => {
+				try {
+					const disabled = new ActionRowBuilder().addComponents(
+						new ButtonBuilder().setCustomId(`susp_search_prev_${interaction.id}`).setLabel('Prev').setStyle(ButtonStyle.Primary).setDisabled(true),
+						new ButtonBuilder().setCustomId(`susp_search_next_${interaction.id}`).setLabel('Next').setStyle(ButtonStyle.Primary).setDisabled(true),
+					);
+					await interaction.editReply({ components: [disabled] });
+				} catch (e) {
+					// ignore
+				}
+			});
 		} catch (err) {
 			console.error("suspension-search error:", err);
 			const e = new EmbedBuilder().setTitle('Search Error').setColor(0xed4245).setDescription('Could not search the suspensions board.');
