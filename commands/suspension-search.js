@@ -66,16 +66,25 @@ module.exports = {
 			const slice = matches.slice(0, MAX);
 			for (const c of slice) {
 				const listName = c.idList ? (listNameById[c.idList] || "") : "";
-				let dueText;
-				if (c.due) {
-					dueText = new Date(c.due).toISOString().split("T")[0];
+				// Prefer an explicit requested length if present in the card description.
+				// The duration is always whatever follows "Requested Time:" on the same line.
+				let durationText = null;
+				if (c.desc) {
+					const m = String(c.desc).match(/Requested Time:\s*([^\r\n]+)/i);
+					if (m && m[1]) durationText = m[1].trim();
+				}
+				let displayText;
+				if (durationText) {
+					displayText = durationText;
+				} else if (c.due) {
+					displayText = new Date(c.due).toISOString().split("T")[0];
 				} else if (listName === "Arrests") {
-					dueText = "Arrest Log";
+					displayText = "Arrest Log";
 				} else {
-					dueText = "Permanent";
+					displayText = "Permanent";
 				}
 				const labels = Array.isArray(c.labels) ? c.labels.map(l => l.name).filter(Boolean).join(", ") : "";
-				const value = `${dueText}${labels ? ` — ${labels}` : ""}\n${c.url}`;
+				const value = `${displayText}${labels ? ` — ${labels}` : ""}\n${c.url}`;
 				embed.addFields({ name: String(c.name).slice(0, 256) || '(untitled)', value: value.slice(0, 1024) });
 			}
 			if (matches.length > MAX) embed.setFooter({ text: `+${matches.length - MAX} more result(s)` });

@@ -88,7 +88,7 @@ module.exports = {
     .addStringOption(option =>
       option
         .setName("label")
-        .setDescription("Label to apply - Only select DoW Approved if you are not OSI")
+        .setDescription("Label to apply - Only select DoW Approved if O-7+ approved.")
         .setRequired(true)
         .addChoices(
           { name: "OSI Approved", value: "OSI Approved" },
@@ -122,7 +122,7 @@ module.exports = {
     .addStringOption(option =>
       option
         .setName("proof")
-        .setDescription("Proof of Offense (link)")
+        .setDescription("Proof of Offense (link to case file/proof)")
         .setRequired(true)
     ),
 
