@@ -108,6 +108,10 @@ module.exports = {
   VERIFYLIST_EXCLUDE_ROLE_IDS: process.env.VERIFYLIST_EXCLUDE_ROLE_IDS || "1263502224181694467,1250194811521208353,1106779772492718180",
   // Arrest logging: channel where arrest embeds are posted
   ARREST_LOG_CHANNEL_ID: process.env.ARREST_LOG_CHANNEL_ID || "1221224045429915759",
+  // Optional: restrict arrest logging to a single guild (server) by ID
+  ARREST_GUILD_ID: cleanId(process.env.ARREST_GUILD_ID) || "1041577710067138560",
+  // Optional: require users to have this role ID to run `arrest-log`
+  ARREST_REQUIRED_ROLE_ID: cleanId(process.env.ARREST_REQUIRED_ROLE_ID) || "1041078857643597824",
   // Comma-separated role IDs that may edit/delete any arrest
   ARREST_ADMIN_ROLE_IDS: process.env.ARREST_ADMIN_ROLE_IDS || "1449861438012133566,1106739929540730921",
 

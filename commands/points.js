@@ -45,6 +45,17 @@ module.exports = {
   async execute(interaction) {
     await interaction.deferReply({ ephemeral: true });
 
+    // Restrict to the same approver role used for case approvals
+    try {
+      if (!interaction.member.roles.cache.has(require('../config').REQUIRED_ROLE_ID)) {
+        await interaction.editReply({ content: '❌ You do not have permission to run this command.', ephemeral: true });
+        return;
+      }
+    } catch (err) {
+      try { await interaction.editReply({ content: '❌ You do not have permission to run this command.', ephemeral: true }); } catch (e) {}
+      return;
+    }
+
     const operation = interaction.options.getString('operation');
     const username = interaction.options.getString('username');
     const amount = interaction.options.getInteger('amount');
