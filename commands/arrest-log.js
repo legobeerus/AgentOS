@@ -14,25 +14,12 @@ module.exports = {
 
   async execute(interaction) {
     await interaction.deferReply({ ephemeral: true });
-    // Optional: require the user to be a member of a configured guild (and optionally have a role there)
+    // Validate only by role membership in the interaction's guild (no required guild check)
     try {
-      const allowedGuild = config.ARREST_GUILD_ID;
-      if (allowedGuild) {
-        // Ensure the bot can fetch the guild and the member within it
-        const guild = await interaction.client.guilds.fetch(String(allowedGuild)).catch(() => null);
-        if (!guild) {
-          await interaction.editReply({ content: '❌ Required guild not available to the bot.', ephemeral: true });
-          return;
-        }
-
-        const memberInGuild = await guild.members.fetch(interaction.user.id).catch(() => null);
-        if (!memberInGuild) {
-          await interaction.editReply({ content: '❌ You must be a member of OSI to use this command.', ephemeral: true });
-          return;
-        }
-
-        const reqRole = config.ARREST_REQUIRED_ROLE_ID;
-        if (reqRole && !(memberInGuild.roles && memberInGuild.roles.cache.has(reqRole))) {
+      const reqRole = config.ARREST_REQUIRED_ROLE_ID;
+      if (reqRole) {
+        const member = interaction.member;
+        if (!(member && member.roles && member.roles.cache && member.roles.cache.has(reqRole))) {
           await interaction.editReply({ content: '❌ You do not have permission to run this command.', ephemeral: true });
           return;
         }
