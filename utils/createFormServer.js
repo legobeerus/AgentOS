@@ -367,9 +367,9 @@ function createFormServer(client) {
               if (!bgcEmbed) bgcEmbed = new EmbedBuilder().setTitle('Background Check').setColor(0x00aff1).setFooter({ text: robloxUserId ? `User ID: ${robloxUserId}` : `User: ${robloxUsername}` });
               const maxShowA = 6;
               const shownA = arrests.slice(0, maxShowA).map(a => {
-                const when = a.created_at ? new Date(a.created_at).toISOString().split('T')[0] : '';
-                const summary = a.incident_summary || a.charges || a.sentence || '(no summary)';
-                return `• ${when} — ${String(summary).slice(0, 200)}`;
+                const idPart = a.id ? `ID ${a.id}` : '';
+                const laws = a.charges || a.incident_summary || a.sentence || '(no laws listed)';
+                return `• ${idPart} — Laws violated: ${String(laws).slice(0, 200)}`;
               }).join('\n');
               const moreA = arrests.length > maxShowA ? `\n+${arrests.length - maxShowA} more` : '';
               const valueA = (shownA + moreA).slice(0, 1000);
@@ -390,9 +390,9 @@ function createFormServer(client) {
               const now = new Date();
               const ageDays = Math.floor((now - created) / (1000 * 60 * 60 * 24));
               const ageYears = (ageDays / 365).toFixed(2);
-              const createdStr = created.toISOString().split('T')[0];
+              const ts = Math.floor(created.getTime() / 1000);
               if (!bgcEmbed) bgcEmbed = new EmbedBuilder().setTitle('Background Check').setColor(0x00aff1).setFooter({ text: robloxUserId ? `User ID: ${robloxUserId}` : `User: ${robloxUsername}` });
-              bgcEmbed.addFields({ name: 'Account Age', value: `${createdStr} — ${ageDays} day(s) (~${ageYears} years)`, inline: false });
+              bgcEmbed.addFields({ name: 'Account Age', value: `<t:${ts}:f> — ${ageDays} day(s) (~${ageYears} years)`, inline: false });
             }
           }
         } catch (err) {

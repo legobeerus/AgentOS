@@ -35,7 +35,8 @@ module.exports = {
             const created = new Date(info.created);
             const now = new Date();
             const ageDays = Math.floor((now - created) / (1000 * 60 * 60 * 24));
-            embed.addFields({ name: 'Account Age', value: `${created.toISOString().split('T')[0]} — ${ageDays} day(s)`, inline: false });
+            const ts = Math.floor(created.getTime() / 1000);
+            embed.addFields({ name: 'Account Age', value: `<t:${ts}:f> — ${ageDays} day(s)`, inline: false });
           }
 
           // username history
@@ -106,10 +107,10 @@ module.exports = {
         const arrests = await arrestStore.getArrestsByRoblox(username);
         if (arrests && arrests.length) {
           const shown = arrests.slice(0, 6).map(a => {
-            const when = a.created_at ? new Date(a.created_at).toISOString().split('T')[0] : '';
-            const summary = a.incident_summary || a.charges || a.sentence || '';
-            return `• ${when} — ${String(summary).slice(0, 180)}`;
-          }).join('\n');
+              const idPart = a.id ? `ID ${a.id}` : '';
+              const laws = a.charges || a.incident_summary || a.sentence || '(no laws listed)';
+              return `• ${idPart} — Laws violated: ${String(laws).slice(0, 180)}`;
+            }).join('\n');
           embed.addFields({ name: 'Arrest Log Matches', value: shown.slice(0, 1000), inline: false });
         }
       } catch (e) { /* ignore */ }

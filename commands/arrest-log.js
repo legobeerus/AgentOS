@@ -31,6 +31,13 @@ module.exports = {
         submitted_by_tag: interaction.user.tag
       });
 
+      let createdDisplay = 'Unknown';
+      if (record.created_at) {
+        const created = new Date(record.created_at);
+        const ts = Math.floor(created.getTime() / 1000);
+        createdDisplay = `<t:${ts}:f> (<t:${ts}:R>)`;
+      }
+
       const embed = new EmbedBuilder()
         .setTitle(`Arrest Log: ${record.roblox_username}`)
         .setColor(config.EMBED_COLOR)
@@ -42,7 +49,7 @@ module.exports = {
           { name: 'Incident Summary', value: record.incident_summary || 'None', inline: false },
           { name: 'Proof', value: record.proof || 'None', inline: false }
         )
-        .setFooter({ text: `Record ID: ${record.id} • ${new Date(record.created_at).toISOString()}` });
+        .setFooter({ text: `Record ID: ${record.id} • ${createdDisplay}` });
 
       // Post to configured arrest channel
       const channel = await interaction.client.channels.fetch(config.ARREST_LOG_CHANNEL_ID).catch(() => null);

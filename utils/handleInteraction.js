@@ -213,7 +213,14 @@ async function handleInteraction(interaction, client) {
             await interaction.editReply({ content: 'No edits found for that arrest.', ephemeral: true });
             return;
           }
-          const lines = edits.map(e => `By ${e.edited_by_tag || e.edited_by} at ${new Date(e.edited_at).toISOString()}\nSummary: ${e.before_incident_summary || 'None'}\nCharges: ${e.before_charges || 'None'}\nSentence: ${e.before_sentence || 'None'}\nProof: ${e.before_proof || 'None'}`).join('\n\n----\n\n');
+          const lines = edits.map(e => {
+            let editedAt = 'Unknown';
+            if (e.edited_at) {
+              const d = new Date(e.edited_at);
+              editedAt = `<t:${Math.floor(d.getTime()/1000)}:f>`;
+            }
+            return `By ${e.edited_by_tag || e.edited_by} at ${editedAt}\nSummary: ${e.before_incident_summary || 'None'}\nCharges: ${e.before_charges || 'None'}\nSentence: ${e.before_sentence || 'None'}\nProof: ${e.before_proof || 'None'}`;
+          }).join('\n\n----\n\n');
           // send as ephemeral follow-up (may be large)
           await interaction.editReply({ content: `Edits for arrest ${id}:\n\n${lines}`, ephemeral: true });
         } catch (e) {
@@ -264,6 +271,13 @@ async function handleInteraction(interaction, client) {
             return;
           }
 
+          let createdDisplay = 'Unknown';
+          if (arrest.created_at) {
+            const created = new Date(arrest.created_at);
+            const ts = Math.floor(created.getTime() / 1000);
+            createdDisplay = `<t:${ts}:f> (<t:${ts}:R>)`;
+          }
+
           const embed = new EmbedBuilder()
             .setTitle(`Arrest ID ${arrest.id} — ${arrest.roblox_username}`)
             .setColor(config.EMBED_COLOR)
@@ -273,7 +287,7 @@ async function handleInteraction(interaction, client) {
               { name: 'Sentence', value: arrest.sentence || 'None', inline: false },
               { name: 'Proof', value: arrest.proof || 'None', inline: false },
               { name: 'Submitted By', value: arrest.submitted_by_tag || arrest.submitted_by || 'Unknown', inline: true },
-              { name: 'Created', value: new Date(arrest.created_at).toISOString(), inline: true }
+              { name: 'Created', value: createdDisplay, inline: true }
             );
 
           const adminRoleIds = (config.ARREST_ADMIN_ROLE_IDS || '').split(',').map(s => s.trim()).filter(Boolean);

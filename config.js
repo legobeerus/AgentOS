@@ -43,7 +43,7 @@ module.exports = {
   GOOGLE_SHEETS_RANGE: process.env.GOOGLE_SHEETS_RANGE || 'Blacklists!A4:B1000',
 
   // Time webhook sheet settings: range to search for usernames and minutes
-  TIME_LOG_SHEET_RANGE: process.env.TIME_LOG_SHEET_RANGE || 'Master!A4:K1000',
+  TIME_LOG_SHEET_RANGE: process.env.TIME_LOG_SHEET_RANGE || 'Master!A4:L1000',
   // Zero-based indices within the fetched range rows for username and minutes columns
   TIME_LOG_NAME_COL: process.env.TIME_LOG_NAME_COL !== undefined ? Number(process.env.TIME_LOG_NAME_COL) : 0,
   TIME_LOG_MINUTES_COL: process.env.TIME_LOG_MINUTES_COL !== undefined ? Number(process.env.TIME_LOG_MINUTES_COL) : 9,
@@ -88,6 +88,10 @@ module.exports = {
   // name and type columns are not adjacent.
   GOOGLE_SHEET_NAME_COL: process.env.GOOGLE_SHEET_NAME_COL !== undefined ? Number(process.env.GOOGLE_SHEET_NAME_COL) : 0,
   GOOGLE_SHEET_TYPE_COL: process.env.GOOGLE_SHEET_TYPE_COL !== undefined ? Number(process.env.GOOGLE_SHEET_TYPE_COL) : 1,
+
+  // Points column index (zero-based). Username column and sheet range reuse the
+  // existing TIME_LOG_* settings to avoid duplicate config.
+  POINTS_POINTS_COL: process.env.POINTS_POINTS_COL !== undefined ? Number(process.env.POINTS_POINTS_COL) : 11,
 
   // Blacklist sheet settings (separate tab). Columns are zero-based indices
   BLACKLIST_SHEET_RANGE: process.env.BLACKLIST_SHEET_RANGE || 'Blacklists!A4:I1000',

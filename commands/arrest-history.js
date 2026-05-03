@@ -28,7 +28,17 @@ module.exports = {
           .setColor(config.EMBED_COLOR)
           .setFooter({ text: `Page ${Math.floor(i / pageSize) + 1} of ${Math.ceil(arrests.length / pageSize)}` });
         for (const a of slice) {
-          embed.addFields({ name: `ID ${a.id} • ${new Date(a.created_at).toISOString()}`, value: `Charges: ${a.charges || 'None'}\nSentence: ${a.sentence || 'None'}\nBy: ${a.submitted_by_tag || a.submitted_by}`, inline: false });
+          let createdDisplay = 'Unknown';
+          if (a.created_at) {
+            const created = new Date(a.created_at);
+            const ts = Math.floor(created.getTime() / 1000);
+            createdDisplay = `<t:${ts}:f> (<t:${ts}:R>)`;
+          }
+          embed.addFields({
+            name: `ID ${a.id} • ${createdDisplay}`,
+            value: `Charges: ${a.charges || 'None'}\nSentence: ${a.sentence || 'None'}\nBy: ${a.submitted_by_tag || a.submitted_by}`,
+            inline: false
+          });
         }
         pages.push(embed);
       }
