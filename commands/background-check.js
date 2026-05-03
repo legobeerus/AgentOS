@@ -64,15 +64,15 @@ module.exports = {
 
           const sgc = groups.find(g => g.group && Number(g.group.id) === Number(SGC_ID));
           if (sgc) {
-            embed.addFields({ name: 'SGC Rank', value: `Role: ${sgc.role.name}`, inline: false });
+            embed.addFields({ name: 'Stargate Command', value: `Rank: ${sgc.role.name}`, inline: false });
           }
 
           // Find which division groups the user is in and show each as its own field (match SGC format)
           const divisions = groups.filter(g => g.group && DIVISION_IDS.includes(Number(g.group.id)) && Number(g.group.id) !== Number(SGC_ID));
           if (divisions.length) {
             for (const g of divisions) {
-              const title = `${g.group.name} Rank`;
-              const value = `Role: ${g.role.name}`;
+              const title = `${g.group.name}`;
+              const value = `Rank: ${g.role.name}`;
               embed.addFields({ name: title, value, inline: false });
             }
           }
@@ -109,7 +109,7 @@ module.exports = {
           const shown = arrests.slice(0, 6).map(a => {
               const idPart = a.id ? `ID ${a.id}` : '';
               const laws = a.charges || a.incident_summary || a.sentence || '(no laws listed)';
-              return `• ${idPart} — Laws violated: ${String(laws).slice(0, 180)}`;
+              return `• ${idPart} — ${String(laws).slice(0, 180)}`;
             }).join('\n');
           embed.addFields({ name: 'Arrest Log Matches', value: shown.slice(0, 1000), inline: false });
         }
