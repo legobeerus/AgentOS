@@ -59,7 +59,7 @@ async function sendReminderIfDue(entry, client) {
     try {
       const user = await client.users.fetch(entry.discordId);
       const dm = await user.createDM();
-      const text = config.VERIFY_REMINDER_MESSAGE || 'You have not yet verified your account with AgentOS. To initiate verification, please run the `/agentos-verify start` command in the server.\n\nVerification is mandatory. Reminders will be sent every 24 hours until you verify.';
+      const text = config.VERIFY_REMINDER_MESSAGE || 'You have not yet verified your account with AgentOS. To initiate verification, please run the `/agentos-verify` command with your Roblox username in the server.\n\nVerification is mandatory. Reminders will be sent every 24 hours until you verify.';
       await dm.send({ content: text });
     } catch (e) {
       console.warn('[verifyReminderScheduler] failed to DM user', entry.discordId, e && e.message);

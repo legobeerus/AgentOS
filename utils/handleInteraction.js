@@ -1,5 +1,7 @@
 const { handleSlashCommand } = require("./handleSlashCommand");
 const { handleApproveButton } = require("./handleApproveButton");
+const verificationStore = require('./verificationStore');
+const axios = require('axios');
 const { handleFormReview } = require("./handleFormReview");
 const { handleReviewModal } = require("./handleReviewModal");
 const { handleModalSubmit: handleInactivityModal, handleApprove: handleInactivityApprove, handleDeny: handleInactivityDeny } = require('./inactivityHandler');
@@ -144,6 +146,77 @@ async function handleInteraction(interaction, client) {
           try { await interaction.followUp({ content: 'Failed to toggle pause state.', ephemeral: true }); } catch (_) {}
         }
         return;
+      }
+
+      // AgentOS verification confirm button handler
+      if (typeof interaction.customId === 'string' && interaction.customId.startsWith('agentos_verify_confirm:')) {
+        await interaction.deferReply({ ephemeral: true });
+        try {
+          const username = interaction.customId.split(':')[1];
+          const discordId = interaction.user.id;
+          const chal = await verificationStore.getChallenge(username, discordId);
+          if (!chal) {
+            await interaction.editReply({ content: 'No active verification challenge found. Run the command again to start verification.', ephemeral: true });
+            return;
+          }
+          if (new Date(chal.expires_at) < new Date()) {
+            await verificationStore.clearChallenge(username, discordId);
+            await interaction.editReply({ content: 'Your verification challenge has expired. Start again to create a new challenge.', ephemeral: true });
+            return;
+          }
+
+          const robloxId = chal.roblox_userid;
+          let profileText = '';
+          try {
+            const p1 = await axios.get(`https://users.roblox.com/v1/users/${robloxId}/profile`).catch(() => null);
+            if (p1 && p1.data) profileText += ' ' + JSON.stringify(p1.data);
+          } catch (e) {}
+          try {
+            const p2 = await axios.get(`https://users.roblox.com/v1/users/${robloxId}/status`).catch(() => null);
+            if (p2 && p2.data) profileText += ' ' + JSON.stringify(p2.data);
+          } catch (e) {}
+          try {
+            const p3 = await axios.get(`https://users.roblox.com/v1/users/${robloxId}`).catch(() => null);
+            if (p3 && p3.data) profileText += ' ' + JSON.stringify(p3.data);
+          } catch (e) {}
+          try {
+            const html = await axios.get(`https://www.roblox.com/users/${robloxId}/profile`).then(r => r.data).catch(() => null);
+            if (html) profileText += ' ' + String(html);
+          } catch (e) {}
+
+          if (!profileText || !profileText.includes(chal.code)) {
+            await interaction.editReply({ content: 'Could not find the verification code in the Roblox profile. Ensure you added the exact code to your About/Status and try again.', ephemeral: true });
+            return;
+          }
+
+          try {
+            const v = await verificationStore.addVerification(username, robloxId, discordId);
+            await verificationStore.clearChallenge(username, discordId);
+            await interaction.editReply({ embeds: [new EmbedBuilder().setTitle('Verification Complete').setColor(0x57F287).setDescription('Verification succeeded — announcing publicly.')] });
+            const publicEmbed = new EmbedBuilder()
+              .setTitle('AgentOS Verification — Successful')
+              .setColor(0x57F287)
+              .setDescription(`Verified: **${v.roblox_username}** ↔ <@${v.discord_id}>`)
+              .setTimestamp(new Date());
+            await interaction.followUp({ embeds: [publicEmbed] });
+            return;
+          } catch (err) {
+            if (err && err.message === 'roblox_already_bound') {
+              await interaction.editReply({ content: 'That Roblox username is already bound to another Discord account.', ephemeral: true });
+              return;
+            }
+            if (err && err.message === 'discord_already_bound') {
+              await interaction.editReply({ content: 'Your Discord account is already bound to a different Roblox username.', ephemeral: true });
+              return;
+            }
+            console.error('Failed to finalize verification (button):', err);
+            await interaction.editReply({ content: 'Failed to complete verification. Try again later.', ephemeral: true });
+            return;
+          }
+        } catch (e) {
+          console.error('AgentOS verify button handler error:', e);
+          try { await interaction.editReply({ content: 'An error occurred while confirming verification.', ephemeral: true }); } catch (_) {}
+        }
       }
 
       // Arrest modification flow: show select list of editable arrests for the username

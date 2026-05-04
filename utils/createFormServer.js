@@ -297,7 +297,7 @@ function createFormServer(client) {
               const maxShow = 5;
               const shown = sheetMatches.slice(0, maxShow).map(s => `• ${s}`).join('\n');
               const more = sheetMatches.length > maxShow ? `\n+${sheetMatches.length - maxShow} more` : '';
-              bgcEmbed.addFields({ name: "⚠️ Blacklist Roster Matches - Check the Database for expiration", value: `${shown}${more}`, inline: false });
+              bgcEmbed.addFields({ name: "⚠️ Blacklist Roster Matches", value: `${shown}${more}`, inline: false });
             }
             // account age will be added after suspensions search so it appears last
 
