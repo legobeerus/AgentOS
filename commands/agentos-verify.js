@@ -35,7 +35,7 @@ module.exports = {
       const startEmbed = new EmbedBuilder()
         .setTitle('AgentOS Verification')
         .setColor(0x00aff1)
-        .setDescription(`To verify ownership of Roblox account **${roblox}**, add the following one-time code to your Roblox profile "About" or "Status" field (or bio):\n\n**${code}**\n\nAfter adding it, click the **Confirm** button below within 10 minutes.`)
+        .setDescription(`To verify ownership of Roblox account **${roblox}**, add the following one-time code to your Roblox profile "About" section.):\n\n**${code}**\n\nAfter adding it, click the **Confirm** button below within 10 minutes.`)
         .setTimestamp(new Date());
 
       const row = new ActionRowBuilder().addComponents(
