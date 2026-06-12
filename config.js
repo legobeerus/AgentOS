@@ -127,7 +127,7 @@ module.exports = {
   // Guild ID where exam reviewers are members (used for OAuth role verification)
   EXAM_GUILD_ID: cleanId(process.env.EXAM_GUILD_ID) || "1041577710067138560",
   // Public base URL for the web grading UI (e.g. https://grading.example.com)
-  EXAM_WEB_BASE_URL: process.env.EXAM_WEB_BASE_URL || "https://legobeerus.github.io/index.html",
+  EXAM_WEB_BASE_URL: process.env.EXAM_WEB_BASE_URL || "https://legobeerus.github.io",
 
   // Comma-separated role IDs that should be excluded from the !verifylist output
   // Example: VERIFYLIST_EXCLUDE_ROLE_IDS=12345,67890
