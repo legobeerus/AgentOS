@@ -44,18 +44,20 @@ ${q}` });
     .addFields({ name: 'Candidate', value: `<@${message.author.id}>`, inline: true }, { name: 'Session', value: updated.id, inline: true })
     .setTimestamp(new Date());
 
-  const gradeBtn = new ButtonBuilder().setCustomId(`exam_grade:${updated.id}`).setLabel('Grade').setStyle(ButtonStyle.Primary);
   const rows = [];
-  const actionRow = new ActionRowBuilder();
-  actionRow.addComponents(gradeBtn);
-  // Add link to web grading UI if configured
+  // If a web grading UI is configured, expose a single Link button to open it.
   if (config.EXAM_WEB_BASE_URL) {
     const base = String(config.EXAM_WEB_BASE_URL).replace(/\/$/, '');
-    const url = `${base}/grade?session=${encodeURIComponent(updated.id)}`;
-    const linkBtn = new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel('Open in Web UI').setURL(url);
-    actionRow.addComponents(linkBtn);
+    // Use grade.html path to match the web UI expected URL
+    const url = `${base}/grade.html?session=${encodeURIComponent(updated.id)}`;
+    const linkBtn = new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel('Open Exam (Web)')
+      .setURL(url);
+    rows.push(new ActionRowBuilder().addComponents(linkBtn));
+  } else {
+    // Fallback: provide the in-Discord Grade button
+    const gradeBtn = new ButtonBuilder().setCustomId(`exam_grade:${updated.id}`).setLabel('Grade').setStyle(ButtonStyle.Primary);
+    rows.push(new ActionRowBuilder().addComponents(gradeBtn));
   }
-  rows.push(actionRow);
 
   const reviewChan = await client.channels.fetch(config.EXAM_REVIEW_CHANNEL_ID).catch(() => null);
   if (!reviewChan) {
@@ -67,6 +69,7 @@ ${q}` });
   if (sent) {
     examStore.setReviewMessage(updated.id, reviewChan.id, sent.id);
     try { await message.channel.send({ content: '✅ Your exam has been submitted for review. You will receive feedback when grading completes.' }); } catch (e) {}
+    try { console.info && console.info(`Exam posted for review: session=${updated.id} channel=${reviewChan.id} message=${sent.id}`); } catch (e) {}
   } else {
     try { await message.channel.send({ content: '⚠️ Failed to submit exam for review. Please contact staff.' }); } catch (e) {}
   }

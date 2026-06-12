@@ -28,11 +28,15 @@ function save() {
 }
 
 function getSessionByUser(userId) {
-  return Object.values(_sessions).find(s => s.userId === userId && (s.status === 'active' || s.status === 'awaiting_review')) || null;
+  const s = Object.values(_sessions).find(s => s.userId === userId && (s.status === 'active' || s.status === 'awaiting_review')) || null;
+  try { console.debug && console.debug(`examStore.getSessionByUser: lookup userId=${userId} -> ${s ? s.id : 'not found'}`); } catch (e) {}
+  return s;
 }
 
 function getSessionById(id) {
-  return _sessions[id] || null;
+  const s = _sessions[id] || null;
+  try { console.debug && console.debug(`examStore.getSessionById: lookup id=${id} -> ${s ? 'found' : 'not found'}`); } catch (e) {}
+  return s;
 }
 
 function createSession({ userId, examId, questions, timeLimitSeconds }) {

@@ -510,6 +510,7 @@ function createFormServer(client) {
   async function requireExamAuth(req, res, next) {
     const secret = config.EXAM_REVIEW_SECRET;
     const auth = (req.get('authorization') || '').trim();
+    console.debug && console.debug(`requireExamAuth: incoming auth header present=${!!auth}, x-discord-token present=${!!req.get('x-discord-token')}`);
     if (secret && auth === `Bearer ${secret}`) {
       req.reviewer = { tag: 'web' };
       return next();
@@ -523,15 +524,21 @@ function createFormServer(client) {
       // Get user info from Discord
       const u = await axios.get('https://discord.com/api/users/@me', { headers: { Authorization: `Bearer ${discordToken}` } });
       const user = u && u.data ? u.data : null;
+      console.debug && console.debug('requireExamAuth: discord /users/@me returned', user ? { id: user.id, username: user.username } : 'no-user');
       if (!user) return res.status(401).json({ error: 'Invalid Discord token' });
 
       // Verify guild membership and role
       const guildId = config.EXAM_GUILD_ID;
       const requiredRole = config.EXAM_AUTH_ROLE_ID;
-      if (!guildId || !requiredRole) return res.status(403).json({ error: 'Server not configured for role verification' });
+      if (!guildId || !requiredRole) {
+        console.error('requireExamAuth: EXAM_GUILD_ID or EXAM_AUTH_ROLE_ID not configured', { EXAM_GUILD_ID: config.EXAM_GUILD_ID, EXAM_AUTH_ROLE_ID: config.EXAM_AUTH_ROLE_ID });
+        return res.status(403).json({ error: 'Server not configured for role verification' });
+      }
       const guild = await client.guilds.fetch(guildId).catch(() => null);
+      console.debug && console.debug('requireExamAuth: fetched guild', guild ? guild.id : null);
       if (!guild) return res.status(403).json({ error: 'Bot not in configured guild' });
       const member = await guild.members.fetch(user.id).catch(() => null);
+      console.debug && console.debug('requireExamAuth: fetched member', member ? member.user.tag : null);
       if (!member) return res.status(403).json({ error: 'User not a guild member' });
       if (!member.roles.cache.has(requiredRole)) return res.status(403).json({ error: 'Insufficient role' });
 
@@ -545,6 +552,7 @@ function createFormServer(client) {
 
   app.get('/exams/pending', requireExamAuth, (req, res) => {
     try {
+      console.info && console.info(`GET /exams/pending requested by reviewer=${req.reviewer ? req.reviewer.tag : 'unknown'}`);
       const list = examStore.listActiveSessions().map(s => ({ id: s.id, examId: s.examId, userId: s.userId, createdAt: s.createdAt, status: s.status }));
       res.json(list);
     } catch (e) {
@@ -555,6 +563,8 @@ function createFormServer(client) {
 
   app.get('/exams/:id', requireExamAuth, (req, res) => {
     try {
+      console.info && console.info(`GET /exams/${req.params.id} requested by reviewer=${req.reviewer ? req.reviewer.tag : 'unknown'}`);
+      console.debug && console.debug('Incoming request headers:', { authorization: req.get('authorization') ? 'present' : 'missing', x_discord_token: !!req.get('x-discord-token') });
       const s = examStore.getSessionById(req.params.id);
       if (!s) return res.status(404).json({ error: 'Not found' });
       res.json(s);
@@ -566,6 +576,8 @@ function createFormServer(client) {
 
   app.post('/exams/:id/grade', requireExamAuth, async (req, res) => {
     try {
+      console.info && console.info(`POST /exams/${req.params.id}/grade requested by reviewer=${req.reviewer ? req.reviewer.tag : 'unknown'}`);
+      console.debug && console.debug('Grade payload preview:', { scoresLength: Array.isArray(req.body?.scores) ? req.body.scores.length : 0, feedbackLen: (req.body?.feedback || '').length });
       const s = examStore.getSessionById(req.params.id);
       if (!s) return res.status(404).json({ error: 'Not found' });
       const { scores = [], feedback = '' } = req.body || {};
