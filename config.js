@@ -111,9 +111,9 @@ module.exports = {
 
   // Exam workflow configuration
   // Channel where exam authorization requests are posted for staff review/authorization
-  EXAM_AUTH_CHANNEL_ID: process.env.EXAM_AUTH_CHANNEL_ID || "1449832030291492925",
+  EXAM_AUTH_CHANNEL_ID: process.env.EXAM_AUTH_CHANNEL_ID || "1107799317047164979",
   // Channel where completed exams are posted for grading
-  EXAM_REVIEW_CHANNEL_ID: process.env.EXAM_REVIEW_CHANNEL_ID || "1449832086818128025",
+  EXAM_REVIEW_CHANNEL_ID: process.env.EXAM_REVIEW_CHANNEL_ID || "1107799317047164979",
   // Role ID required to authorize exams (staff reviewer role)
   EXAM_AUTH_ROLE_ID: cleanId(process.env.EXAM_AUTH_ROLE_ID) || "1449861438012133566",
   // Role ID required to *request* an exam (candidate role); optional
