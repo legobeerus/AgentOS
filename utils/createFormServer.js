@@ -590,6 +590,47 @@ function createFormServer(client) {
     }
   });
 
+  // --- API-prefixed aliases for front-end callers that use /api/exams/... ---
+  app.get('/api/exams/pending', requireExamAuth, (req, res) => {
+    try {
+      console.info && console.info(`GET /api/exams/pending requested by reviewer=${req.reviewer ? req.reviewer.tag : 'unknown'}`);
+      const list = examStore.listActiveSessions().map(s => ({ id: s.id, examId: s.examId, userId: s.userId, createdAt: s.createdAt, status: s.status }));
+      res.json(list);
+    } catch (e) {
+      console.error('Failed to list pending exams (api):', e);
+      res.status(500).json({ error: 'Internal error' });
+    }
+  });
+
+  app.get('/api/exams/:id', requireExamAuth, (req, res) => {
+    try {
+      console.info && console.info(`GET /api/exams/${req.params.id} requested by reviewer=${req.reviewer ? req.reviewer.tag : 'unknown'}`);
+      console.debug && console.debug('Incoming request headers (api):', { authorization: req.get('authorization') ? 'present' : 'missing', x_discord_token: !!req.get('x-discord-token') });
+      const s = examStore.getSessionById(req.params.id);
+      if (!s) return res.status(404).json({ error: 'Not found' });
+      res.json(s);
+    } catch (e) {
+      console.error('Failed to fetch exam session (api):', e);
+      res.status(500).json({ error: 'Internal error' });
+    }
+  });
+
+  app.post('/api/exams/:id/grade', requireExamAuth, async (req, res) => {
+    try {
+      console.info && console.info(`POST /api/exams/${req.params.id}/grade requested by reviewer=${req.reviewer ? req.reviewer.tag : 'unknown'}`);
+      console.debug && console.debug('Grade payload preview (api):', { scoresLength: Array.isArray(req.body?.scores) ? req.body.scores.length : 0, feedbackLen: (req.body?.feedback || '').length });
+      const s = examStore.getSessionById(req.params.id);
+      if (!s) return res.status(404).json({ error: 'Not found' });
+      const { scores = [], feedback = '' } = req.body || {};
+      const reviewerTag = req.reviewer ? req.reviewer.tag || (`web:${req.reviewer.id || 'unknown'}`) : 'web';
+      await processGrade({ sessionId: s.id, scores, feedback, reviewerTag, client });
+      res.json({ ok: true });
+    } catch (e) {
+      console.error('Failed to process grade via web (api):', e);
+      res.status(500).json({ error: 'Internal error' });
+    }
+  });
+
 
   // OAuth callback for Roblox verification
   // Expects query params: code, state
