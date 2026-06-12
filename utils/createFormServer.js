@@ -579,12 +579,6 @@ function createFormServer(client) {
   });
 
 
-  // Catch-all 404 handler
-  app.use((req, res) => {
-    console.warn(`⚠️ 404: ${req.method} ${req.path} - route not found`);
-    res.status(404).json({ error: "Route not found" });
-  });
-
   // OAuth callback for Roblox verification
   // Expects query params: code, state
   app.get('/oauth/roblox/callback', async (req, res) => {
@@ -674,6 +668,11 @@ function createFormServer(client) {
       console.error('Unhandled error in OAuth callback:', err);
       return res.status(500).send('Internal server error');
     }
+  });
+  // Catch-all 404 handler (must be after all routes)
+  app.use((req, res) => {
+    console.warn(`⚠️ 404: ${req.method} ${req.path} - route not found`);
+    res.status(404).json({ error: "Route not found" });
   });
 
   return app;

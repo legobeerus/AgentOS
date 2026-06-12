@@ -1,12 +1,11 @@
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const config = require('../config');
 
 module.exports = {
-  data: { name: 'phase1-test' },
+  data: new SlashCommandBuilder().setName('phase1-test').setDescription('Request the Phase 1 Knowledge Test'),
   async execute(interaction) {
     await interaction.deferReply({ ephemeral: true });
 
-    // Optionally require candidate role
     if (config.EXAM_CANDIDATE_ROLE_ID && interaction.member && !interaction.member.roles.cache.has(config.EXAM_CANDIDATE_ROLE_ID)) {
       return interaction.editReply({ content: 'You do not have the required role to request this exam.', ephemeral: true });
     }

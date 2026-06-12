@@ -1,8 +1,8 @@
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const config = require('../config');
 
 module.exports = {
-  data: { name: 'phase4-exam' },
+  data: new SlashCommandBuilder().setName('phase4-exam').setDescription('Request the Phase 4 Master Examination'),
   async execute(interaction) {
     await interaction.deferReply({ ephemeral: true });
 
