@@ -1,5 +1,7 @@
 const { handleSlashCommand } = require("./handleSlashCommand");
 const { handleApproveButton } = require("./handleApproveButton");
+const { handleExamAuthorize } = require("./handleExamAuthorize");
+const { handleGradeButton, handleGradeModalSubmit } = require("./handleExamGrade");
 const verificationStore = require('./verificationStore');
 const axios = require('axios');
 const { handleFormReview } = require("./handleFormReview");
@@ -29,6 +31,16 @@ async function handleInteraction(interaction, client) {
     if (interaction.isButton()) {
       if (interaction.customId === "approve_request") {
         await handleApproveButton(interaction);
+        return;
+      }
+
+      if (typeof interaction.customId === 'string' && interaction.customId.startsWith('exam_authorize:')) {
+        await handleExamAuthorize(interaction);
+        return;
+      }
+
+      if (typeof interaction.customId === 'string' && interaction.customId.startsWith('exam_grade:')) {
+        await handleGradeButton(interaction);
         return;
       }
 
@@ -399,6 +411,10 @@ async function handleInteraction(interaction, client) {
     if (interaction.isModalSubmit()) {
       if (interaction.customId.startsWith('inactivity_modal_')) {
         await handleInactivityModal(interaction);
+        return;
+      }
+      if (interaction.customId.startsWith('exam_grade_modal:')) {
+        await handleGradeModalSubmit(interaction);
         return;
       }
       if (interaction.customId.startsWith("feedback_")) {

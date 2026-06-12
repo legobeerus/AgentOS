@@ -89,6 +89,12 @@ module.exports = {
   GOOGLE_SHEET_NAME_COL: process.env.GOOGLE_SHEET_NAME_COL !== undefined ? Number(process.env.GOOGLE_SHEET_NAME_COL) : 0,
   GOOGLE_SHEET_TYPE_COL: process.env.GOOGLE_SHEET_TYPE_COL !== undefined ? Number(process.env.GOOGLE_SHEET_TYPE_COL) : 1,
 
+  // Roblox OAuth configuration (optional)
+  ROBLOX_OAUTH_CLIENT_ID: process.env.ROBLOX_OAUTH_CLIENT_ID || '1901711581481527983',
+  ROBLOX_OAUTH_CLIENT_SECRET: process.env.ROBLOX_OAUTH_CLIENT_SECRET || 'RBX-joNZ_SlvEkO47Gg-Kxn7ZAGA2avnRtcacZlGKOh9-FXfguh5QyhKcYheGsv5Ep-h',
+  // Full redirect URI that Roblox will call after authorization (must match app registration)
+  ROBLOX_OAUTH_REDIRECT_URI: process.env.ROBLOX_OAUTH_REDIRECT_URI || 'https://agentos-production-cca0.up.railway.app/oauth/roblox/callback',
+
   // Points column index (zero-based). Username column and sheet range reuse the
   // existing TIME_LOG_* settings to avoid duplicate config.
   POINTS_POINTS_COL: process.env.POINTS_POINTS_COL !== undefined ? Number(process.env.POINTS_POINTS_COL) : 11,
@@ -102,6 +108,26 @@ module.exports = {
 
   // Standard embed color (hex). Can be set via env as number (e.g. 0x5865f2) or decimal.
   EMBED_COLOR: process.env.EMBED_COLOR ? Number(process.env.EMBED_COLOR) : 0x00aff1,
+
+  // Exam workflow configuration
+  // Channel where exam authorization requests are posted for staff review/authorization
+  EXAM_AUTH_CHANNEL_ID: process.env.EXAM_AUTH_CHANNEL_ID || "1449832030291492925",
+  // Channel where completed exams are posted for grading
+  EXAM_REVIEW_CHANNEL_ID: process.env.EXAM_REVIEW_CHANNEL_ID || "1449832086818128025",
+  // Role ID required to authorize exams (staff reviewer role)
+  EXAM_AUTH_ROLE_ID: cleanId(process.env.EXAM_AUTH_ROLE_ID) || "1449861438012133566",
+  // Role ID required to *request* an exam (candidate role); optional
+  EXAM_CANDIDATE_ROLE_ID: cleanId(process.env.EXAM_CANDIDATE_ROLE_ID) || undefined,
+  // Default pass threshold as percent (0-100)
+  EXAM_PASS_THRESHOLD: process.env.EXAM_PASS_THRESHOLD !== undefined ? Number(process.env.EXAM_PASS_THRESHOLD) : 70,
+  // Default time limit in seconds applied to exams if not specified per-exam
+  EXAM_TIME_LIMIT_SECONDS: process.env.EXAM_TIME_LIMIT_SECONDS !== undefined ? Number(process.env.EXAM_TIME_LIMIT_SECONDS) : 86400,
+  // Short-lived secret token for web grading endpoints (optional)
+  EXAM_REVIEW_SECRET: process.env.EXAM_REVIEW_SECRET || undefined,
+  // Guild ID where exam reviewers are members (used for OAuth role verification)
+  EXAM_GUILD_ID: cleanId(process.env.EXAM_GUILD_ID) || "1041577710067138560",
+  // Public base URL for the web grading UI (e.g. https://grading.example.com)
+  EXAM_WEB_BASE_URL: process.env.EXAM_WEB_BASE_URL || "https://legobeerus.github.io/index.html",
 
   // Comma-separated role IDs that should be excluded from the !verifylist output
   // Example: VERIFYLIST_EXCLUDE_ROLE_IDS=12345,67890

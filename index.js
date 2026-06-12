@@ -7,6 +7,7 @@ const { loadCommands } = require("./utils/loadCommands");
 const { handleInteraction } = require("./utils/handleInteraction");
 const { handleTrelloIngest } = require("./utils/trelloMessageIngest");
 const { handleMessageCommands } = require("./utils/messageCommands");
+const { handleExamDM } = require("./utils/examMessageHandler");
 const { handleTimeWebhookMessage } = require("./utils/timeWebhookHandler");
 const { startSuspensionScheduler } = require("./utils/trelloSuspensionScheduler");
 const { createFormServer } = require("./utils/createFormServer");
@@ -75,6 +76,8 @@ client.on("interactionCreate", async interaction => {
 
 // Message handler for Trello ingestion
 client.on("messageCreate", async message => {
+  // Handle exam DM answers first
+  try { await handleExamDM(message, client); } catch (e) { /* continue to other handlers */ }
   await handleMessageCommands(message, client);
   await handleTrelloIngest(message);
   await handleTimeWebhookMessage(message);

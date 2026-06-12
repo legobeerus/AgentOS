@@ -23,7 +23,8 @@ module.exports = {
                 .setRequired(true)
                 .addChoices(
                     { name: "Guilty", value: "Guilty" },
-                    { name: "Innocent", value: "Innocent" }
+                    { name: "Innocent", value: "Innocent" },
+                    { name: "Dismissed", value: "Dismissed" }
                 ),
         )
         .addStringOption(option =>

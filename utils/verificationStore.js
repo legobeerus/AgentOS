@@ -83,8 +83,29 @@ async function clearChallenge(robloxUsername, discordId) {
   await pool.query('DELETE FROM bot_verification_challenges WHERE roblox_username = $1 AND discord_id = $2', [String(robloxUsername).toLowerCase(), discordId]);
 }
 
-module.exports = { addVerification, removeByRoblox, removeByDiscord, getByRoblox, getByDiscord, createChallenge, getChallenge, clearChallenge, listAllDiscordIds, init };
+// Lookup / clear helpers by the stored one-time code/state value
+async function getChallengeByCode(code) {
+  const res = await pool.query('SELECT roblox_username, roblox_userid, discord_id, code, expires_at, created_at FROM bot_verification_challenges WHERE code = $1', [String(code)]);
+  return res.rows[0] || null;
+}
+
+async function clearChallengeByCode(code) {
+  await pool.query('DELETE FROM bot_verification_challenges WHERE code = $1', [String(code)]);
+}
 
 // Export public API (includes challenge helpers and init)
-module.exports = { addVerification, removeByRoblox, removeByDiscord, getByRoblox, getByDiscord, createChallenge, getChallenge, clearChallenge, listAllDiscordIds, init };
+module.exports = {
+  addVerification,
+  removeByRoblox,
+  removeByDiscord,
+  getByRoblox,
+  getByDiscord,
+  createChallenge,
+  getChallenge,
+  clearChallenge,
+  getChallengeByCode,
+  clearChallengeByCode,
+  listAllDiscordIds,
+  init
+};
 

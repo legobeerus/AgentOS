@@ -2,6 +2,8 @@ const express = require("express");
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType } = require("discord.js");
 const config = require("../config");
 const arrestStore = require('./arrestStore');
+const verificationStore = require('./verificationStore');
+const axios = require('axios');
 const { findBlacklistEntry } = require("../utils/blacklistSheet");
 const { isSpamAnswers } = require("./spamFilter");
 
@@ -369,7 +371,7 @@ function createFormServer(client) {
               const shownA = arrests.slice(0, maxShowA).map(a => {
                 const idPart = a.id ? `ID ${a.id}` : '';
                 const laws = a.charges || a.incident_summary || a.sentence || '(no laws listed)';
-                return `• ${idPart} — Laws violated: ${String(laws).slice(0, 200)}`;
+                return `• ${idPart} — ${String(laws).slice(0, 200)}`;
               }).join('\n');
               const moreA = arrests.length > maxShowA ? `\n+${arrests.length - maxShowA} more` : '';
               const valueA = (shownA + moreA).slice(0, 1000);
@@ -500,10 +502,178 @@ function createFormServer(client) {
     res.status(200).json({ message: "Discord bot form server is running" });
   });
 
+  // --- Exam web grading endpoints ---
+  const examStore = require('./examStore');
+  const { processGrade } = require('./handleExamGrade');
+
+  // Auth middleware: accept either EXAM_REVIEW_SECRET or a Discord OAuth access token
+  async function requireExamAuth(req, res, next) {
+    const secret = config.EXAM_REVIEW_SECRET;
+    const auth = (req.get('authorization') || '').trim();
+    if (secret && auth === `Bearer ${secret}`) {
+      req.reviewer = { tag: 'web' };
+      return next();
+    }
+
+    // Try Discord OAuth token in header 'x-discord-token'
+    const discordToken = req.get('x-discord-token') || req.body?.discord_token;
+    if (!discordToken) return res.status(401).json({ error: 'Unauthorized' });
+
+    try {
+      // Get user info from Discord
+      const u = await axios.get('https://discord.com/api/users/@me', { headers: { Authorization: `Bearer ${discordToken}` } });
+      const user = u && u.data ? u.data : null;
+      if (!user) return res.status(401).json({ error: 'Invalid Discord token' });
+
+      // Verify guild membership and role
+      const guildId = config.EXAM_GUILD_ID;
+      const requiredRole = config.EXAM_AUTH_ROLE_ID;
+      if (!guildId || !requiredRole) return res.status(403).json({ error: 'Server not configured for role verification' });
+      const guild = await client.guilds.fetch(guildId).catch(() => null);
+      if (!guild) return res.status(403).json({ error: 'Bot not in configured guild' });
+      const member = await guild.members.fetch(user.id).catch(() => null);
+      if (!member) return res.status(403).json({ error: 'User not a guild member' });
+      if (!member.roles.cache.has(requiredRole)) return res.status(403).json({ error: 'Insufficient role' });
+
+      req.reviewer = { id: user.id, tag: `${user.username}#${user.discriminator}` };
+      return next();
+    } catch (e) {
+      console.error('Exam auth failed:', e?.response?.data || e.message || e);
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+  }
+
+  app.get('/exams/pending', requireExamAuth, (req, res) => {
+    try {
+      const list = examStore.listActiveSessions().map(s => ({ id: s.id, examId: s.examId, userId: s.userId, createdAt: s.createdAt, status: s.status }));
+      res.json(list);
+    } catch (e) {
+      console.error('Failed to list pending exams:', e);
+      res.status(500).json({ error: 'Internal error' });
+    }
+  });
+
+  app.get('/exams/:id', requireExamAuth, (req, res) => {
+    try {
+      const s = examStore.getSessionById(req.params.id);
+      if (!s) return res.status(404).json({ error: 'Not found' });
+      res.json(s);
+    } catch (e) {
+      console.error('Failed to fetch exam session:', e);
+      res.status(500).json({ error: 'Internal error' });
+    }
+  });
+
+  app.post('/exams/:id/grade', requireExamAuth, async (req, res) => {
+    try {
+      const s = examStore.getSessionById(req.params.id);
+      if (!s) return res.status(404).json({ error: 'Not found' });
+      const { scores = [], feedback = '' } = req.body || {};
+      const reviewerTag = req.reviewer ? req.reviewer.tag || (`web:${req.reviewer.id || 'unknown'}`) : 'web';
+      await processGrade({ sessionId: s.id, scores, feedback, reviewerTag, client });
+      res.json({ ok: true });
+    } catch (e) {
+      console.error('Failed to process grade via web:', e);
+      res.status(500).json({ error: 'Internal error' });
+    }
+  });
+
+
   // Catch-all 404 handler
   app.use((req, res) => {
     console.warn(`⚠️ 404: ${req.method} ${req.path} - route not found`);
     res.status(404).json({ error: "Route not found" });
+  });
+
+  // OAuth callback for Roblox verification
+  // Expects query params: code, state
+  app.get('/oauth/roblox/callback', async (req, res) => {
+    try {
+      const { code, state } = req.query || {};
+      if (!code || !state) return res.status(400).send('Missing code or state');
+
+      // Find matching challenge by the stored state code
+      const challenge = await verificationStore.getChallengeByCode(String(state));
+      if (!challenge) return res.status(400).send('Invalid or expired verification state');
+
+      // Exchange code for access token
+      const tokenUrl = 'https://apis.roblox.com/oauth/v1/token';
+      const clientId = config.ROBLOX_OAUTH_CLIENT_ID;
+      const clientSecret = config.ROBLOX_OAUTH_CLIENT_SECRET;
+      const redirectUri = config.ROBLOX_OAUTH_REDIRECT_URI;
+      if (!clientId || !clientSecret || !redirectUri) return res.status(500).send('OAuth not configured');
+
+      const params = new URLSearchParams();
+      params.append('grant_type', 'authorization_code');
+      params.append('code', String(code));
+      params.append('redirect_uri', redirectUri);
+      params.append('client_id', clientId);
+      params.append('client_secret', clientSecret);
+
+      const tokenRes = await axios.post(tokenUrl, params.toString(), {
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+      }).catch(e => ({ error: e }));
+
+      if (!tokenRes || tokenRes.error || !tokenRes.data || !tokenRes.data.access_token) {
+        console.warn('Roblox token exchange failed', tokenRes && tokenRes.error ? tokenRes.error : tokenRes.data);
+        return res.status(500).send('Failed to exchange OAuth code for token');
+      }
+
+      const accessToken = tokenRes.data.access_token;
+
+      // Fetch userinfo from Roblox
+      const userInfoUrl = 'https://apis.roblox.com/oauth/v1/userinfo';
+      const userInfoRes = await axios.get(userInfoUrl, { headers: { Authorization: `Bearer ${accessToken}` } }).catch(e => ({ error: e }));
+      if (!userInfoRes || userInfoRes.error || !userInfoRes.data) {
+        console.warn('Roblox userinfo fetch failed', userInfoRes && userInfoRes.error ? userInfoRes.error : userInfoRes.data);
+        return res.status(500).send('Failed to fetch Roblox user info');
+      }
+
+      // Attempt to extract a Roblox user id from the response
+      const info = userInfoRes.data || {};
+      const robloxId = info.user_id || info.sub || info.id || info.roblox_userid || info.robloxId || null;
+      const robloxUsername = info.preferred_username || info.username || challenge.roblox_username;
+
+      if (!robloxId) {
+        console.warn('Roblox user id not found in userinfo response', info);
+        return res.status(500).send('Could not determine Roblox user id');
+      }
+
+      // Verify that the OAuth-authenticated account matches the requested username/userid
+      if (challenge.roblox_userid && String(challenge.roblox_userid) !== String(robloxId)) {
+        console.warn('OAuth returned different Roblox id than requested', { expected: challenge.roblox_userid, got: robloxId });
+        return res.status(400).send('Authenticated Roblox account does not match the requested username');
+      }
+
+      // Persist verification
+      try {
+        await verificationStore.addVerification(robloxUsername || challenge.roblox_username, robloxId, challenge.discord_id);
+      } catch (err) {
+        console.error('Failed to add verification record:', err);
+        // clear the challenge regardless
+        await verificationStore.clearChallengeByCode(String(state)).catch(() => null);
+        return res.status(500).send('Failed to finalize verification (possibly already bound)');
+      }
+
+      // Clear the challenge
+      await verificationStore.clearChallengeByCode(String(state)).catch(() => null);
+
+      // Notify the user via DM if possible
+      try {
+        const user = await client.users.fetch(challenge.discord_id).catch(() => null);
+        if (user) {
+          await user.send({ content: `✅ Your Discord account has been verified and linked to Roblox account ${robloxUsername || ''} (ID ${robloxId}).` }).catch(() => null);
+        }
+      } catch (err) {
+        console.warn('Failed to DM user after verification:', err);
+      }
+
+      // Render a simple success page
+      return res.status(200).send('<html><body><h2>Verification complete</h2><p>You may close this window and return to Discord.</p></body></html>');
+    } catch (err) {
+      console.error('Unhandled error in OAuth callback:', err);
+      return res.status(500).send('Internal server error');
+    }
   });
 
   return app;

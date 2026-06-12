@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const verificationStore = require('../utils/verificationStore');
+const config = require('../config');
 const axios = require('axios');
 const crypto = require('crypto');
 
@@ -27,19 +28,29 @@ module.exports = {
       return interaction.editReply({ embeds: [e], ephemeral: true });
     }
 
-    // generate one-time code and present a Confirm button so user doesn't have to run a second command
-    const code = crypto.randomBytes(4).toString('hex');
+    // generate an OAuth state and present a one-click Roblox OAuth link
+    const state = crypto.randomBytes(16).toString('hex');
     const expires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
     try {
-      await verificationStore.createChallenge(roblox, robloxId, discordId, code, expires);
+      await verificationStore.createChallenge(roblox, robloxId, discordId, state, expires);
+
+      const clientId = config.ROBLOX_OAUTH_CLIENT_ID;
+      const redirectUri = config.ROBLOX_OAUTH_REDIRECT_URI;
+      if (!clientId || !redirectUri) {
+        const e = new EmbedBuilder().setTitle('Verification Error').setColor(0xed4245).setDescription('OAuth is not configured on this bot. Please contact an administrator.');
+        return interaction.editReply({ embeds: [e], ephemeral: true });
+      }
+
+      const authUrl = `https://apis.roblox.com/oauth/v1/authorize?client_id=${encodeURIComponent(clientId)}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&scope=openid%20profile&state=${encodeURIComponent(state)}`;
+
       const startEmbed = new EmbedBuilder()
-        .setTitle('AgentOS Verification')
+        .setTitle('AgentOS Verification (Roblox OAuth)')
         .setColor(0x00aff1)
-        .setDescription(`To verify ownership of Roblox account **${roblox}**, add the following one-time code to your Roblox profile "About" section.):\n\n**${code}**\n\nAfter adding it, click the **Confirm** button below within 10 minutes.`)
+        .setDescription(`To verify ownership of Roblox account **${roblox}**, click the button below to authorize via Roblox. The OAuth flow will confirm your Roblox account and complete verification automatically.`)
         .setTimestamp(new Date());
 
       const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(`agentos_verify_confirm:${roblox}`).setLabel('Confirm').setStyle(ButtonStyle.Primary)
+        new ButtonBuilder().setLabel('Authorize on Roblox').setStyle(ButtonStyle.Link).setURL(authUrl)
       );
 
       return interaction.editReply({ embeds: [startEmbed], components: [row], ephemeral: true });

@@ -1,0 +1,30 @@
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const config = require('../config');
+
+module.exports = {
+  data: { name: 'phase1-test' },
+  async execute(interaction) {
+    await interaction.deferReply({ ephemeral: true });
+
+    // Optionally require candidate role
+    if (config.EXAM_CANDIDATE_ROLE_ID && interaction.member && !interaction.member.roles.cache.has(config.EXAM_CANDIDATE_ROLE_ID)) {
+      return interaction.editReply({ content: 'You do not have the required role to request this exam.', ephemeral: true });
+    }
+
+    const embed = new EmbedBuilder()
+      .setTitle('Request — Phase 1 Knowledge Test')
+      .setColor(config.EMBED_COLOR)
+      .addFields({ name: 'Candidate', value: `<@${interaction.user.id}>`, inline: true }, { name: 'Exam', value: 'Phase 1 Knowledge Test', inline: true })
+      .setTimestamp(new Date());
+
+    const approve = new ButtonBuilder().setCustomId(`exam_authorize:${interaction.user.id}:phase1`).setLabel('Authorize & Start').setStyle(ButtonStyle.Success);
+    const row = new ActionRowBuilder().addComponents(approve);
+
+    const chan = await interaction.client.channels.fetch(config.EXAM_AUTH_CHANNEL_ID).catch(() => null);
+    if (!chan) return interaction.editReply({ content: 'Could not find the authorization channel.', ephemeral: true });
+    const sent = await chan.send({ embeds: [embed], components: [row] }).catch(() => null);
+    if (!sent) return interaction.editReply({ content: 'Failed to create authorization request.', ephemeral: true });
+
+    await interaction.editReply({ content: `Authorization request posted in <#${config.EXAM_AUTH_CHANNEL_ID}>`, ephemeral: true });
+  }
+};

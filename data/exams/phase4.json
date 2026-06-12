@@ -1,0 +1,11 @@
+{
+  "id": "phase4",
+  "title": "Phase 4 Master Examination",
+  "instructions": "Answer thoroughly. This exam is reviewed by senior staff.",
+  "timeLimitSeconds": 1800,
+  "questions": [
+    "Explain the protocol for a multi-jurisdictional operation.",
+    "List and justify three advanced investigative techniques.",
+    "Provide an example of evidence preservation in a complex scene."
+  ]
+}
