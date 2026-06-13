@@ -7,13 +7,13 @@ async function handleExamDM(message, client) {
   if (message.author.bot) return;
   if (message.guild) return; // skip guild messages
 
-  const sess = examStore.getSessionByUser(message.author.id);
+  const sess = await examStore.getSessionByUser(message.author.id);
   if (!sess) return; // not in an active session
   if (sess.status !== 'active') return;
 
   // record answer and send next question or finalize
-  examStore.recordAnswer(sess.id, message.content || '');
-  const updated = examStore.getSessionById(sess.id);
+  await examStore.recordAnswer(sess.id, message.content || '');
+  const updated = await examStore.getSessionById(sess.id);
   const nextIndex = updated.currentIndex;
 
   if (nextIndex < (updated.questions || []).length) {
@@ -67,7 +67,7 @@ ${q}` });
 
   const sent = await reviewChan.send({ embeds: [reviewEmbed], components: rows }).catch(err => null);
   if (sent) {
-    examStore.setReviewMessage(updated.id, reviewChan.id, sent.id);
+    await examStore.setReviewMessage(updated.id, reviewChan.id, sent.id);
     try { await message.channel.send({ content: '✅ Your exam has been submitted for review. You will receive feedback when grading completes.' }); } catch (e) {}
     try { console.info && console.info(`Exam posted for review: session=${updated.id} channel=${reviewChan.id} message=${sent.id}`); } catch (e) {}
   } else {

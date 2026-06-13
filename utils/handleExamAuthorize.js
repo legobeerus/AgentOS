@@ -21,7 +21,7 @@ async function handleExamAuthorize(interaction) {
 
     // create session
     const timeLimit = examDef.timeLimitSeconds || config.EXAM_TIME_LIMIT_SECONDS || 0;
-    const sess = examStore.createSession({ userId, examId, questions: examDef.questions || [], timeLimitSeconds: timeLimit });
+    const sess = await examStore.createSession({ userId, examId, questions: examDef.questions || [], timeLimitSeconds: timeLimit });
 
     // DM the user with initial question
     const user = await interaction.client.users.fetch(userId).catch(() => null);
@@ -47,7 +47,7 @@ async function handleExamAuthorize(interaction) {
     }
 
     // store dm message reference for potential countdown updates
-    examStore.setDMMessage(sess.id, dm);
+    await examStore.setDMMessage(sess.id, dm);
 
     // Acknowledge to authorizer
     await interaction.followUp({ content: `✅ Authorized and started exam for <@${userId}> (session ${sess.id}).`, ephemeral: true });

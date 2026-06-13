@@ -16,6 +16,15 @@ function createFormServer(client) {
   const app = express();
   app.use(express.json());
 
+  // Simple CORS middleware to allow front-end hosted elsewhere to call the bot
+  app.use((req, res, next) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-discord-token');
+    if (req.method === 'OPTIONS') return res.sendStatus(204);
+    next();
+  });
+
   // Log all incoming requests
   app.use((req, res, next) => {
     console.debug && console.debug(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
@@ -550,10 +559,11 @@ function createFormServer(client) {
     }
   }
 
-  app.get('/exams/pending', requireExamAuth, (req, res) => {
+  app.get('/exams/pending', requireExamAuth, async (req, res) => {
     try {
       console.info && console.info(`GET /exams/pending requested by reviewer=${req.reviewer ? req.reviewer.tag : 'unknown'}`);
-      const list = examStore.listActiveSessions().map(s => ({ id: s.id, examId: s.examId, userId: s.userId, createdAt: s.createdAt, status: s.status }));
+      const listAll = await examStore.listActiveSessions();
+      const list = (listAll || []).map(s => ({ id: s.id, examId: s.examId, userId: s.userId, createdAt: s.createdAt, status: s.status }));
       res.json(list);
     } catch (e) {
       console.error('Failed to list pending exams:', e);
@@ -561,11 +571,11 @@ function createFormServer(client) {
     }
   });
 
-  app.get('/exams/:id', requireExamAuth, (req, res) => {
+  app.get('/exams/:id', requireExamAuth, async (req, res) => {
     try {
       console.info && console.info(`GET /exams/${req.params.id} requested by reviewer=${req.reviewer ? req.reviewer.tag : 'unknown'}`);
       console.debug && console.debug('Incoming request headers:', { authorization: req.get('authorization') ? 'present' : 'missing', x_discord_token: !!req.get('x-discord-token') });
-      const s = examStore.getSessionById(req.params.id);
+      const s = await examStore.getSessionById(req.params.id);
       if (!s) return res.status(404).json({ error: 'Not found' });
       res.json(s);
     } catch (e) {
@@ -578,7 +588,7 @@ function createFormServer(client) {
     try {
       console.info && console.info(`POST /exams/${req.params.id}/grade requested by reviewer=${req.reviewer ? req.reviewer.tag : 'unknown'}`);
       console.debug && console.debug('Grade payload preview:', { scoresLength: Array.isArray(req.body?.scores) ? req.body.scores.length : 0, feedbackLen: (req.body?.feedback || '').length });
-      const s = examStore.getSessionById(req.params.id);
+      const s = await examStore.getSessionById(req.params.id);
       if (!s) return res.status(404).json({ error: 'Not found' });
       const { scores = [], feedback = '' } = req.body || {};
       const reviewerTag = req.reviewer ? req.reviewer.tag || (`web:${req.reviewer.id || 'unknown'}`) : 'web';
@@ -591,10 +601,11 @@ function createFormServer(client) {
   });
 
   // --- API-prefixed aliases for front-end callers that use /api/exams/... ---
-  app.get('/api/exams/pending', requireExamAuth, (req, res) => {
+  app.get('/api/exams/pending', requireExamAuth, async (req, res) => {
     try {
       console.info && console.info(`GET /api/exams/pending requested by reviewer=${req.reviewer ? req.reviewer.tag : 'unknown'}`);
-      const list = examStore.listActiveSessions().map(s => ({ id: s.id, examId: s.examId, userId: s.userId, createdAt: s.createdAt, status: s.status }));
+      const listAll = await examStore.listActiveSessions();
+      const list = (listAll || []).map(s => ({ id: s.id, examId: s.examId, userId: s.userId, createdAt: s.createdAt, status: s.status }));
       res.json(list);
     } catch (e) {
       console.error('Failed to list pending exams (api):', e);
@@ -602,11 +613,11 @@ function createFormServer(client) {
     }
   });
 
-  app.get('/api/exams/:id', requireExamAuth, (req, res) => {
+  app.get('/api/exams/:id', requireExamAuth, async (req, res) => {
     try {
       console.info && console.info(`GET /api/exams/${req.params.id} requested by reviewer=${req.reviewer ? req.reviewer.tag : 'unknown'}`);
       console.debug && console.debug('Incoming request headers (api):', { authorization: req.get('authorization') ? 'present' : 'missing', x_discord_token: !!req.get('x-discord-token') });
-      const s = examStore.getSessionById(req.params.id);
+      const s = await examStore.getSessionById(req.params.id);
       if (!s) return res.status(404).json({ error: 'Not found' });
       res.json(s);
     } catch (e) {
@@ -619,7 +630,7 @@ function createFormServer(client) {
     try {
       console.info && console.info(`POST /api/exams/${req.params.id}/grade requested by reviewer=${req.reviewer ? req.reviewer.tag : 'unknown'}`);
       console.debug && console.debug('Grade payload preview (api):', { scoresLength: Array.isArray(req.body?.scores) ? req.body.scores.length : 0, feedbackLen: (req.body?.feedback || '').length });
-      const s = examStore.getSessionById(req.params.id);
+      const s = await examStore.getSessionById(req.params.id);
       if (!s) return res.status(404).json({ error: 'Not found' });
       const { scores = [], feedback = '' } = req.body || {};
       const reviewerTag = req.reviewer ? req.reviewer.tag || (`web:${req.reviewer.id || 'unknown'}`) : 'web';
@@ -629,6 +640,33 @@ function createFormServer(client) {
       console.error('Failed to process grade via web (api):', e);
       res.status(500).json({ error: 'Internal error' });
     }
+  });
+
+  // Debug helper page served by the bot so you can open the bot's origin and test
+  // behavior without relying on the external static site. Use: /debug/grade.html?session=<id>
+  app.get('/debug/grade.html', (req, res) => {
+    const html = `<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Exam debug grader</title></head>
+<body>
+<h2>Exam debug grader</h2>
+<div id="out">Loading...</div>
+<script>
+const qs = new URLSearchParams(location.search);
+const id = qs.get('session');
+if (!id) { document.getElementById('out').innerText = 'Missing session query param'; }
+else {
+  fetch('/api/exams/' + encodeURIComponent(id), { credentials: 'include' })
+    .then(r => r.ok ? r.json() : r.text().then(t => { throw new Error('HTTP ' + r.status + '\n' + t); }))
+    .then(s => {
+      document.getElementById('out').innerText = JSON.stringify(s, null, 2);
+    }).catch(e => { document.getElementById('out').innerText = 'Error: ' + e.message; });
+}
+</script>
+</body>
+</html>`;
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(html);
   });
 
 

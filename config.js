@@ -43,10 +43,10 @@ module.exports = {
   GOOGLE_SHEETS_RANGE: process.env.GOOGLE_SHEETS_RANGE || 'Blacklists!A4:B1000',
 
   // Time webhook sheet settings: range to search for usernames and minutes
-  TIME_LOG_SHEET_RANGE: process.env.TIME_LOG_SHEET_RANGE || 'Master!A4:L1000',
+  TIME_LOG_SHEET_RANGE: process.env.TIME_LOG_SHEET_RANGE || 'Master!A4:M1000',
   // Zero-based indices within the fetched range rows for username and minutes columns
   TIME_LOG_NAME_COL: process.env.TIME_LOG_NAME_COL !== undefined ? Number(process.env.TIME_LOG_NAME_COL) : 0,
-  TIME_LOG_MINUTES_COL: process.env.TIME_LOG_MINUTES_COL !== undefined ? Number(process.env.TIME_LOG_MINUTES_COL) : 9,
+  TIME_LOG_MINUTES_COL: process.env.TIME_LOG_MINUTES_COL !== undefined ? Number(process.env.TIME_LOG_MINUTES_COL) : 10,
   // Channel ID for the webhook messages to listen to (set via env)
   TIME_LOG_CHANNEL_ID: process.env.TIME_LOG_CHANNEL_ID || "1484714859592552498",
   // Enable verbose logging for time webhook handler when true (env: TIME_WEBHOOK_VERBOSE=true)
@@ -54,10 +54,10 @@ module.exports = {
   // Optional: zero-based index of the rank column within TIME_LOG_SHEET_RANGE
   TIME_LOG_RANK_COL: process.env.TIME_LOG_RANK_COL !== undefined ? Number(process.env.TIME_LOG_RANK_COL) : 3,
   // Comma-separated list of rank names (case-insensitive) to exclude from quota checks
-  GAME_QUOTA_EXCLUDE_RANKS: process.env.GAME_QUOTA_EXCLUDE_RANKS || "Probationary Agent,Chief of Investigations,Deputy Chief of Investigations,Superintendent,Overseer",
+  GAME_QUOTA_EXCLUDE_RANKS: process.env.GAME_QUOTA_EXCLUDE_RANKS || "Special Agent-in-Training,Director of Investigations,Deputy Director of Investigations,Section Chief,Overseer",
   // Channel to post quota check reports
     GAME_QUOTA_CHANNEL_ID: process.env.GAME_QUOTA_CHANNEL_ID || "1494043062991847546",
-    GAME_LOG_STRIKE_COL: process.env.GAME_LOG_STRIKE_COL !== undefined ? Number(process.env.GAME_LOG_STRIKE_COL) : 5,
+    GAME_LOG_STRIKE_COL: process.env.GAME_LOG_STRIKE_COL !== undefined ? Number(process.env.GAME_LOG_STRIKE_COL) : 6,
     // Probation detection: comma-separated rank names to consider probationary
     PROBATION_RANK_NAMES: process.env.PROBATION_RANK_NAMES || 'Probationary Agent',
     // Comma-separated role IDs that should trigger an alert if a probationary agent has them
@@ -75,9 +75,9 @@ module.exports = {
   // Comma-separated role IDs allowed to approve inactivity notices
   INACTIVITY_APPROVER_ROLE_IDS: process.env.INACTIVITY_APPROVER_ROLE_IDS || "1449861438012133566",
   // Zero-based index (within TIME_LOG_SHEET_RANGE) of the column to write the end-date to
-  TIME_LOG_ENDDATE_COL: process.env.TIME_LOG_ENDDATE_COL !== undefined ? Number(process.env.TIME_LOG_ENDDATE_COL) : 6,
+  TIME_LOG_ENDDATE_COL: process.env.TIME_LOG_ENDDATE_COL !== undefined ? Number(process.env.TIME_LOG_ENDDATE_COL) : 7,
   // Optional: column index (zero-based) for the running total time column (adjacent to minutes column)
-  TIME_LOG_TOTAL_COL: process.env.TIME_LOG_TOTAL_COL !== undefined ? Number(process.env.TIME_LOG_TOTAL_COL) : 10,
+  TIME_LOG_TOTAL_COL: process.env.TIME_LOG_TOTAL_COL !== undefined ? Number(process.env.TIME_LOG_TOTAL_COL) : 11,
   // Column index (zero-based) for the SGC/main-group rank within TIME_LOG_SHEET_RANGE
   TIME_LOG_SGC_RANK_COL: process.env.TIME_LOG_SGC_RANK_COL !== undefined ? Number(process.env.TIME_LOG_SGC_RANK_COL) : 1,
   // Roblox group id for the main SGC group used when fetching ranks
@@ -97,7 +97,7 @@ module.exports = {
 
   // Points column index (zero-based). Username column and sheet range reuse the
   // existing TIME_LOG_* settings to avoid duplicate config.
-  POINTS_POINTS_COL: process.env.POINTS_POINTS_COL !== undefined ? Number(process.env.POINTS_POINTS_COL) : 11,
+  POINTS_POINTS_COL: process.env.POINTS_POINTS_COL !== undefined ? Number(process.env.POINTS_POINTS_COL) : 12,
 
   // Blacklist sheet settings (separate tab). Columns are zero-based indices
   BLACKLIST_SHEET_RANGE: process.env.BLACKLIST_SHEET_RANGE || 'Blacklists!A4:I1000',

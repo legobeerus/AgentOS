@@ -8,7 +8,7 @@ async function handleGradeButton(interaction) {
     await interaction.deferReply({ ephemeral: true });
     const parts = String(interaction.customId).split(':');
     const sessionId = parts[1];
-    const sess = examStore.getSessionById(sessionId);
+    const sess = await examStore.getSessionById(sessionId);
     if (!sess) return interaction.editReply({ content: 'Session not found.' });
 
     // Show modal to collect comma-separated scores and feedback
@@ -40,7 +40,7 @@ async function handleGradeModalSubmit(interaction) {
 }
 
 async function processGrade({ sessionId, scores = [], feedback = '', reviewerTag = 'web', client }) {
-  const sess = examStore.getSessionById(sessionId);
+  const sess = await examStore.getSessionById(sessionId);
   if (!sess) throw new Error('Session not found');
 
   const maxPerQ = 1;
@@ -49,7 +49,7 @@ async function processGrade({ sessionId, scores = [], feedback = '', reviewerTag
   const percent = totalPossible ? Math.round((totalScored/totalPossible)*100) : 0;
   const passed = percent >= (sess.passThreshold || config.EXAM_PASS_THRESHOLD || 70);
   const review = { scoredAt: Date.now(), scores, totalScored, percent, passed, feedback, reviewer: reviewerTag };
-  examStore.setReview(sessionId, review);
+  await examStore.setReview(sessionId, review);
 
   // Edit the review message if present
   try {
@@ -91,3 +91,59 @@ async function processGrade({ sessionId, scores = [], feedback = '', reviewerTag
 }
 
 module.exports = { handleGradeButton, handleGradeModalSubmit };
+
+async function finalizeReview({ session, client }) {
+  if (!session || !session.review) throw new Error('No review to finalize');
+  const review = session.review;
+  const maxPerQ = 1;
+  const totalPossible = (session.questions || []).length * maxPerQ;
+  const totalScored = (review.totalScored !== undefined) ? review.totalScored : (Array.isArray(review.scores) ? review.scores.slice(0, session.questions.length).reduce((a,b)=>a+(Number(b)||0),0) : 0);
+  const percent = review.percent !== undefined ? review.percent : (totalPossible ? Math.round((totalScored/totalPossible)*100) : 0);
+  const passed = percent >= (session.passThreshold || config.EXAM_PASS_THRESHOLD || 70);
+
+  // Edit the review message if present
+  try {
+    const channel = session.reviewChannelId ? await client.channels.fetch(session.reviewChannelId).catch(()=>null) : null;
+    if (channel && session.reviewMessageId) {
+      const embed = new EmbedBuilder()
+        .setTitle(`Graded — ${session.examId}`)
+        .setColor(passed ? 0x57F287 : 0xED4245)
+        .addFields(
+          { name: 'Candidate', value: `<@${session.userId}>`, inline: true },
+          { name: 'Score', value: `${totalScored}/${totalPossible} (${percent}%)`, inline: true },
+          { name: 'Result', value: passed ? '✅ Passed' : '❌ Failed', inline: true }
+        )
+        .setFooter({ text: `Graded by ${review.reviewer || 'web'}` })
+        .setTimestamp(new Date());
+      await channel.messages.fetch(session.reviewMessageId).then(m => m.edit({ embeds: [embed], components: [] })).catch(()=>null);
+    }
+  } catch (e) { console.error('Failed to edit review message (finalize):', e); }
+
+  // DM candidate with detailed feedback
+  try {
+    const user = await client.users.fetch(session.userId).catch(()=>null);
+    if (user) {
+      const fbEmbed = new EmbedBuilder()
+        .setTitle(`Exam Results — ${session.examId}`)
+        .setColor(passed ? 0x57F287 : 0xED4245)
+        .addFields({ name: 'Score', value: `${totalScored}/${totalPossible} (${percent}%)`, inline: true }, { name: 'Passed', value: passed ? 'Yes' : 'No', inline: true }, { name: 'Feedback', value: review.feedback || '(none)', inline: false })
+        .setTimestamp(new Date());
+      const qs = session.questions || [];
+      const sc = review.scores || [];
+      for (let i=0;i<qs.length;i++) {
+        const q = qs[i];
+        const s = sc[i] !== undefined ? sc[i] : '(unscored)';
+        fbEmbed.addFields({ name: `Q${i+1}`, value: `Score: ${s}\n${q.slice(0,800)}`, inline: false });
+      }
+      await user.send({ embeds: [fbEmbed] }).catch(()=>null);
+    }
+  } catch (e) { console.error('Failed to DM candidate results (finalize):', e); }
+
+  // Mark review as processed so we don't handle it again
+  try {
+    review.processed = true;
+    await require('./examStore').setReview(session.id, review);
+  } catch (e) { console.error('Failed to mark review processed:', e); }
+}
+
+module.exports.finalizeReview = finalizeReview;

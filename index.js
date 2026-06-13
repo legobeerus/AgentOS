@@ -55,6 +55,27 @@ client.once("ready", () => {
   app.listen(PORT, () => {
     console.log(`Form submission server listening on port ${PORT}`);
   });
+  // Start DB listener for exam updates (NOTIFY / poll)
+  try {
+    const db = require('./utils/db');
+    const examStore = require('./utils/examStore');
+    const { finalizeReview } = require('./utils/handleExamGrade');
+    db.listenForExamUpdates(async (payload, source) => {
+      try {
+        // payload expected to be JSON like { sessionId: '...' } or plain session id
+        let sessionId = null;
+        try { const p = JSON.parse(payload || 'null'); sessionId = p && p.sessionId ? p.sessionId : (typeof payload === 'string' ? payload : null); } catch (e) { sessionId = payload; }
+        if (!sessionId) return;
+        console.info(`DB exam update received (source=${source}) session=${sessionId}`);
+        const sess = await examStore.getSessionById(sessionId);
+        if (!sess) return console.warn('DB listener: session not found', sessionId);
+        if (sess.status === 'graded' && sess.review && !sess.review.processed) {
+          console.info('DB listener: finalizing review for session', sessionId);
+          await finalizeReview({ session: sess, client });
+        }
+      } catch (e) { console.error('Error handling DB exam update:', e); }
+    }).catch(err => console.error('Failed to start DB exam update listener:', err));
+  } catch (e) { console.debug && console.debug('DB listener not started (no DB configured?)', e.message || e); }
   // Start probation watcher to handle role-change based alerts
   try { probationWatcher.init(client); } catch (e) { console.error('Failed to init probationWatcher:', e); }
   // Start verification reminder scheduler
