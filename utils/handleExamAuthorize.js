@@ -14,6 +14,12 @@ async function handleExamAuthorize(interaction) {
       return interaction.followUp({ content: '❌ You are not authorized to approve exams.', ephemeral: true });
     }
 
+    // Check if user already has an active session for this exam
+    const existingSession = await examStore.getSessionByUser(userId);
+    if (existingSession && existingSession.examId === examId && (existingSession.status === 'active' || existingSession.status === 'awaiting_review')) {
+      return interaction.followUp({ content: '⚠️ This candidate already has an active exam session.', ephemeral: true });
+    }
+
     const examDef = examStore.getExamDefinition(examId);
     if (!examDef) {
       return interaction.followUp({ content: `⚠️ Could not find exam definition ${examId}.`, ephemeral: true });
@@ -58,17 +64,16 @@ async function handleExamAuthorize(interaction) {
     await examStore.setDMMessage(sess.id, dm);
 
     // Disable all buttons on the original message
-    const msg = interaction.message;
-    if (msg && msg.components && msg.components.length > 0) {
-      const disabledRows = msg.components.map(row => 
-        ActionRowBuilder.from(row).setComponents(
-          row.components.map(comp => 
-            comp.setDisabled ? comp.setDisabled(true) : comp
-          )
-        )
+    try {
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`exam_authorize:${userId}:${examId}`)
+          .setLabel('Authorize & Start')
+          .setStyle(ButtonStyle.Success)
+          .setDisabled(true)
       );
-      await msg.edit({ components: disabledRows }).catch(e => console.error('Failed to disable button:', e));
-    }
+      await interaction.message.edit({ components: [row] });
+    } catch (e) { console.error('Failed to disable authorize button:', e); }
 
     // Acknowledge to authorizer
     await interaction.followUp({ content: `✅ Authorized and started exam for <@${userId}> (session ${sess.id}).`, ephemeral: true });
