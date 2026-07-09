@@ -4,8 +4,39 @@
   "instructions": "Answer thoroughly. This exam is reviewed by senior staff.",
   "timeLimitSeconds": 1800,
   "questions": [
-    "Explain the protocol for a multi-jurisdictional operation.",
-    "List and justify three advanced investigative techniques.",
-    "Provide an example of evidence preservation in a complex scene."
+    {
+      "text": "What is the capital of evil France?",
+      "type": "text",
+      "maxScore": 5
+    },
+    {
+      "text": "What is evil 2 + evil 2?",
+      "type": "multiplechoice",
+      "maxScore": 2,
+      "choices": [
+        "A) 3",
+        "B) 4",
+        "C) 5",
+        "D) 6"
+      ],
+      "correctAnswer": "B"
+    },
+    {
+      "text": "Which planet is closest to the evil sun?",
+      "type": "multiplechoice",
+      "maxScore": 3,
+      "choices": [
+        "A) Venus",
+        "B) Mercury",
+        "C) Earth",
+        "D) Mars"
+      ],
+      "correctAnswer": "B"
+    },
+    {
+      "text": "Describe what you know about evil quantum mechanics.",
+      "type": "text",
+      "maxScore": 10
+    }
   ]
 }

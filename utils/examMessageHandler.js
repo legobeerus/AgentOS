@@ -11,16 +11,39 @@ async function handleExamDM(message, client) {
   if (!sess) return; // not in an active session
   if (sess.status !== 'active') return;
 
+  // Get current question to validate answer format (esp. for MC)
+  const currentQ = sess.questions && sess.questions[sess.currentIndex] ? sess.questions[sess.currentIndex] : null;
+  const userAnswer = (message.content || '').trim();
+  
+  // Validate MC answer: must be exactly A/B/C/D and present
+  if (currentQ && typeof currentQ === 'object' && currentQ.type === 'multiplechoice') {
+    const answerUpper = userAnswer.toUpperCase();
+    const validChoices = (currentQ.choices || []).map(c => c.charAt(0).toUpperCase());
+    if (!validChoices.includes(answerUpper)) {
+      try {
+        await message.channel.send({ content: `❌ Invalid answer. Please respond with one of: ${validChoices.join(', ')}` });
+      } catch (e) {}
+      return; // don't record yet
+    }
+  }
+
   // record answer and send next question or finalize
-  await examStore.recordAnswer(sess.id, message.content || '');
+  await examStore.recordAnswer(sess.id, userAnswer);
   const updated = await examStore.getSessionById(sess.id);
   const nextIndex = updated.currentIndex;
 
   if (nextIndex < (updated.questions || []).length) {
     const q = updated.questions[nextIndex];
+    const qText = typeof q === 'string' ? q : (q && q.text ? q.text : String(q));
+    let displayText = `Question ${nextIndex + 1}:\n${qText}`;
+    
+    // If MC question, append choices
+    if (typeof q === 'object' && q.type === 'multiplechoice' && Array.isArray(q.choices)) {
+      displayText += `\n\nOptions:\n${q.choices.join('\n')}\n\nAnswer: A, B, C, or D`;
+    }
+    
     try {
-      await message.channel.send({ content: `Question ${nextIndex + 1}:
-${q}` });
+      await message.channel.send({ content: displayText });
     } catch (e) {
       console.error('Failed to send next question DM:', e);
     }
@@ -32,9 +55,24 @@ ${q}` });
   const qs = updated.questions || [];
   const as = updated.answers || [];
   for (let i = 0; i < qs.length; i++) {
-    fields.push({ name: `Q${i + 1}`, value: qs[i].slice(0, 1000) || '(empty)', inline: false });
+    const q = qs[i];
+    const qText = typeof q === 'string' ? q : (q && q.text ? q.text : String(q));
+    fields.push({ name: `Q${i + 1}`, value: qText.slice(0, 1000) || '(empty)', inline: false });
+    
     const a = as[i] ? as[i].answer : '(no answer)';
-    fields.push({ name: `A${i + 1}`, value: (a && String(a).slice(0, 1000)) || '(no answer)', inline: false });
+    let answerDisplay = (a && String(a).slice(0, 1000)) || '(no answer)';
+    
+    // For MC, show if correct and include choices
+    if (typeof q === 'object' && q.type === 'multiplechoice') {
+      const isCorrect = q.correctAnswer && String(q.correctAnswer).toUpperCase() === String(a).toUpperCase();
+      const correctStr = isCorrect ? '✅' : '❌';
+      answerDisplay = `${correctStr} ${answerDisplay}`;
+      if (Array.isArray(q.choices)) {
+        answerDisplay += `\nChoices: ${q.choices.join(' | ')}`;
+      }
+    }
+    
+    fields.push({ name: `A${i + 1}`, value: answerDisplay, inline: false });
   }
 
   const reviewEmbed = new EmbedBuilder()

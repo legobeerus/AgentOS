@@ -43,12 +43,31 @@ async function processGrade({ sessionId, scores = [], feedback = '', reviewerTag
   const sess = await examStore.getSessionById(sessionId);
   if (!sess) throw new Error('Session not found');
 
-  const maxPerQ = 1;
-  const totalPossible = (sess.questions || []).length * maxPerQ;
-  const totalScored = (scores || []).slice(0, sess.questions.length).reduce((a,b)=>a+(Number(b)||0),0);
+  // Calculate total possible based on question maxScore fields (default to 1)
+  const qs = sess.questions || [];
+  const totalPossible = qs.reduce((sum, q) => sum + ((typeof q === 'object' && q.maxScore) ? q.maxScore : 1), 0);
+  
+  // Auto-grade MC questions and merge with manual scores
+  const finalScores = [];
+  const as = sess.answers || [];
+  for (let i = 0; i < qs.length; i++) {
+    const q = qs[i];
+    const maxScore = (typeof q === 'object' && q.maxScore) ? q.maxScore : 1;
+    // If MC question, auto-grade it
+    if (typeof q === 'object' && q.type === 'multiplechoice' && q.correctAnswer) {
+      const userAnswer = as[i] ? String(as[i].answer).toUpperCase() : '';
+      const correctAnswer = String(q.correctAnswer).toUpperCase();
+      finalScores[i] = userAnswer === correctAnswer ? maxScore : 0;
+    } else {
+      // Use manual score if provided, else 0
+      finalScores[i] = scores && scores[i] !== undefined ? Number(scores[i]) || 0 : 0;
+    }
+  }
+  
+  const totalScored = finalScores.reduce((a,b)=>a+(Number(b)||0),0);
   const percent = totalPossible ? Math.round((totalScored/totalPossible)*100) : 0;
   const passed = percent >= (sess.passThreshold || config.EXAM_PASS_THRESHOLD || 70);
-  const review = { scoredAt: Date.now(), scores, totalScored, percent, passed, feedback, reviewer: reviewerTag };
+  const review = { scoredAt: Date.now(), scores: finalScores, totalScored, percent, passed, feedback, reviewer: reviewerTag };
   await examStore.setReview(sessionId, review);
 
   // Edit the review message if present
@@ -99,8 +118,11 @@ module.exports = { handleGradeButton, handleGradeModalSubmit, processGrade };
 async function finalizeReview({ session, client }) {
   if (!session || !session.review) throw new Error('No review to finalize');
   const review = session.review;
-  const maxPerQ = 1;
-  const totalPossible = (session.questions || []).length * maxPerQ;
+  
+  // Calculate total possible based on question maxScore fields (default to 1)
+  const qs = session.questions || [];
+  const totalPossible = qs.reduce((sum, q) => sum + ((typeof q === 'object' && q.maxScore) ? q.maxScore : 1), 0);
+  
   const totalScored = (review.totalScored !== undefined) ? review.totalScored : (Array.isArray(review.scores) ? review.scores.slice(0, session.questions.length).reduce((a,b)=>a+(Number(b)||0),0) : 0);
   const percent = review.percent !== undefined ? review.percent : (totalPossible ? Math.round((totalScored/totalPossible)*100) : 0);
   const passed = percent >= (session.passThreshold || config.EXAM_PASS_THRESHOLD || 70);

@@ -39,7 +39,15 @@ async function handleExamAuthorize(interaction) {
       )
       .setTimestamp(new Date());
 
-    if (firstQ) embed.addFields({ name: `Question 1`, value: firstQ, inline: false });
+    if (firstQ) {
+      const qText = typeof firstQ === 'string' ? firstQ : (firstQ && firstQ.text ? firstQ.text : String(firstQ));
+      let qDisplay = qText;
+      // If MC, show choices
+      if (typeof firstQ === 'object' && firstQ.type === 'multiplechoice' && Array.isArray(firstQ.choices)) {
+        qDisplay += `\n\nOptions:\n${firstQ.choices.join('\n')}\n\nAnswer: A, B, C, or D`;
+      }
+      embed.addFields({ name: `Question 1`, value: qDisplay, inline: false });
+    }
 
     const dm = await user.send({ embeds: [embed] }).catch(() => null);
     if (!dm) {
