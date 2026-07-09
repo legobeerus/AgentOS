@@ -36,7 +36,9 @@ async function handleExamAuthorize(interaction) {
     }
 
     const firstQ = (sess.questions && sess.questions[0]) ? sess.questions[0] : null;
-    const embed = new EmbedBuilder()
+    
+    // Intro embed
+    const introEmbed = new EmbedBuilder()
       .setTitle(`${examDef.title || examId} — Exam Started`)
       .setColor(config.EMBED_COLOR)
       .addFields(
@@ -45,17 +47,26 @@ async function handleExamAuthorize(interaction) {
       )
       .setTimestamp(new Date());
 
+    const embeds = [introEmbed];
+
+    // First question embed
     if (firstQ) {
       const qText = typeof firstQ === 'string' ? firstQ : (firstQ && firstQ.text ? firstQ.text : String(firstQ));
-      let qDisplay = qText;
-      // If MC, show choices
+      const qEmbed = new EmbedBuilder()
+        .setTitle('Question 1')
+        .setDescription(qText)
+        .setColor(config.EMBED_COLOR);
+      
+      // If MC, add choices field
       if (typeof firstQ === 'object' && firstQ.type === 'multiplechoice' && Array.isArray(firstQ.choices)) {
-        qDisplay += `\n\nOptions:\n${firstQ.choices.join('\n')}\n\nAnswer: A, B, C, or D`;
+        qEmbed.addFields({ name: 'Options', value: firstQ.choices.join('\n'), inline: false });
+        qEmbed.addFields({ name: 'Answer', value: 'Reply with just the letter: A, B, C, or D', inline: false });
       }
-      embed.addFields({ name: `Question 1`, value: qDisplay, inline: false });
+      
+      embeds.push(qEmbed);
     }
 
-    const dm = await user.send({ embeds: [embed] }).catch(() => null);
+    const dm = await user.send({ embeds }).catch(() => null);
     if (!dm) {
       return interaction.followUp({ content: `⚠️ Could not DM the candidate. They may have DMs disabled.`, ephemeral: true });
     }

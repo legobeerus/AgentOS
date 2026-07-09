@@ -35,51 +35,36 @@ async function handleExamDM(message, client) {
   if (nextIndex < (updated.questions || []).length) {
     const q = updated.questions[nextIndex];
     const qText = typeof q === 'string' ? q : (q && q.text ? q.text : String(q));
-    let displayText = `Question ${nextIndex + 1}:\n${qText}`;
     
-    // If MC question, append choices
+    const qEmbed = new EmbedBuilder()
+      .setTitle(`Question ${nextIndex + 1}`)
+      .setDescription(qText)
+      .setColor(config.EMBED_COLOR);
+    
+    // If MC question, add choices field
     if (typeof q === 'object' && q.type === 'multiplechoice' && Array.isArray(q.choices)) {
-      displayText += `\n\nOptions:\n${q.choices.join('\n')}\n\nAnswer: A, B, C, or D`;
+      qEmbed.addFields({ name: 'Options', value: q.choices.join('\n'), inline: false });
+      qEmbed.addFields({ name: 'Answer', value: 'Reply with just the letter: A, B, C, or D', inline: false });
     }
     
     try {
-      await message.channel.send({ content: displayText });
+      await message.channel.send({ embeds: [qEmbed] });
     } catch (e) {
       console.error('Failed to send next question DM:', e);
     }
     return;
   }
 
-  // finished: compile embed and post to review channel
-  const fields = [];
-  const qs = updated.questions || [];
-  const as = updated.answers || [];
-  for (let i = 0; i < qs.length; i++) {
-    const q = qs[i];
-    const qText = typeof q === 'string' ? q : (q && q.text ? q.text : String(q));
-    fields.push({ name: `Q${i + 1}`, value: qText.slice(0, 1000) || '(empty)', inline: false });
-    
-    const a = as[i] ? as[i].answer : '(no answer)';
-    let answerDisplay = (a && String(a).slice(0, 1000)) || '(no answer)';
-    
-    // For MC, show if correct and include choices
-    if (typeof q === 'object' && q.type === 'multiplechoice') {
-      const isCorrect = q.correctAnswer && String(q.correctAnswer).toUpperCase() === String(a).toUpperCase();
-      const correctStr = isCorrect ? '✅' : '❌';
-      answerDisplay = `${correctStr} ${answerDisplay}`;
-      if (Array.isArray(q.choices)) {
-        answerDisplay += `\nChoices: ${q.choices.join(' | ')}`;
-      }
-    }
-    
-    fields.push({ name: `A${i + 1}`, value: answerDisplay, inline: false });
-  }
-
+  // finished: post to review channel with link to grade in browser
   const reviewEmbed = new EmbedBuilder()
     .setTitle(`Exam Submission — ${updated.examId}`)
     .setColor(config.EMBED_COLOR)
-    .addFields(...fields)
-    .addFields({ name: 'Candidate', value: `<@${message.author.id}>`, inline: true }, { name: 'Session', value: updated.id, inline: true })
+    .setDescription('New submission received. Open in browser below to view and grade responses.')
+    .addFields(
+      { name: 'Candidate', value: `<@${message.author.id}>`, inline: true },
+      { name: 'Session', value: updated.id, inline: true },
+      { name: 'Questions', value: `${(updated.questions || []).length}`, inline: true }
+    )
     .setTimestamp(new Date());
 
   const rows = [];
