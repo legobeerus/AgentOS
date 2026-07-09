@@ -73,14 +73,6 @@ function createFormServer(client) {
     };
   }
 
-  function getGuildIdFromRequest(req) {
-    return (
-      normalizeSnowflake(req.params.guildId) ||
-      normalizeSnowflake(req.query.guildId) ||
-      normalizeSnowflake(config.BOT_API_DEFAULT_GUILD_ID)
-    );
-  }
-
   function requireBotApiAuth(req, res, next) {
     const token = extractApiToken(req);
     const preferredToken = config.BOT_API_TOKEN;
@@ -742,14 +734,14 @@ function createFormServer(client) {
     }
   });
 
-  // Simplified endpoint: provide userId in path and guildId via query or BOT_API_DEFAULT_GUILD_ID.
+  // Simplified endpoint: provide userId in path and guildId via query.
   app.get('/api/guild-members/:userId/roles', requireBotApiAuth, async (req, res) => {
     try {
-      const guildId = getGuildIdFromRequest(req);
+      const guildId = normalizeSnowflake(req.query.guildId);
       const userId = normalizeSnowflake(req.params.userId);
 
       if (!guildId) {
-        return res.status(400).json({ error: 'guildId is required (query param or BOT_API_DEFAULT_GUILD_ID)' });
+        return res.status(400).json({ error: 'guildId query parameter is required' });
       }
       if (!userId) return res.status(400).json({ error: 'userId must be a valid Discord ID' });
 

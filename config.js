@@ -132,8 +132,6 @@ module.exports = {
   // Website role lookup API configuration
   // Shared API token preferred for web callers (do not expose DISCORD_TOKEN to browsers)
   BOT_API_TOKEN: process.env.BOT_API_TOKEN || undefined,
-  // Optional fallback guild ID used by simplified role lookup endpoint
-  BOT_API_DEFAULT_GUILD_ID: cleanId(process.env.BOT_API_DEFAULT_GUILD_ID) || undefined,
   // Optional compatibility mode: allow using DISCORD_TOKEN as API auth (not recommended)
   BOT_API_ALLOW_DISCORD_TOKEN: (process.env.BOT_API_ALLOW_DISCORD_TOKEN || '').toLowerCase() === 'true' || process.env.BOT_API_ALLOW_DISCORD_TOKEN === '1',
 
