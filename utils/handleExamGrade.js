@@ -70,47 +70,9 @@ async function processGrade({ sessionId, scores = [], feedback = '', reviewerTag
   const review = { scoredAt: Date.now(), scores: finalScores, totalScored, percent, passed, feedback, reviewer: reviewerTag };
   await examStore.setReview(sessionId, review);
 
-  // Edit the review message if present
-  try {
-    const channel = sess.reviewChannelId ? await client.channels.fetch(sess.reviewChannelId).catch(()=>null) : null;
-    if (channel && sess.reviewMessageId) {
-      const embed = new EmbedBuilder()
-        .setTitle(`Graded — ${sess.examId}`)
-        .setColor(passed ? 0x57F287 : 0xED4245)
-        .addFields(
-          { name: 'Candidate', value: `<@${sess.userId}>`, inline: true },
-          { name: 'Score', value: `${totalScored}/${totalPossible} (${percent}%)`, inline: true },
-          { name: 'Result', value: passed ? '✅ Passed' : '❌ Failed', inline: true }
-        )
-        .setFooter({ text: `Graded by ${reviewerTag}` })
-        .setTimestamp(new Date());
-      await channel.messages.fetch(sess.reviewMessageId).then(m => m.edit({ embeds: [embed], components: [] })).catch(()=>null);
-    }
-  } catch (e) { console.error('Failed to edit review message:', e); }
-
-  // DM candidate with detailed feedback
-  try {
-    const user = await client.users.fetch(sess.userId).catch(()=>null);
-    if (user) {
-      const fbEmbed = new EmbedBuilder()
-        .setTitle(`Exam Results — ${sess.examId}`)
-        .setColor(passed ? 0x57F287 : 0xED4245)
-        .addFields({ name: 'Score', value: `${totalScored}/${totalPossible} (${percent}%)`, inline: true }, { name: 'Passed', value: passed ? 'Yes' : 'No', inline: true }, { name: 'Feedback', value: feedback || '(none)', inline: false })
-        .setTimestamp(new Date());
-      const qs = sess.questions || [];
-      const sc = scores || [];
-      for (let i=0;i<qs.length;i++) {
-        const q = qs[i];
-        const s = sc[i] !== undefined ? sc[i] : '(unscored)';
-        fbEmbed.addFields({ name: `Q${i+1}`, value: `Score: ${s}\n${q.slice(0,800)}`, inline: false });
-      }
-      await user.send({ embeds: [fbEmbed] }).catch(()=>null);
-    }
-  } catch (e) { console.error('Failed to DM candidate results:', e); }
-
-  // Mark as processed so DB listener doesn't re-send
-  review.processed = true;
-  await examStore.setReview(sessionId, review);
+  // Fetch updated session and call finalizeReview to edit message and send DM
+  const updatedSess = await examStore.getSessionById(sessionId);
+  await finalizeReview({ session: updatedSess, client });
 }
 
 module.exports = { handleGradeButton, handleGradeModalSubmit, processGrade };
