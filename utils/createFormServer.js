@@ -73,6 +73,22 @@ function createFormServer(client) {
     };
   }
 
+  function resolveApiGuildId(requestedGuildId) {
+    const requested = normalizeSnowflake(requestedGuildId);
+    const enforced = normalizeSnowflake(config.BOT_API_ENFORCED_GUILD_ID);
+
+    if (enforced && requested && requested !== enforced) {
+      return { error: 'Requested guildId does not match configured API guild', status: 403 };
+    }
+
+    const guildId = enforced || requested;
+    if (!guildId) {
+      return { error: 'guildId is required', status: 400 };
+    }
+
+    return { guildId, enforced: !!enforced };
+  }
+
   function requireBotApiAuth(req, res, next) {
     const token = extractApiToken(req);
     const preferredToken = config.BOT_API_TOKEN;
@@ -714,12 +730,12 @@ function createFormServer(client) {
   // Compatibility mode: set BOT_API_ALLOW_DISCORD_TOKEN=true to allow DISCORD_TOKEN as auth.
   app.get('/api/guilds/:guildId/members/:userId/roles', requireBotApiAuth, async (req, res) => {
     try {
-      const guildId = normalizeSnowflake(req.params.guildId);
+      const resolved = resolveApiGuildId(req.params.guildId);
+      if (resolved.error) return res.status(resolved.status || 400).json({ error: resolved.error });
+      const guildId = resolved.guildId;
       const userId = normalizeSnowflake(req.params.userId);
 
-      if (!guildId || !userId) {
-        return res.status(400).json({ error: 'guildId and userId must be valid Discord IDs' });
-      }
+      if (!userId) return res.status(400).json({ error: 'userId must be a valid Discord ID' });
 
       const guild = await client.guilds.fetch(guildId).catch(() => null);
       if (!guild) return res.status(404).json({ error: 'Guild not found or bot is not in guild' });
@@ -737,12 +753,11 @@ function createFormServer(client) {
   // Simplified endpoint: provide userId in path and guildId via query.
   app.get('/api/guild-members/:userId/roles', requireBotApiAuth, async (req, res) => {
     try {
-      const guildId = normalizeSnowflake(req.query.guildId);
+      const resolved = resolveApiGuildId(req.query.guildId);
+      if (resolved.error) return res.status(resolved.status || 400).json({ error: resolved.error });
+      const guildId = resolved.guildId;
       const userId = normalizeSnowflake(req.params.userId);
 
-      if (!guildId) {
-        return res.status(400).json({ error: 'guildId query parameter is required' });
-      }
       if (!userId) return res.status(400).json({ error: 'userId must be a valid Discord ID' });
 
       const guild = await client.guilds.fetch(guildId).catch(() => null);
@@ -761,11 +776,12 @@ function createFormServer(client) {
   // Bulk lookup endpoint for website-side role checks on multiple users.
   app.post('/api/guilds/:guildId/members/roles', requireBotApiAuth, async (req, res) => {
     try {
-      const guildId = normalizeSnowflake(req.params.guildId);
+      const resolved = resolveApiGuildId(req.params.guildId);
+      if (resolved.error) return res.status(resolved.status || 400).json({ error: resolved.error });
+      const guildId = resolved.guildId;
       const userIdsRaw = Array.isArray(req.body?.userIds) ? req.body.userIds : [];
       const userIds = userIdsRaw.map(normalizeSnowflake).filter(Boolean);
 
-      if (!guildId) return res.status(400).json({ error: 'guildId must be a valid Discord ID' });
       if (!userIds.length) return res.status(400).json({ error: 'userIds must be a non-empty array of Discord IDs' });
       if (userIds.length > 100) return res.status(400).json({ error: 'Maximum 100 userIds per request' });
 

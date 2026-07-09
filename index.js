@@ -59,6 +59,7 @@ client.once("ready", () => {
   try {
     const db = require('./utils/db');
     const examStore = require('./utils/examStore');
+    const config = require('./config');
     const { finalizeReview } = require('./utils/handleExamGrade');
     db.listenForExamUpdates(async (payload, source) => {
       try {
@@ -74,6 +75,9 @@ client.once("ready", () => {
           await finalizeReview({ session: sess, client });
         }
       } catch (e) { console.error('Error handling DB exam update:', e); }
+    }, {
+      pollEnabled: config.EXAM_DB_POLL_ENABLED,
+      pollMs: config.EXAM_DB_POLL_MS
     }).catch(err => console.error('Failed to start DB exam update listener:', err));
   } catch (e) { console.debug && console.debug('DB listener not started (no DB configured?)', e.message || e); }
   // Start probation watcher to handle role-change based alerts

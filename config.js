@@ -128,10 +128,16 @@ module.exports = {
   EXAM_GUILD_ID: cleanId(process.env.EXAM_GUILD_ID) || "1041577710067138560",
   // Public base URL for the web grading UI (e.g. https://grading.example.com)
   EXAM_WEB_BASE_URL: process.env.EXAM_WEB_BASE_URL || "https://legobeerus.github.io",
+  // DB exam update poll fallback controls (used with LISTEN/NOTIFY)
+  EXAM_DB_POLL_ENABLED: (process.env.EXAM_DB_POLL_ENABLED || '').toLowerCase() === 'true' || process.env.EXAM_DB_POLL_ENABLED === '1',
+  // Poll interval in ms for fallback exam update checks (default 2 minutes)
+  EXAM_DB_POLL_MS: process.env.EXAM_DB_POLL_MS !== undefined ? Number(process.env.EXAM_DB_POLL_MS) : 120000,
 
   // Website role lookup API configuration
   // Shared API token preferred for web callers (do not expose DISCORD_TOKEN to browsers)
   BOT_API_TOKEN: process.env.BOT_API_TOKEN || undefined,
+  // Optional hard lock: force website role lookups to this guild ID
+  BOT_API_ENFORCED_GUILD_ID: cleanId(process.env.BOT_API_ENFORCED_GUILD_ID) || undefined,
   // Optional compatibility mode: allow using DISCORD_TOKEN as API auth (not recommended)
   BOT_API_ALLOW_DISCORD_TOKEN: (process.env.BOT_API_ALLOW_DISCORD_TOKEN || '').toLowerCase() === 'true' || process.env.BOT_API_ALLOW_DISCORD_TOKEN === '1',
 

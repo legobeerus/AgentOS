@@ -106,26 +106,50 @@ async function listenForExamUpdates(handler, opts = {}) {
   await client.query('LISTEN exam_updates');
   console.info('Listening for Postgres NOTIFY on channel: exam_updates');
 
-  // Poll fallback: periodically query for graded sessions that are not marked processed
-  const pollMs = opts.pollMs || 30000;
-  const poller = setInterval(async () => {
-    try {
-      const q = await pool.query("SELECT payload FROM exams_sessions WHERE status='graded'");
-      for (const row of q.rows) {
-        try {
-          const payload = JSON.stringify({ sessionId: row.payload && row.payload.id ? row.payload.id : null });
-          await handler(payload, 'poll');
-        } catch (e) {
-          console.error('Error handling polled graded session:', e);
+  // Poll fallback: periodically query only unprocessed graded sessions.
+  // Default is intentionally conservative to reduce DB load when NOTIFY is healthy.
+  const pollEnabled = opts.pollEnabled !== undefined
+    ? !!opts.pollEnabled
+    : (config.EXAM_DB_POLL_ENABLED !== undefined ? !!config.EXAM_DB_POLL_ENABLED : true);
+  const pollMs = Number.isFinite(Number(opts.pollMs)) && Number(opts.pollMs) > 0
+    ? Number(opts.pollMs)
+    : (Number.isFinite(Number(config.EXAM_DB_POLL_MS)) && Number(config.EXAM_DB_POLL_MS) > 0 ? Number(config.EXAM_DB_POLL_MS) : 120000);
+  const pollBatchSize = Number.isFinite(Number(opts.pollBatchSize)) && Number(opts.pollBatchSize) > 0
+    ? Number(opts.pollBatchSize)
+    : 25;
+
+  let poller = null;
+  let pollInFlight = false;
+  if (pollEnabled) {
+    poller = setInterval(async () => {
+      if (pollInFlight) return;
+      pollInFlight = true;
+      try {
+        const q = await pool.query(
+          "SELECT id::text AS session_id FROM exams_sessions WHERE status='graded' AND (payload->'review'->>'processed') IS DISTINCT FROM 'true' ORDER BY updated_at ASC LIMIT $1",
+          [pollBatchSize]
+        );
+        for (const row of q.rows) {
+          try {
+            const payload = JSON.stringify({ sessionId: row.session_id });
+            await handler(payload, 'poll');
+          } catch (e) {
+            console.error('Error handling polled graded session:', e);
+          }
         }
+      } catch (e) {
+        console.error('Error polling for graded sessions:', e.message || e);
+      } finally {
+        pollInFlight = false;
       }
-    } catch (e) {
-      console.error('Error polling for graded sessions:', e.message || e);
-    }
-  }, pollMs);
+    }, pollMs);
+    console.info(`Exam poll fallback enabled: interval=${pollMs}ms batch=${pollBatchSize}`);
+  } else {
+    console.info('Exam poll fallback disabled; relying on Postgres NOTIFY only.');
+  }
 
   return () => {
-    clearInterval(poller);
+    if (poller) clearInterval(poller);
     client.query('UNLISTEN exam_updates').catch(() => null);
     client.release();
   };
