@@ -88,6 +88,10 @@ async function processGrade({ sessionId, scores = [], feedback = '', reviewerTag
       await user.send({ embeds: [fbEmbed] }).catch(()=>null);
     }
   } catch (e) { console.error('Failed to DM candidate results:', e); }
+
+  // Mark as processed so DB listener doesn't re-send
+  review.processed = true;
+  await examStore.setReview(sessionId, review);
 }
 
 module.exports = { handleGradeButton, handleGradeModalSubmit, processGrade };
