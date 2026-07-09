@@ -20,7 +20,7 @@ function createFormServer(client) {
   app.use((req, res, next) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-discord-token');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-discord-token,x-api-token,x-bot-token');
     if (req.method === 'OPTIONS') return res.sendStatus(204);
     next();
   });
@@ -30,6 +30,81 @@ function createFormServer(client) {
     console.debug && console.debug(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
     next();
   });
+
+  function normalizeSnowflake(value) {
+    if (value === undefined || value === null) return null;
+    const cleaned = String(value).trim();
+    return /^\d{16,20}$/.test(cleaned) ? cleaned : null;
+  }
+
+  function extractApiToken(req) {
+    const auth = (req.get('authorization') || '').trim();
+    if (auth.toLowerCase().startsWith('bearer ')) return auth.slice(7).trim();
+    return (
+      req.get('x-api-token') ||
+      req.get('x-bot-token') ||
+      req.query?.api_token ||
+      req.body?.api_token ||
+      null
+    );
+  }
+
+  function buildMemberRolesPayload(guild, member) {
+    const roles = member.roles.cache
+      .filter(role => role.id !== guild.id)
+      .sort((a, b) => b.position - a.position)
+      .map(role => ({
+        id: role.id,
+        name: role.name,
+        color: role.hexColor,
+        position: role.position,
+        managed: role.managed,
+        hoist: role.hoist
+      }));
+
+    return {
+      guildId: guild.id,
+      userId: member.id,
+      username: member.user.username,
+      globalName: member.user.globalName || null,
+      nickname: member.nickname || null,
+      roleIds: roles.map(role => role.id),
+      roles
+    };
+  }
+
+  function getGuildIdFromRequest(req) {
+    return (
+      normalizeSnowflake(req.params.guildId) ||
+      normalizeSnowflake(req.query.guildId) ||
+      normalizeSnowflake(config.BOT_API_DEFAULT_GUILD_ID)
+    );
+  }
+
+  function requireBotApiAuth(req, res, next) {
+    const token = extractApiToken(req);
+    const preferredToken = config.BOT_API_TOKEN;
+    const allowDiscordToken = !!config.BOT_API_ALLOW_DISCORD_TOKEN;
+    const discordToken = process.env.DISCORD_TOKEN;
+
+    if (!token) {
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'Missing API token'
+      });
+    }
+
+    if (preferredToken && token === preferredToken) return next();
+
+    if (allowDiscordToken && discordToken && token === discordToken) {
+      return next();
+    }
+
+    return res.status(401).json({
+      error: 'Unauthorized',
+      message: 'Invalid API token'
+    });
+  }
 
   /**
    * POST /form-submission
@@ -638,6 +713,83 @@ function createFormServer(client) {
       res.json({ ok: true });
     } catch (e) {
       console.error('Failed to process grade via web (api):', e);
+      res.status(500).json({ error: 'Internal error' });
+    }
+  });
+
+  // --- Website role lookup endpoints ---
+  // Preferred auth: BOT_API_TOKEN via Authorization: Bearer <token> or x-api-token header.
+  // Compatibility mode: set BOT_API_ALLOW_DISCORD_TOKEN=true to allow DISCORD_TOKEN as auth.
+  app.get('/api/guilds/:guildId/members/:userId/roles', requireBotApiAuth, async (req, res) => {
+    try {
+      const guildId = normalizeSnowflake(req.params.guildId);
+      const userId = normalizeSnowflake(req.params.userId);
+
+      if (!guildId || !userId) {
+        return res.status(400).json({ error: 'guildId and userId must be valid Discord IDs' });
+      }
+
+      const guild = await client.guilds.fetch(guildId).catch(() => null);
+      if (!guild) return res.status(404).json({ error: 'Guild not found or bot is not in guild' });
+
+      const member = await guild.members.fetch(userId).catch(() => null);
+      if (!member) return res.status(404).json({ error: 'Member not found in guild' });
+
+      res.json(buildMemberRolesPayload(guild, member));
+    } catch (e) {
+      console.error('Failed to resolve member roles:', e);
+      res.status(500).json({ error: 'Internal error' });
+    }
+  });
+
+  // Simplified endpoint: provide userId in path and guildId via query or BOT_API_DEFAULT_GUILD_ID.
+  app.get('/api/guild-members/:userId/roles', requireBotApiAuth, async (req, res) => {
+    try {
+      const guildId = getGuildIdFromRequest(req);
+      const userId = normalizeSnowflake(req.params.userId);
+
+      if (!guildId) {
+        return res.status(400).json({ error: 'guildId is required (query param or BOT_API_DEFAULT_GUILD_ID)' });
+      }
+      if (!userId) return res.status(400).json({ error: 'userId must be a valid Discord ID' });
+
+      const guild = await client.guilds.fetch(guildId).catch(() => null);
+      if (!guild) return res.status(404).json({ error: 'Guild not found or bot is not in guild' });
+
+      const member = await guild.members.fetch(userId).catch(() => null);
+      if (!member) return res.status(404).json({ error: 'Member not found in guild' });
+
+      res.json(buildMemberRolesPayload(guild, member));
+    } catch (e) {
+      console.error('Failed to resolve member roles via simplified route:', e);
+      res.status(500).json({ error: 'Internal error' });
+    }
+  });
+
+  // Bulk lookup endpoint for website-side role checks on multiple users.
+  app.post('/api/guilds/:guildId/members/roles', requireBotApiAuth, async (req, res) => {
+    try {
+      const guildId = normalizeSnowflake(req.params.guildId);
+      const userIdsRaw = Array.isArray(req.body?.userIds) ? req.body.userIds : [];
+      const userIds = userIdsRaw.map(normalizeSnowflake).filter(Boolean);
+
+      if (!guildId) return res.status(400).json({ error: 'guildId must be a valid Discord ID' });
+      if (!userIds.length) return res.status(400).json({ error: 'userIds must be a non-empty array of Discord IDs' });
+      if (userIds.length > 100) return res.status(400).json({ error: 'Maximum 100 userIds per request' });
+
+      const guild = await client.guilds.fetch(guildId).catch(() => null);
+      if (!guild) return res.status(404).json({ error: 'Guild not found or bot is not in guild' });
+
+      const results = await Promise.all(userIds.map(async (userId) => {
+        const member = await guild.members.fetch(userId).catch(() => null);
+        if (!member) return { userId, found: false, roleIds: [], roles: [] };
+        const payload = buildMemberRolesPayload(guild, member);
+        return { ...payload, found: true };
+      }));
+
+      res.json({ guildId, count: results.length, results });
+    } catch (e) {
+      console.error('Failed bulk member role lookup:', e);
       res.status(500).json({ error: 'Internal error' });
     }
   });

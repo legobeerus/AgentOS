@@ -129,6 +129,14 @@ module.exports = {
   // Public base URL for the web grading UI (e.g. https://grading.example.com)
   EXAM_WEB_BASE_URL: process.env.EXAM_WEB_BASE_URL || "https://legobeerus.github.io",
 
+  // Website role lookup API configuration
+  // Shared API token preferred for web callers (do not expose DISCORD_TOKEN to browsers)
+  BOT_API_TOKEN: process.env.BOT_API_TOKEN || undefined,
+  // Optional fallback guild ID used by simplified role lookup endpoint
+  BOT_API_DEFAULT_GUILD_ID: cleanId(process.env.BOT_API_DEFAULT_GUILD_ID) || undefined,
+  // Optional compatibility mode: allow using DISCORD_TOKEN as API auth (not recommended)
+  BOT_API_ALLOW_DISCORD_TOKEN: (process.env.BOT_API_ALLOW_DISCORD_TOKEN || '').toLowerCase() === 'true' || process.env.BOT_API_ALLOW_DISCORD_TOKEN === '1',
+
   // Comma-separated role IDs that should be excluded from the !verifylist output
   // Example: VERIFYLIST_EXCLUDE_ROLE_IDS=12345,67890
   VERIFYLIST_EXCLUDE_ROLE_IDS: process.env.VERIFYLIST_EXCLUDE_ROLE_IDS || "1263502224181694467,1250194811521208353,1106779772492718180",
