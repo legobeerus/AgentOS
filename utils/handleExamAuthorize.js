@@ -57,6 +57,28 @@ async function handleExamAuthorize(interaction) {
     // store dm message reference for potential countdown updates
     await examStore.setDMMessage(sess.id, dm);
 
+    // Disable the authorize button on the original message
+    try {
+      const msg = interaction.message;
+      if (msg && msg.components && msg.components.length > 0) {
+        const disabledRows = msg.components.map(row => {
+          const newRow = new ActionRowBuilder();
+          row.components.forEach(comp => {
+            if (comp instanceof ButtonBuilder) {
+              newRow.addComponents(
+                new ButtonBuilder(comp.data)
+                  .setDisabled(true)
+              );
+            } else {
+              newRow.addComponents(comp);
+            }
+          });
+          return newRow;
+        });
+        await msg.edit({ components: disabledRows });
+      }
+    } catch (e) { console.error('Failed to disable authorize button:', e); }
+
     // Acknowledge to authorizer
     await interaction.followUp({ content: `✅ Authorized and started exam for <@${userId}> (session ${sess.id}).`, ephemeral: true });
   } catch (e) {

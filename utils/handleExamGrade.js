@@ -120,8 +120,9 @@ async function finalizeReview({ session, client }) {
       const sc = review.scores || [];
       for (let i=0;i<qs.length;i++) {
         const q = qs[i];
+        const qText = (typeof q === 'string') ? q : (q && q.text ? q.text : String(q));
         const s = sc[i] !== undefined ? sc[i] : '(unscored)';
-        fbEmbed.addFields({ name: `Q${i+1}`, value: `Score: ${s}\n${q.slice(0,800)}`, inline: false });
+        fbEmbed.addFields({ name: `Q${i+1}`, value: `Score: ${s}\n${qText.slice(0,800)}`, inline: false });
       }
       await user.send({ embeds: [fbEmbed] }).catch(()=>null);
     }
