@@ -59,7 +59,7 @@ module.exports = {
     GAME_QUOTA_CHANNEL_ID: process.env.GAME_QUOTA_CHANNEL_ID || "1494043062991847546",
     GAME_LOG_STRIKE_COL: process.env.GAME_LOG_STRIKE_COL !== undefined ? Number(process.env.GAME_LOG_STRIKE_COL) : 6,
     // Probation detection: comma-separated rank names to consider probationary
-    PROBATION_RANK_NAMES: process.env.PROBATION_RANK_NAMES || 'Probationary Agent',
+    PROBATION_RANK_NAMES: process.env.PROBATION_RANK_NAMES || 'Special Agent-in-Training',
     // Comma-separated role IDs that should trigger an alert if a probationary agent has them
     PROBATION_SUSPICIOUS_ROLE_IDS: process.env.PROBATION_SUSPICIOUS_ROLE_IDS || "1487506799400849518",
     // Comma-separated role IDs that are required for probationary agents; alert if missing
