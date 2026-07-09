@@ -90,7 +90,7 @@ async function processGrade({ sessionId, scores = [], feedback = '', reviewerTag
   } catch (e) { console.error('Failed to DM candidate results:', e); }
 }
 
-module.exports = { handleGradeButton, handleGradeModalSubmit };
+module.exports = { handleGradeButton, handleGradeModalSubmit, processGrade };
 
 async function finalizeReview({ session, client }) {
   if (!session || !session.review) throw new Error('No review to finalize');
