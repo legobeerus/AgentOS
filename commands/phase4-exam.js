@@ -6,7 +6,22 @@ module.exports = {
   async execute(interaction) {
     await interaction.deferReply({ ephemeral: true });
 
-    if (config.EXAM_CANDIDATE_ROLE_ID && interaction.member && !interaction.member.roles.cache.has(config.EXAM_CANDIDATE_ROLE_ID)) {
+    const examGuildId = config.EXAM_GUILD_ID;
+    if (!examGuildId) {
+      return interaction.editReply({ content: 'Exam guild is not configured. Please contact staff.', ephemeral: true });
+    }
+
+    const examGuild = await interaction.client.guilds.fetch(examGuildId).catch(() => null);
+    if (!examGuild) {
+      return interaction.editReply({ content: 'Exam guild is unavailable right now. Please try again later.', ephemeral: true });
+    }
+
+    const examMember = await examGuild.members.fetch(interaction.user.id).catch(() => null);
+    if (!examMember) {
+      return interaction.editReply({ content: 'You must be a member of the exam guild to request this exam.', ephemeral: true });
+    }
+
+    if (config.EXAM_CANDIDATE_ROLE_ID && !examMember.roles.cache.has(config.EXAM_CANDIDATE_ROLE_ID)) {
       return interaction.editReply({ content: 'You do not have the required role to request this exam.', ephemeral: true });
     }
 
