@@ -5,7 +5,7 @@ const arrestStore = require('./arrestStore');
 const verificationStore = require('./verificationStore');
 const axios = require('axios');
 const { findBlacklistEntry } = require("../utils/blacklistSheet");
-const { isSpamAnswers } = require("./spamFilter");
+const { analyzeSpamAnswers } = require("./spamFilter");
 
 /**
  * Creates an Express server to handle form submissions from Google Apps Script
@@ -139,10 +139,21 @@ function createFormServer(client) {
         return res.status(400).json({ error: "Invalid form data: missing or invalid answers" });
       }
 
-      // Anti-spam: detect repeated-word spam or mostly-minimal answers
+      // Anti-spam: detect low-effort and repeated-pattern application spam
       try {
-        if (isSpamAnswers(answers)) {
-          console.warn("Blocked application: detected spam-like answers", answers);
+        const spamCheck = analyzeSpamAnswers(answers, {
+          minTotalChars: config.APPLICATION_SPAM_MIN_TOTAL_CHARS,
+          minLongAnswerChars: config.APPLICATION_SPAM_MIN_LONG_ANSWER_CHARS,
+          minLongAnswerCount: config.APPLICATION_SPAM_MIN_LONG_ANSWER_COUNT,
+          maxShortLongAnswerRatio: config.APPLICATION_SPAM_MAX_SHORT_LONG_RATIO,
+          duplicateLongAnswerThreshold: config.APPLICATION_SPAM_DUPLICATE_LONG_ANSWER_THRESHOLD
+        });
+
+        if (spamCheck.isSpam) {
+          console.warn("Blocked application: spam filter triggered", {
+            reasons: spamCheck.reasons,
+            metrics: spamCheck.metrics
+          });
           return res.status(200).json({ success: false, message: "Blocked by spam filter" });
         }
       } catch (err) {

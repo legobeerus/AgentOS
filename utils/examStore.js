@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
+const { EmbedBuilder } = require('discord.js');
 const config = require('../config');
 
 const SESSIONS_PATH = path.join(__dirname, '..', 'data', 'exam_sessions.json');
@@ -19,6 +20,11 @@ if (process.env.DATABASE_URL || config.DATABASE_URL) {
 }
 
 let _sessions = {};
+const expirationTimers = new Map();
+
+function isSectionItem(item) {
+  return !!(item && typeof item === 'object' && String(item.type || '').toLowerCase() === 'section');
+}
 
 function load() {
   try {
@@ -38,6 +44,129 @@ function save() {
   } catch (e) {
     console.error('Failed to save exam sessions:', e);
   }
+}
+
+function clearExpirationTimer(sessionId) {
+  const timer = expirationTimers.get(String(sessionId));
+  if (timer) clearTimeout(timer);
+  expirationTimers.delete(String(sessionId));
+}
+
+function clearAllExpirationTimers() {
+  for (const timer of expirationTimers.values()) clearTimeout(timer);
+  expirationTimers.clear();
+}
+
+async function persistSession(sessionId, updater) {
+  if (useDb) {
+    try {
+      const cur = await getSessionById(sessionId);
+      if (!cur) return null;
+      await updater(cur);
+      const q = await db.pool.query(
+        `UPDATE exams_sessions SET payload=$1, status=$2, updated_at=NOW(), version=version+1 WHERE id=$3 RETURNING payload`,
+        [cur, cur.status, sessionId]
+      );
+      return q.rows[0] ? q.rows[0].payload : null;
+    } catch (e) {
+      console.error('DB persistSession failed:', e);
+      return null;
+    }
+  }
+
+  const sess = _sessions[sessionId];
+  if (!sess) return null;
+  await updater(sess);
+  save();
+  return sess;
+}
+
+async function notifyExpiredSession(session, client) {
+  if (!client || !session) return;
+
+  const user = await client.users.fetch(session.userId).catch(() => null);
+  if (user) {
+    try {
+      await user.send({ content: '⏰ Your exam time is out. This submission will not be graded.' }).catch(() => null);
+    } catch (e) {
+      console.error('Failed to DM expired exam candidate:', e);
+    }
+  }
+
+  const reviewChannelId = session.reviewChannelId || config.EXAM_REVIEW_CHANNEL_ID;
+  const reviewChannel = reviewChannelId ? await client.channels.fetch(reviewChannelId).catch(() => null) : null;
+  if (reviewChannel) {
+    const answeredCount = Array.isArray(session.answers) ? session.answers.length : 0;
+    const totalQuestions = Array.isArray(session.questions) ? session.questions.length : 0;
+    const embed = new EmbedBuilder()
+      .setTitle(`Exam Expired — ${session.examId}`)
+      .setColor(0xED4245)
+      .setDescription('This candidate ran out of time. Do not grade this submission.')
+      .addFields(
+        { name: 'Candidate', value: `<@${session.userId}>`, inline: true },
+        { name: 'Session', value: String(session.id), inline: true },
+        { name: 'Answered', value: `${answeredCount}/${totalQuestions}`, inline: true }
+      )
+      .setTimestamp(new Date());
+
+    const sent = await reviewChannel.send({ embeds: [embed] }).catch(() => null);
+    if (sent) {
+      try {
+        await persistSession(session.id, async (cur) => {
+          cur.reviewChannelId = reviewChannel.id;
+          cur.reviewMessageId = sent.id;
+        });
+      } catch (e) {
+        console.error('Failed to store expired exam review message:', e);
+      }
+    }
+  }
+}
+
+async function expireSession(sessionId, client, reason = 'time_limit') {
+  const session = await getSessionById(sessionId);
+  if (!session) return null;
+  if (session.status !== 'active') {
+    clearExpirationTimer(sessionId);
+    return session;
+  }
+
+  clearExpirationTimer(sessionId);
+  const updated = await persistSession(sessionId, async (cur) => {
+    cur.status = 'expired';
+    cur.closedReason = reason;
+    cur.expiredAt = Date.now();
+  });
+
+  if (updated) {
+    await notifyExpiredSession(updated, client);
+  }
+  return updated;
+}
+
+function scheduleExpiration(session, client) {
+  if (!session || !session.id) return;
+
+  clearExpirationTimer(session.id);
+  if (!session.expiresAt || !session.timeLimitSeconds || Number(session.timeLimitSeconds) <= 0) return;
+  if (session.status !== 'active') return;
+
+  const delay = Math.max(0, Number(session.expiresAt) - Date.now());
+  const timer = setTimeout(() => {
+    expireSession(session.id, client, 'time_limit').catch(err => {
+      console.error('Failed to expire exam session:', err);
+    });
+  }, delay);
+  expirationTimers.set(String(session.id), timer);
+}
+
+async function initExpirationScheduler(client) {
+  clearAllExpirationTimers();
+  const sessions = await listActiveSessions().catch(() => []);
+  for (const session of sessions) {
+    scheduleExpiration(session, client);
+  }
+  console.info(`Exam expiration scheduler initialized for ${sessions.length} active sessions.`);
 }
 
 async function getSessionByUser(userId) {
@@ -121,6 +250,7 @@ async function recordAnswer(sessionId, text) {
     try {
       const cur = await getSessionById(sessionId);
       if (!cur) return null;
+      if (cur.status !== 'active') return null;
       cur.answers = cur.answers || [];
       cur.answers.push({ index: cur.currentIndex, answer: String(text || ''), ts: Date.now() });
       cur.currentIndex = (cur.currentIndex || 0) + 1;
@@ -137,6 +267,7 @@ async function recordAnswer(sessionId, text) {
   }
   const s = _sessions[sessionId];
   if (!s) return null;
+  if (s.status !== 'active') return null;
   s.answers.push({ index: s.currentIndex, answer: String(text || ''), ts: Date.now() });
   s.currentIndex += 1;
   if (s.currentIndex >= (s.questions || []).length) {
@@ -144,6 +275,59 @@ async function recordAnswer(sessionId, text) {
   }
   save();
   return s;
+}
+
+async function advancePastSections(sessionId) {
+  if (useDb) {
+    try {
+      const cur = await getSessionById(sessionId);
+      if (!cur) return null;
+      if (cur.status !== 'active') return { session: cur, skippedSections: [] };
+
+      const skippedSections = [];
+      const questions = cur.questions || [];
+      while ((cur.currentIndex || 0) < questions.length) {
+        const q = questions[cur.currentIndex];
+        if (!isSectionItem(q)) break;
+        skippedSections.push({ index: cur.currentIndex, section: q });
+        cur.currentIndex = (cur.currentIndex || 0) + 1;
+      }
+
+      if ((cur.currentIndex || 0) >= questions.length) {
+        cur.status = 'awaiting_review';
+      }
+
+      const q = await db.pool.query(
+        `UPDATE exams_sessions SET payload=$1, status=$2, updated_at=NOW(), version=version+1 WHERE id=$3 RETURNING payload`,
+        [cur, cur.status, sessionId]
+      );
+      const session = q.rows[0] ? q.rows[0].payload : null;
+      return { session, skippedSections };
+    } catch (e) {
+      console.error('DB advancePastSections failed:', e);
+      return null;
+    }
+  }
+
+  const s = _sessions[sessionId];
+  if (!s) return null;
+  if (s.status !== 'active') return { session: s, skippedSections: [] };
+
+  const skippedSections = [];
+  const questions = s.questions || [];
+  while ((s.currentIndex || 0) < questions.length) {
+    const q = questions[s.currentIndex];
+    if (!isSectionItem(q)) break;
+    skippedSections.push({ index: s.currentIndex, section: q });
+    s.currentIndex += 1;
+  }
+
+  if ((s.currentIndex || 0) >= questions.length) {
+    s.status = 'awaiting_review';
+  }
+
+  save();
+  return { session: s, skippedSections };
 }
 
 async function finishSession(sessionId) {
@@ -260,10 +444,15 @@ module.exports = {
   getSessionById,
   createSession,
   recordAnswer,
+  advancePastSections,
   finishSession,
   setDMMessage,
   setReviewMessage,
   setReview,
   listActiveSessions,
-  getExamDefinition
+  getExamDefinition,
+  scheduleExpiration,
+  expireSession,
+  initExpirationScheduler,
+  clearExpirationTimer
 };

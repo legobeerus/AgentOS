@@ -13,6 +13,12 @@ module.exports = {
 
   VOTING_CHANNEL_ID: process.env.VOTING_CHANNEL_ID || "1467678462302093334",
   RESULT_CHANNEL_ID: process.env.RESULT_CHANNEL_ID || "1320064034963325068",
+  // Application anti-spam tuning for form submissions
+  APPLICATION_SPAM_MIN_TOTAL_CHARS: process.env.APPLICATION_SPAM_MIN_TOTAL_CHARS !== undefined ? Number(process.env.APPLICATION_SPAM_MIN_TOTAL_CHARS) : 48,
+  APPLICATION_SPAM_MIN_LONG_ANSWER_CHARS: process.env.APPLICATION_SPAM_MIN_LONG_ANSWER_CHARS !== undefined ? Number(process.env.APPLICATION_SPAM_MIN_LONG_ANSWER_CHARS) : 12,
+  APPLICATION_SPAM_MIN_LONG_ANSWER_COUNT: process.env.APPLICATION_SPAM_MIN_LONG_ANSWER_COUNT !== undefined ? Number(process.env.APPLICATION_SPAM_MIN_LONG_ANSWER_COUNT) : 4,
+  APPLICATION_SPAM_MAX_SHORT_LONG_RATIO: process.env.APPLICATION_SPAM_MAX_SHORT_LONG_RATIO !== undefined ? Number(process.env.APPLICATION_SPAM_MAX_SHORT_LONG_RATIO) : 0.5,
+  APPLICATION_SPAM_DUPLICATE_LONG_ANSWER_THRESHOLD: process.env.APPLICATION_SPAM_DUPLICATE_LONG_ANSWER_THRESHOLD !== undefined ? Number(process.env.APPLICATION_SPAM_DUPLICATE_LONG_ANSWER_THRESHOLD) : 3,
   // Channels to post submissions based on verdict
   SUBMIT_GUILTY_CHANNEL_ID: process.env.SUBMIT_GUILTY_CHANNEL_ID || "1449832030291492925",
   SUBMIT_INNOCENT_CHANNEL_ID: process.env.SUBMIT_INNOCENT_CHANNEL_ID || "1449832086818128025",
@@ -133,6 +139,16 @@ module.exports = {
   // Poll interval in ms for fallback exam update checks (default 2 minutes)
   EXAM_DB_POLL_MS: process.env.EXAM_DB_POLL_MS !== undefined ? Number(process.env.EXAM_DB_POLL_MS) : 120000,
 
+  // Cross-server kick workflow
+  // Guild ID where /kick will remove the member from
+  KICK_TARGET_GUILD_ID: cleanId(process.env.KICK_TARGET_GUILD_ID) || undefined,
+  // Guild ID where /kick will remove configured roles from the same user
+  KICK_ROLE_STRIP_GUILD_ID: cleanId(process.env.KICK_ROLE_STRIP_GUILD_ID) || undefined,
+  // Comma-separated role IDs to remove in KICK_ROLE_STRIP_GUILD_ID
+  KICK_ROLE_STRIP_ROLE_IDS: process.env.KICK_ROLE_STRIP_ROLE_IDS || "",
+  // Optional: comma-separated role IDs allowed to run /kick (empty = fallback to ADMIN_WHITELIST)
+  KICK_COMMAND_ALLOWED_ROLE_IDS: process.env.KICK_COMMAND_ALLOWED_ROLE_IDS || "",
+
   // Website role lookup API configuration
   // Shared API token preferred for web callers (do not expose DISCORD_TOKEN to browsers)
   BOT_API_TOKEN: process.env.BOT_API_TOKEN || undefined,
@@ -178,3 +194,7 @@ module.exports.ADMIN_WHITELIST = (process.env.ADMIN_WHITELIST || "71624840251349
 // `VERIFYLIST_EXCLUDE_ROLE_IDS` value defined above in the exported config object.
 const _rawVerifylistExclude = process.env.VERIFYLIST_EXCLUDE_ROLE_IDS || module.exports.VERIFYLIST_EXCLUDE_ROLE_IDS || "";
 module.exports.VERIFYLIST_EXCLUDE_ROLE_IDS_LIST = String(_rawVerifylistExclude).split(",").map(s => cleanId(s)).map(s => s.trim()).filter(Boolean);
+const _rawKickStripRoles = process.env.KICK_ROLE_STRIP_ROLE_IDS || module.exports.KICK_ROLE_STRIP_ROLE_IDS || "";
+module.exports.KICK_ROLE_STRIP_ROLE_IDS_LIST = String(_rawKickStripRoles).split(",").map(s => cleanId(s)).map(s => s.trim()).filter(Boolean);
+const _rawKickAllowedRoles = process.env.KICK_COMMAND_ALLOWED_ROLE_IDS || module.exports.KICK_COMMAND_ALLOWED_ROLE_IDS || "";
+module.exports.KICK_COMMAND_ALLOWED_ROLE_IDS_LIST = String(_rawKickAllowedRoles).split(",").map(s => cleanId(s)).map(s => s.trim()).filter(Boolean);

@@ -2,6 +2,44 @@ const { ActionRowBuilder, ButtonBuilder, EmbedBuilder, ButtonStyle } = require('
 const config = require('../config');
 const examStore = require('./examStore');
 
+function isSectionItem(item) {
+  return !!(item && typeof item === 'object' && String(item.type || '').toLowerCase() === 'section');
+}
+
+function answerableQuestionNumber(questions, index) {
+  let count = 0;
+  for (let i = 0; i <= index; i++) {
+    if (!isSectionItem(questions[i])) count += 1;
+  }
+  return count;
+}
+
+function buildSectionEmbed(section, sectionIndex) {
+  return new EmbedBuilder()
+    .setTitle(section.title || `Section ${sectionIndex + 1}`)
+    .setDescription(section.description || '(no description)')
+    .setColor(config.EMBED_COLOR);
+}
+
+function buildQuestionEmbed(question, questions, index) {
+  const qText = typeof question === 'string' ? question : (question && question.text ? question.text : String(question));
+  const qEmbed = new EmbedBuilder()
+    .setTitle(`Question ${answerableQuestionNumber(questions, index)}`)
+    .setDescription(qText)
+    .setColor(config.EMBED_COLOR);
+
+  if (typeof question === 'object' && (question.type === 'multiplechoice' || question.type === 'selection') && Array.isArray(question.choices)) {
+    qEmbed.addFields({ name: 'Options', value: question.choices.join('\n'), inline: false });
+    if (question.type === 'multiplechoice') {
+      qEmbed.addFields({ name: 'Answer', value: 'Reply with just one letter (for example: A).', inline: false });
+    } else {
+      qEmbed.addFields({ name: 'Answer', value: 'Type out all letters that are correct (for example: AC or A,C).', inline: false });
+    }
+  }
+
+  return qEmbed;
+}
+
 async function handleExamAuthorize(interaction) {
   // customId format: exam_authorize:<userId>:<examId>
   try {
@@ -35,7 +73,10 @@ async function handleExamAuthorize(interaction) {
       return interaction.followUp({ content: `❌ Could not resolve user <@${userId}>.`, ephemeral: true });
     }
 
-    const firstQ = (sess.questions && sess.questions[0]) ? sess.questions[0] : null;
+    const advanced = await examStore.advancePastSections(sess.id);
+    const activeSession = advanced && advanced.session ? advanced.session : sess;
+    const initialSections = advanced && Array.isArray(advanced.skippedSections) ? advanced.skippedSections : [];
+    const firstQ = (activeSession.questions && activeSession.questions[activeSession.currentIndex]) ? activeSession.questions[activeSession.currentIndex] : null;
     
     // Intro embed
     const introEmbed = new EmbedBuilder()
@@ -47,32 +88,25 @@ async function handleExamAuthorize(interaction) {
       )
       .setTimestamp(new Date());
 
-    const embeds = [introEmbed];
-
-    // First question embed
-    if (firstQ) {
-      const qText = typeof firstQ === 'string' ? firstQ : (firstQ && firstQ.text ? firstQ.text : String(firstQ));
-      const qEmbed = new EmbedBuilder()
-        .setTitle('Question 1')
-        .setDescription(qText)
-        .setColor(config.EMBED_COLOR);
-      
-      // If MC, add choices field
-      if (typeof firstQ === 'object' && firstQ.type === 'multiplechoice' && Array.isArray(firstQ.choices)) {
-        qEmbed.addFields({ name: 'Options', value: firstQ.choices.join('\n'), inline: false });
-        qEmbed.addFields({ name: 'Answer', value: 'Reply with just the letter: A, B, C, or D', inline: false });
-      }
-      
-      embeds.push(qEmbed);
-    }
-
-    const dm = await user.send({ embeds }).catch(() => null);
+    const dm = await user.send({ embeds: [introEmbed] }).catch(() => null);
     if (!dm) {
       return interaction.followUp({ content: `⚠️ Could not DM the candidate. They may have DMs disabled.`, ephemeral: true });
     }
 
+    // Send section divider embeds (if any) before the next answerable question.
+    for (const sectionItem of initialSections) {
+      const sectionEmbed = buildSectionEmbed(sectionItem.section || {}, sectionItem.index || 0);
+      await user.send({ embeds: [sectionEmbed] }).catch(() => null);
+    }
+
+    if (firstQ && !isSectionItem(firstQ)) {
+      const qEmbed = buildQuestionEmbed(firstQ, activeSession.questions || [], activeSession.currentIndex || 0);
+      await user.send({ embeds: [qEmbed] }).catch(() => null);
+    }
+
     // store dm message reference for potential countdown updates
     await examStore.setDMMessage(sess.id, dm);
+    examStore.scheduleExpiration(sess, interaction.client);
 
     // Disable all buttons on the original message
     try {
@@ -81,6 +115,11 @@ async function handleExamAuthorize(interaction) {
           .setCustomId(`exam_authorize:${userId}:${examId}`)
           .setLabel('Authorize & Start')
           .setStyle(ButtonStyle.Success)
+          .setDisabled(true),
+        new ButtonBuilder()
+          .setCustomId(`exam_reject:${userId}:${examId}`)
+          .setLabel('Reject')
+          .setStyle(ButtonStyle.Danger)
           .setDisabled(true)
       );
       await interaction.message.edit({ components: [row] });

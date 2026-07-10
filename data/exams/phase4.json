@@ -1,42 +1,418 @@
 {
   "id": "phase4",
   "title": "Phase 4 Master Examination",
-  "instructions": "Answer thoroughly. This exam is reviewed by senior staff.",
+  "instructions": "This examination is designed to assess an agent’s comprehensive understanding of OSI Operational Guidelines, UCMJ enforcement, investigative procedures, and situational judgment under pressure.\n\nThis is not a knowledge recall test alone. Candidates are expected to demonstrate:\n\n- Accurate interpretation of regulations\n- Application of UCMJ in complex scenarios\n- Understanding of conflicting authorities and exceptions\n- Professional judgment consistent with OSI standards\n\nYou will be DM'd each question. Reply with your answer to receive the next question.",
   "timeLimitSeconds": 1800,
   "questions": [
     {
-      "text": "What is the capital of evil France?",
-      "type": "text",
-      "maxScore": 5
-    },
-    {
-      "text": "What is evil 2 + evil 2?",
+      "text": "An Agent refuses a lawful order from a WO-1+ because they disagree with it. Which law does that infract?",
       "type": "multiplechoice",
-      "maxScore": 2,
+      "maxScore": 1,
       "choices": [
-        "A) 3",
-        "B) 4",
-        "C) 5",
-        "D) 6"
+        "A) No Violation",
+        "B) 1.2 Insubordination",
+        "C) 1.1A Light Misconduct",
+        "D) 1.8 Obstruction of Justice"
       ],
       "correctAnswer": "B"
     },
     {
-      "text": "Which planet is closest to the evil sun?",
+      "text": "An O-6 issues an order that causes harassment and chaos.",
       "type": "multiplechoice",
-      "maxScore": 3,
+      "maxScore": 1,
       "choices": [
-        "A) Venus",
-        "B) Mercury",
-        "C) Earth",
-        "D) Mars"
+        "A) Must be followed",
+        "B) Valid under rank authority",
+        "C) Invalid due to UCMJ limitations",
+        "D) Only OSI HC can override"
+      ],
+      "correctAnswer": "C"
+    },
+    {
+      "text": "Select all the individuals you can do investigations on.",
+      "type": "selection",
+      "maxScore": 5,
+      "choices": [
+        "A) Officers regardless of division",
+        "B) Divisional personnel regardless of rank",
+        "C) Officers of divisions",
+        "D) Everyone"
+      ],
+      "correctAnswer": "AB"
+    },
+    {
+      "text": "How many times can 1.3A be stacked?",
+      "type": "multiplechoice",
+      "maxScore": 1,
+      "choices": [
+        "A) Once",
+        "B) Twice",
+        "C) Three times",
+        "D) Four times"
+      ],
+      "correctAnswer": "C"
+    },
+    {
+      "text": "What justifies sealing a case?",
+      "type": "selection",
+      "maxScore": 1,
+      "choices": [
+        "A) Anonymous witness",
+        "B) Classified information",
+        "C) Suspect request",
+        "D) Agent preference"
+      ],
+      "correctAnswer": "AB"
+    },
+    {
+      "text": "A taser is used against an off-worlder during combat. When is that allowed?",
+      "type": "multiplechoice",
+      "maxScore": 1,
+      "choices": [
+        "A) Always",
+        "B) Allowed with Supervisor approval",
+        "C) Always prohibited",
+        "D) Only Off-world"
+      ],
+      "correctAnswer": "C"
+    },
+    {
+      "text": "An enlisted E-3 commits a first offense. What do you do?",
+      "type": "multiplechoice",
+      "maxScore": 1,
+      "choices": [
+        "A) Arrest immediately",
+        "B) Citation first",
+        "C) Ignore",
+        "D) Report only"
       ],
       "correctAnswer": "B"
     },
     {
-      "text": "Describe what you know about evil quantum mechanics.",
+      "text": "A suspect refuses to answer questions during an investigation.",
+      "type": "multiplechoice",
+      "maxScore": 1,
+      "choices": [
+        "A) Always Obstruction",
+        "B) Allowed under 2.3",
+        "C) Verdict is immediately guilty",
+        "D) Only allowed if Officer"
+      ],
+      "correctAnswer": "B"
+    },
+    {
+      "text": "Who can conduct formal investigations?",
+      "type": "multiplechoice",
+      "maxScore": 1,
+      "choices": [
+        "A) Anyone",
+        "B) Agent+",
+        "C) OSI only",
+        "D) Supervisor+"
+      ],
+      "correctAnswer": "C"
+    },
+    {
+      "text": "Which action is NOT misuse of equipment?",
+      "type": "multiplechoice",
+      "maxScore": 1,
+      "choices": [
+        "A) Random turret use",
+        "B) Improper tool usage",
+        "C) Intended use",
+        "D) Abuse of issued gear"
+      ],
+      "correctAnswer": "C"
+    },
+    {
+      "text": "Destroying control room glass without MATCOM role:",
+      "type": "multiplechoice",
+      "maxScore": 1,
+      "choices": [
+        "A) It's allowed",
+        "B) 1.6 applies",
+        "C) 1.7 applies",
+        "D) No violation"
+      ],
+      "correctAnswer": "B"
+    },
+    {
+      "text": "A player fires on a friendly accidentally. What is the punishment?",
+      "type": "multiplechoice",
+      "maxScore": 1,
+      "choices": [
+        "A) Treason",
+        "B) Immediate arrest",
+        "C) Warning",
+        "D) No consequence"
+      ],
+      "correctAnswer": "C"
+    },
+    {
+      "text": "Which reason allows you to use lethal force on Earth?",
+      "type": "multiplechoice",
+      "maxScore": 1,
+      "choices": [
+        "A) Suspicion",
+        "B) Hostile Label",
+        "C) Verbal argument",
+        "D) No weapon visible"
+      ],
+      "correctAnswer": "B"
+    },
+    {
+      "text": "Off-world lethal force can be used when:",
+      "type": "selection",
+      "maxScore": 1,
+      "choices": [
+        "A) Off-worlder exists",
+        "B) Walking to capture point",
+        "C) Capturing SGC owned point",
+        "D) AFK"
+      ],
+      "correctAnswer": "BC"
+    },
+    {
+      "text": "Who may ignore gate restrictions?",
+      "type": "multiplechoice",
+      "maxScore": 1,
+      "choices": [
+        "A) Everyone",
+        "B) OSI only",
+        "C) SGSOC/Authorised roles",
+        "D) E-4+"
+      ],
+      "correctAnswer": "C"
+    },
+    {
+      "text": "Which is Obstruction of Justice?",
+      "type": "multiplechoice",
+      "maxScore": 1,
+      "choices": [
+        "A) Silence as suspect",
+        "B) Witness refusal to report",
+        "C) Interfering with an on-going investigation"
+      ],
+      "correctAnswer": "C"
+    },
+    {
+      "text": "Anonymous witness requires:",
+      "type": "multiplechoice",
+      "maxScore": 1,
+      "choices": [
+        "A) Removal of evidence",
+        "B) Redaction + dual files",
+        "C) Public identity",
+        "D) Supervisor approval only"
+      ],
+      "correctAnswer": "B"
+    },
+    {
+      "text": "An Agent begins building a case based on a clear UCMJ violation they personally witnessed. However:\n\nThe incident was not recorded and no witnesses are willing to provide statements. The suspect denies the allegation.\n\nWhat is the correct procedural outcome?",
+      "type": "multiplechoice",
+      "maxScore": 1,
+      "choices": [
+        "A) Proceed with the case",
+        "B) Issue charges immediately",
+        "C) Do not proceed",
+        "D) Escalate to High Command to override evidence requirements"
+      ],
+      "correctAnswer": "C"
+    },
+    {
+      "text": "When can OSI ignore locational restrictions?",
+      "type": "multiplechoice",
+      "maxScore": 1,
+      "choices": [
+        "A) When they want to",
+        "B) Detaining personnel",
+        "C) Supervisor orders",
+        "D) Never"
+      ],
+      "correctAnswer": "B"
+    },
+    {
+      "text": "Which of these is treason?",
+      "type": "multiplechoice",
+      "maxScore": 1,
+      "choices": [
+        "A) When they want to",
+        "B) Detaining personnel",
+        "C) Supervisor orders",
+        "D) Never"
+      ],
+      "correctAnswer": "B"
+    },
+    {
+      "type": "section",
+      "title": "2. Short responses",
+      "description": "This section covers short response questions."
+    },
+    {
+      "text": "Explain the difference between R&E and LTE.",
       "type": "text",
-      "maxScore": 10
+      "maxScore": 5,
+      "correctAnswer": ""
+    },
+    {
+      "text": "List 3 valid reasons for a witness to be granted anonymity.",
+      "type": "text",
+      "maxScore": 5,
+      "correctAnswer": ""
+    },
+    {
+      "text": "What must be done if a suspect requests evidence containing an anonymous witness?",
+      "type": "text",
+      "maxScore": 5,
+      "correctAnswer": ""
+    },
+    {
+      "text": "Explain the Enlisted Leniency Act in practice.",
+      "type": "text",
+      "maxScore": 5,
+      "correctAnswer": ""
+    },
+    {
+      "text": "What happens if an Agent fails to complete a case in 72 hours?",
+      "type": "text",
+      "maxScore": 5,
+      "correctAnswer": ""
+    },
+    {
+      "text": "Explain the difference between 1.6 and 1.7",
+      "type": "text",
+      "maxScore": 5,
+      "correctAnswer": ""
+    },
+    {
+      "text": "When can OSI break locational restrictions?",
+      "type": "text",
+      "maxScore": 5,
+      "correctAnswer": ""
+    },
+    {
+      "text": "Explain when Off-worlders may remain silent.",
+      "type": "text",
+      "maxScore": 5,
+      "correctAnswer": ""
+    },
+    {
+      "text": "What makes an order invalid under Insubordination rules?",
+      "type": "text",
+      "maxScore": 5,
+      "correctAnswer": ""
+    },
+    {
+      "text": "List 2 conditions that allow lethal force on Earth.",
+      "type": "text",
+      "maxScore": 5,
+      "correctAnswer": ""
+    },
+    {
+      "type": "section",
+      "title": "3. Scenario based questions",
+      "description": "In this section you are given scenarios. Explain to your best capabilities what you would do."
+    },
+    {
+      "text": "An E-2:\n\nCommits a minor violation.\nIs warned once.\nRepeats the violation.\n\nWhat happens next?",
+      "type": "text",
+      "maxScore": 10,
+      "correctAnswer": ""
+    },
+    {
+      "text": "You:\n\nWitnessed a UCMJ violation.\nFailed to record evidence.\nNo witnesses responded.\n\nCan you proceed? Explain.",
+      "type": "text",
+      "maxScore": 10,
+      "correctAnswer": ""
+    },
+    {
+      "text": "A suspect:\n\nRequests all evidence\nOne piece reveals an anonymous witness\n\nWhat do you do?",
+      "type": "text",
+      "maxScore": 10,
+      "correctAnswer": ""
+    },
+    {
+      "text": "A Supervisor orders you to misuse equipment.\n\nWhat do you do?",
+      "type": "text",
+      "maxScore": 10,
+      "correctAnswer": ""
+    },
+    {
+      "text": "An O-6 orders something slightly against UCMJ but not chaotic.\n\nDo you follow it? Why?",
+      "type": "text",
+      "maxScore": 10,
+      "correctAnswer": ""
+    },
+    {
+      "text": "A player:\n\nShoots a friendly accidentally\nThen continues firing\n\nWhat charges apply?",
+      "type": "text",
+      "maxScore": 10,
+      "correctAnswer": ""
+    },
+    {
+      "text": "A suspect:\n\nAgrees to the interrogation\nRevokes permission midway\n\nWhat must you do?",
+      "type": "text",
+      "maxScore": 10,
+      "correctAnswer": ""
+    },
+    {
+      "text": "A player:\n\nBreaks control room glass\nThen repairs it as MATCOM\n\nIs it still a violation?",
+      "type": "text",
+      "maxScore": 10,
+      "correctAnswer": ""
+    },
+    {
+      "text": "A witness refuses to cooperate with OSI.\n\nWhat charge may apply? Provide details on how you would handle this.",
+      "type": "text",
+      "maxScore": 10,
+      "correctAnswer": ""
+    },
+    {
+      "text": "A player:\n\nHelps an off-worlder escape\nProvides information on how to get keys\n\nWhat charge applies? How would you handle it?",
+      "type": "text",
+      "maxScore": 10,
+      "correctAnswer": ""
+    },
+    {
+      "type": "section",
+      "title": "4. Final examination section",
+      "description": "You are now given more scenarios. This is to test your capabilities on doing investigations. Once again, explain in the best way possible on what you would do."
+    },
+    {
+      "text": "An Agent:\n\nUses a taser on a violent off-worlder\nDuring combat\nWithout authorization\n\nIs this justified? Explain fully.",
+      "type": "text",
+      "maxScore": 15,
+      "correctAnswer": ""
+    },
+    {
+      "text": "An Agent:\n\nUses a taser on a violent off-worlder\nDuring combat\nWithout authorization\n\nIs this justified? Explain fully.",
+      "type": "text",
+      "maxScore": 15,
+      "correctAnswer": ""
+    },
+    {
+      "text": "A suspect:\n\nRuns from arrest after committing a crime\nIs later caught and placed into custody\nThen switches teams to avoid punishment\nFinally leaves the game while still actively wanted\n\nWhich charge does this fall under and why?",
+      "type": "text",
+      "maxScore": 15,
+      "correctAnswer": ""
+    },
+    {
+      "text": "Explain the full process from case claim → punishment execution.",
+      "type": "text",
+      "maxScore": 15,
+      "correctAnswer": ""
+    },
+    {
+      "text": "You are handling a case where:\n\n- Evidence is partially classified\n- A witness requests anonymity late\n- The suspect demands all evidence\n- The suspect refuses questioning\n- The incident occurred on earth\n- The evidence shows the suspect proceeding to the control room, destroying the glass and using it as a way to shoot another SGC personnel in the GR.\n\nExplain step-by-step how you handle this case while remaining fully compliant with ALL protocols.",
+      "type": "text",
+      "maxScore": 15,
+      "correctAnswer": ""
+    },
+    {
+      "text": "Write your conclusion to the above case if you were to write one; specify charges, verdict.",
+      "type": "text",
+      "maxScore": 20,
+      "correctAnswer": ""
     }
   ]
 }

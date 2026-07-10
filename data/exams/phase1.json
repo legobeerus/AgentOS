@@ -5,38 +5,78 @@
   "timeLimitSeconds": 900,
   "questions": [
     {
-      "text": "What is the capital of France?",
+      "text": "Name all the high command members.",
       "type": "text",
-      "maxScore": 5
-    },
-    {
-      "text": "What is 2 + 2?",
-      "type": "multiplechoice",
-      "maxScore": 2,
-      "choices": [
-        "A) 3",
-        "B) 4",
-        "C) 5",
-        "D) 6"
-      ],
-      "correctAnswer": "B"
-    },
-    {
-      "text": "Which planet is closest to the sun?",
-      "type": "multiplechoice",
       "maxScore": 3,
-      "choices": [
-        "A) Venus",
-        "B) Mercury",
-        "C) Earth",
-        "D) Mars"
-      ],
-      "correctAnswer": "B"
+      "correctAnswer": ""
     },
+
     {
-      "text": "Describe what you know about quantum mechanics.",
+      "text": "Where do you log the arrest reports?",
       "type": "text",
-      "maxScore": 10
+      "maxScore": 1,
+      "correctAnswer": "OSI-reports"
+    },
+
+    {
+      "text": "In your words, describe the importance of the field professional protocol.",
+      "type": "text",
+      "maxScore": 2,
+      "correctAnswer": ""
+    },
+
+    {
+      "text": "When can you wear the honor guard uniform?",
+      "type": "multiplechoice",
+      "maxScore": 1,
+      "choices": [
+        "A) Whenever I want",
+        "B) When I am on duty as OSI",
+        "C) During an inspection, or when authorised by a medium command+."
+      ],
+      "correctAnswer": "C"
+    },
+
+    {
+      "text": "When are you able to use your taser?",
+      "type": "text",
+      "maxScore": 2,
+      "correctAnswer": "To apprehend a suspect who is violent"
+    },
+
+    {
+      "text": "Name all the different infraction types.",
+      "type": "text",
+      "maxScore": 3,
+      "correctAnswer": "Light, Medium, Heavy"
+    },
+
+    {
+      "text": "Explain how 2.5 on the UCMJ works",
+      "type": "text",
+      "maxScore": 2,
+      "correctAnswer": ""
+    },
+
+    {
+      "text": "Which divisions and when can they cross the gate room line?",
+      "type": "text",
+      "maxScore": 4,
+      "correctAnswer": ""
+    },
+
+    {
+      "text": "Who is immune to the UCMJ?",
+      "type": "text",
+      "maxScore": 3,
+      "correctAnswer": "O-6+, DAGRE, NID"
+    },
+
+    {
+      "text": "Type out the scenarios you did during your Phase 1 and what punishment you would give to each.",
+      "type": "text",
+      "maxScore": 4,
+      "correctAnswer": ""
     }
   ]
-}
+} 

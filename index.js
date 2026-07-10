@@ -55,6 +55,13 @@ client.once("ready", () => {
   app.listen(PORT, () => {
     console.log(`Form submission server listening on port ${PORT}`);
   });
+  // Schedule existing exam sessions for expiration handling
+  try {
+    const examStore = require('./utils/examStore');
+    examStore.initExpirationScheduler(client).catch(err => console.error('Failed to initialize exam expiration scheduler:', err));
+  } catch (e) {
+    console.error('Failed to start exam expiration scheduler:', e);
+  }
   // Start DB listener for exam updates (NOTIFY / poll)
   try {
     const db = require('./utils/db');

@@ -1,6 +1,7 @@
 const { handleSlashCommand } = require("./handleSlashCommand");
 const { handleApproveButton } = require("./handleApproveButton");
 const { handleExamAuthorize } = require("./handleExamAuthorize");
+const { handleExamReject } = require("./handleExamReject");
 const { handleGradeButton, handleGradeModalSubmit } = require("./handleExamGrade");
 const verificationStore = require('./verificationStore');
 const axios = require('axios');
@@ -36,6 +37,11 @@ async function handleInteraction(interaction, client) {
 
       if (typeof interaction.customId === 'string' && interaction.customId.startsWith('exam_authorize:')) {
         await handleExamAuthorize(interaction);
+        return;
+      }
+
+      if (typeof interaction.customId === 'string' && interaction.customId.startsWith('exam_reject:')) {
+        await handleExamReject(interaction);
         return;
       }
 

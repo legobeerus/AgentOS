@@ -32,7 +32,8 @@ module.exports = {
       .setTimestamp(new Date());
 
     const approve = new ButtonBuilder().setCustomId(`exam_authorize:${interaction.user.id}:phase4`).setLabel('Authorize & Start').setStyle(ButtonStyle.Success);
-    const row = new ActionRowBuilder().addComponents(approve);
+    const reject = new ButtonBuilder().setCustomId(`exam_reject:${interaction.user.id}:phase4`).setLabel('Reject').setStyle(ButtonStyle.Danger);
+    const row = new ActionRowBuilder().addComponents(approve, reject);
 
     const chan = await interaction.client.channels.fetch(config.EXAM_AUTH_CHANNEL_ID).catch(() => null);
     if (!chan) return interaction.editReply({ content: 'Could not find the authorization channel.', ephemeral: true });

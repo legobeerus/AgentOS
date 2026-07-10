@@ -2,6 +2,15 @@ const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, EmbedB
 const examStore = require('./examStore');
 const config = require('../config');
 
+function normalizeSelectionAnswer(value) {
+  const letters = String(value || '').toUpperCase().match(/[A-Z]/g) || [];
+  return [...new Set(letters)].sort().join('');
+}
+
+function isSectionItem(item) {
+  return !!(item && typeof item === 'object' && String(item.type || '').toLowerCase() === 'section');
+}
+
 async function handleGradeButton(interaction) {
   // customId: exam_grade:<sessionId>
   try {
@@ -43,21 +52,35 @@ async function processGrade({ sessionId, scores = [], feedback = '', reviewerTag
   const sess = await examStore.getSessionById(sessionId);
   if (!sess) throw new Error('Session not found');
 
-  // Calculate total possible based on question maxScore fields (default to 1)
+  // Calculate total possible based on answerable question maxScore fields.
   const qs = sess.questions || [];
-  const totalPossible = qs.reduce((sum, q) => sum + ((typeof q === 'object' && q.maxScore) ? q.maxScore : 1), 0);
+  const totalPossible = qs.reduce((sum, q) => {
+    if (isSectionItem(q)) return sum;
+    return sum + ((typeof q === 'object' && q.maxScore) ? q.maxScore : 1);
+  }, 0);
   
-  // Auto-grade MC questions and merge with manual scores
+  // Auto-grade objective question types and merge with manual scores.
   const finalScores = [];
   const as = sess.answers || [];
+  const answerByIndex = new Map(as.map(entry => [Number(entry.index), entry]));
   for (let i = 0; i < qs.length; i++) {
     const q = qs[i];
+    if (isSectionItem(q)) {
+      finalScores[i] = 0;
+      continue;
+    }
+
     const maxScore = (typeof q === 'object' && q.maxScore) ? q.maxScore : 1;
-    // If MC question, auto-grade it
+    const answerEntry = answerByIndex.get(i);
+    // If MC question, auto-grade it.
     if (typeof q === 'object' && q.type === 'multiplechoice' && q.correctAnswer) {
-      const userAnswer = as[i] ? String(as[i].answer).toUpperCase() : '';
+      const userAnswer = answerEntry ? String(answerEntry.answer).toUpperCase() : '';
       const correctAnswer = String(q.correctAnswer).toUpperCase();
       finalScores[i] = userAnswer === correctAnswer ? maxScore : 0;
+    } else if (typeof q === 'object' && q.type === 'selection' && q.correctAnswer) {
+      const userAnswer = answerEntry ? normalizeSelectionAnswer(answerEntry.answer) : '';
+      const correctAnswer = normalizeSelectionAnswer(q.correctAnswer);
+      finalScores[i] = userAnswer && userAnswer === correctAnswer ? maxScore : 0;
     } else {
       // Use manual score if provided, else 0
       finalScores[i] = scores && scores[i] !== undefined ? Number(scores[i]) || 0 : 0;
@@ -81,9 +104,12 @@ async function finalizeReview({ session, client }) {
   if (!session || !session.review) throw new Error('No review to finalize');
   const review = session.review;
   
-  // Calculate total possible based on question maxScore fields (default to 1)
+  // Calculate total possible based on answerable question maxScore fields.
   const qs = session.questions || [];
-  const totalPossible = qs.reduce((sum, q) => sum + ((typeof q === 'object' && q.maxScore) ? q.maxScore : 1), 0);
+  const totalPossible = qs.reduce((sum, q) => {
+    if (isSectionItem(q)) return sum;
+    return sum + ((typeof q === 'object' && q.maxScore) ? q.maxScore : 1);
+  }, 0);
   
   const totalScored = (review.totalScored !== undefined) ? review.totalScored : (Array.isArray(review.scores) ? review.scores.slice(0, session.questions.length).reduce((a,b)=>a+(Number(b)||0),0) : 0);
   const percent = review.percent !== undefined ? review.percent : (totalPossible ? Math.round((totalScored/totalPossible)*100) : 0);
@@ -120,6 +146,7 @@ async function finalizeReview({ session, client }) {
       const sc = review.scores || [];
       for (let i=0;i<qs.length;i++) {
         const q = qs[i];
+        if (isSectionItem(q)) continue;
         const qText = (typeof q === 'string') ? q : (q && q.text ? q.text : String(q));
         const s = sc[i] !== undefined ? sc[i] : '(unscored)';
         fbEmbed.addFields({ name: `Q${i+1}`, value: `Score: ${s}\n${qText.slice(0,800)}`, inline: false });
