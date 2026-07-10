@@ -2,7 +2,7 @@
   "id": "phase4",
   "title": "Phase 4 Master Examination",
   "instructions": "This examination is designed to assess an agent’s comprehensive understanding of OSI Operational Guidelines, UCMJ enforcement, investigative procedures, and situational judgment under pressure.\n\nThis is not a knowledge recall test alone. Candidates are expected to demonstrate:\n\n- Accurate interpretation of regulations\n- Application of UCMJ in complex scenarios\n- Understanding of conflicting authorities and exceptions\n- Professional judgment consistent with OSI standards\n\nYou will be DM'd each question. Reply with your answer to receive the next question.",
-  "timeLimitSeconds": 1800,
+  "timeLimitSeconds": 3600,
   "questions": [
     {
       "text": "An Agent refuses a lawful order from a WO-1+ because they disagree with it. Which law does that infract?",
@@ -236,10 +236,10 @@
       "type": "multiplechoice",
       "maxScore": 1,
       "choices": [
-        "A) When they want to",
-        "B) Detaining personnel",
-        "C) Supervisor orders",
-        "D) Never"
+        "A) Minor lie",
+        "B) Assisting enemies",
+        "C) Giving an order",
+        "D) Not responding"
       ],
       "correctAnswer": "B"
     },
