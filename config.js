@@ -123,7 +123,7 @@ module.exports = {
   // Role ID required to authorize exams (staff reviewer role)
   EXAM_AUTH_ROLE_ID: cleanId(process.env.EXAM_AUTH_ROLE_ID) || "1449861438012133566",
   // Role ID required to *request* an exam (candidate role); optional
-  EXAM_CANDIDATE_ROLE_ID: cleanId(process.env.EXAM_CANDIDATE_ROLE_ID) || "1327721437276012595,1449861438012133566",
+  EXAM_CANDIDATE_ROLE_ID: cleanId(process.env.EXAM_CANDIDATE_ROLE_ID) || undefined,
   // Default pass threshold as percent (0-100)
   EXAM_PASS_THRESHOLD: process.env.EXAM_PASS_THRESHOLD !== undefined ? Number(process.env.EXAM_PASS_THRESHOLD) : 75,
   // Default time limit in seconds applied to exams if not specified per-exam
