@@ -208,12 +208,13 @@ async function getSessionById(id) {
   return s;
 }
 
-async function createSession({ userId, examId, questions, timeLimitSeconds }) {
+async function createSession({ userId, username, examId, questions, timeLimitSeconds }) {
   const id = uuidv4();
   const now = Date.now();
   const sess = {
     id,
     userId,
+    username: username || null,
     examId,
     questions: questions || [],
     answers: [],

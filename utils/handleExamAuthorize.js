@@ -63,15 +63,15 @@ async function handleExamAuthorize(interaction) {
       return interaction.followUp({ content: `⚠️ Could not find exam definition ${examId}.`, ephemeral: true });
     }
 
-    // create session
-    const timeLimit = examDef.timeLimitSeconds || config.EXAM_TIME_LIMIT_SECONDS || 0;
-    const sess = await examStore.createSession({ userId, examId, questions: examDef.questions || [], timeLimitSeconds: timeLimit });
-
     // DM the user with initial question
     const user = await interaction.client.users.fetch(userId).catch(() => null);
     if (!user) {
       return interaction.followUp({ content: `❌ Could not resolve user <@${userId}>.`, ephemeral: true });
     }
+
+    // create session
+    const timeLimit = examDef.timeLimitSeconds || config.EXAM_TIME_LIMIT_SECONDS || 0;
+    const sess = await examStore.createSession({ userId, username: user.username, examId, questions: examDef.questions || [], timeLimitSeconds: timeLimit });
 
     const advanced = await examStore.advancePastSections(sess.id);
     const activeSession = advanced && advanced.session ? advanced.session : sess;

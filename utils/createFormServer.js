@@ -657,7 +657,7 @@ function createFormServer(client) {
     try {
       console.info && console.info(`GET /exams/pending requested by reviewer=${req.reviewer ? req.reviewer.tag : 'unknown'}`);
       const listAll = await examStore.listActiveSessions();
-      const list = (listAll || []).map(s => ({ id: s.id, examId: s.examId, userId: s.userId, createdAt: s.createdAt, status: s.status }));
+      const list = (listAll || []).map(s => ({ id: s.id, examId: s.examId, userId: s.userId, username: s.username || null, createdAt: s.createdAt, status: s.status }));
       res.json(list);
     } catch (e) {
       console.error('Failed to list pending exams:', e);
@@ -699,7 +699,7 @@ function createFormServer(client) {
     try {
       console.info && console.info(`GET /api/exams/pending requested by reviewer=${req.reviewer ? req.reviewer.tag : 'unknown'}`);
       const listAll = await examStore.listActiveSessions();
-      const list = (listAll || []).map(s => ({ id: s.id, examId: s.examId, userId: s.userId, createdAt: s.createdAt, status: s.status }));
+      const list = (listAll || []).map(s => ({ id: s.id, examId: s.examId, userId: s.userId, username: s.username || null, createdAt: s.createdAt, status: s.status }));
       res.json(list);
     } catch (e) {
       console.error('Failed to list pending exams (api):', e);
