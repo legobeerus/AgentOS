@@ -142,15 +142,6 @@ async function finalizeReview({ session, client }) {
         .setColor(passed ? 0x57F287 : 0xED4245)
         .addFields({ name: 'Score', value: `${totalScored}/${totalPossible} (${percent}%)`, inline: true }, { name: 'Passed', value: passed ? 'Yes' : 'No', inline: true }, { name: 'Feedback', value: review.feedback || '(none)', inline: false })
         .setTimestamp(new Date());
-      const qs = session.questions || [];
-      const sc = review.scores || [];
-      for (let i=0;i<qs.length;i++) {
-        const q = qs[i];
-        if (isSectionItem(q)) continue;
-        const qText = (typeof q === 'string') ? q : (q && q.text ? q.text : String(q));
-        const s = sc[i] !== undefined ? sc[i] : '(unscored)';
-        fbEmbed.addFields({ name: `Q${i+1}`, value: `Score: ${s}\n${qText.slice(0,800)}`, inline: false });
-      }
       await user.send({ embeds: [fbEmbed] }).catch(()=>null);
     }
   } catch (e) { console.error('Failed to DM candidate results (finalize):', e); }
