@@ -117,15 +117,15 @@ module.exports = {
 
   // Exam workflow configuration
   // Channel where exam authorization requests are posted for staff review/authorization
-  EXAM_AUTH_CHANNEL_ID: process.env.EXAM_AUTH_CHANNEL_ID || "1107799317047164979",
+  EXAM_AUTH_CHANNEL_ID: process.env.EXAM_AUTH_CHANNEL_ID || "1515427287300837518",
   // Channel where completed exams are posted for grading
-  EXAM_REVIEW_CHANNEL_ID: process.env.EXAM_REVIEW_CHANNEL_ID || "1107799317047164979",
+  EXAM_REVIEW_CHANNEL_ID: process.env.EXAM_REVIEW_CHANNEL_ID || "1503106291013390479",
   // Role ID required to authorize exams (staff reviewer role)
   EXAM_AUTH_ROLE_ID: cleanId(process.env.EXAM_AUTH_ROLE_ID) || "1449861438012133566",
   // Role ID required to *request* an exam (candidate role); optional
-  EXAM_CANDIDATE_ROLE_ID: cleanId(process.env.EXAM_CANDIDATE_ROLE_ID) || undefined,
+  EXAM_CANDIDATE_ROLE_ID: cleanId(process.env.EXAM_CANDIDATE_ROLE_ID) || "1327721437276012595,1449861438012133566",
   // Default pass threshold as percent (0-100)
-  EXAM_PASS_THRESHOLD: process.env.EXAM_PASS_THRESHOLD !== undefined ? Number(process.env.EXAM_PASS_THRESHOLD) : 70,
+  EXAM_PASS_THRESHOLD: process.env.EXAM_PASS_THRESHOLD !== undefined ? Number(process.env.EXAM_PASS_THRESHOLD) : 75,
   // Default time limit in seconds applied to exams if not specified per-exam
   EXAM_TIME_LIMIT_SECONDS: process.env.EXAM_TIME_LIMIT_SECONDS !== undefined ? Number(process.env.EXAM_TIME_LIMIT_SECONDS) : 86400,
   // Short-lived secret token for web grading endpoints (optional)
