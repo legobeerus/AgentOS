@@ -8,7 +8,8 @@ const DEFAULTS = {
   minLongAnswerChars: 12,
   minLongAnswerCount: 2,
   maxShortLongAnswerRatio: 0.6,
-  duplicateLongAnswerThreshold: 3
+  duplicateLongAnswerThreshold: 3,
+  trustTotalCharsBypass: 1200
 };
 
 function mergeOptions(options) {
@@ -75,6 +76,7 @@ function analyzeSpamAnswers(answers, options) {
     metrics: {
       totalAnswers: 0,
       totalChars: 0,
+      totalCharsWithSpaces: 0,
       longAnswerCount: 0,
       shortLongAnswerCount: 0,
       shortLongAnswerRatio: 0
@@ -97,7 +99,14 @@ function analyzeSpamAnswers(answers, options) {
     }
 
     const totalChars = nonEmpty.reduce((sum, e) => sum + e.answer.replace(/\s+/g, '').length, 0);
+    const totalCharsWithSpaces = nonEmpty.reduce((sum, e) => sum + e.answer.length, 0);
     result.metrics.totalChars = totalChars;
+    result.metrics.totalCharsWithSpaces = totalCharsWithSpaces;
+
+    // Long submissions are unlikely to be low-effort spam; bypass stricter heuristics.
+    if (totalCharsWithSpaces >= Number(cfg.trustTotalCharsBypass || 0)) {
+      return result;
+    }
 
     const longFormEntries = nonEmpty.filter(e => !isShortAllowedQuestion(e.question));
     result.metrics.longAnswerCount = longFormEntries.length;

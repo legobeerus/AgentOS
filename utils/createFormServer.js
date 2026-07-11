@@ -226,7 +226,8 @@ function createFormServer(client) {
           minLongAnswerChars: config.APPLICATION_SPAM_MIN_LONG_ANSWER_CHARS,
           minLongAnswerCount: config.APPLICATION_SPAM_MIN_LONG_ANSWER_COUNT,
           maxShortLongAnswerRatio: config.APPLICATION_SPAM_MAX_SHORT_LONG_RATIO,
-          duplicateLongAnswerThreshold: config.APPLICATION_SPAM_DUPLICATE_LONG_ANSWER_THRESHOLD
+          duplicateLongAnswerThreshold: config.APPLICATION_SPAM_DUPLICATE_LONG_ANSWER_THRESHOLD,
+          trustTotalCharsBypass: config.APPLICATION_SPAM_TRUST_TOTAL_CHARS_BYPASS
         });
 
         if (spamCheck.isSpam) {
