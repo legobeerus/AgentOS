@@ -14,6 +14,13 @@ function parseFieldValue(content, fieldName) {
   const nextLine = new RegExp(`\\*\\*${escaped}:\\*\\*\\s*\\n+\\s*([^\\n]+)`, 'i').exec(text);
   if (nextLine && nextLine[1]) return nextLine[1].trim();
 
+  // Fallback for non-bold field format: Username: value
+  const plainSameLine = new RegExp(`(?:^|\\n)\\s*${escaped}:\\s*([^\\n]+)`, 'i').exec(text);
+  if (plainSameLine && plainSameLine[1]) return plainSameLine[1].trim();
+
+  const plainNextLine = new RegExp(`(?:^|\\n)\\s*${escaped}:\\s*\\n+\\s*([^\\n]+)`, 'i').exec(text);
+  if (plainNextLine && plainNextLine[1]) return plainNextLine[1].trim();
+
   return null;
 }
 
@@ -58,6 +65,40 @@ async function fetchCandidateThreads(forumChannel, maxThreads) {
   return Array.from(dedup.values());
 }
 
+function applyTagMutations(current, { add = [], remove = [] }) {
+  const next = new Set((current || []).map(String));
+  for (const tagId of add) next.add(String(tagId));
+  for (const tagId of remove) next.delete(String(tagId));
+  return Array.from(next);
+}
+
+async function enforceAos30DayExpirationForThread(thread) {
+  if (!thread || !thread.id) return false;
+  const tags = Array.isArray(thread.appliedTags) ? thread.appliedTags.map(String) : [];
+  const activeTagId = String(config.AOS_TAG_ACTIVE_WARRANT_ID || '');
+  const tag30Day = String(config.AOS_TAG_30_DAY_ID || '');
+  const inactiveTagId = String(config.AOS_TAG_INACTIVE_WARRANT_ID || '');
+  const recalledTagId = String(config.AOS_TAG_RECALLED_ID || '1414717678156779752');
+  const completedTagId = String(config.AOS_TAG_COMPLETED_ID || '');
+  const approvedTagId = String(config.AOS_TAG_APPROVED_ID || '');
+
+  if (!activeTagId || !tag30Day || !inactiveTagId || !recalledTagId) return false;
+  if (!tags.includes(activeTagId) || !tags.includes(tag30Day)) return false;
+
+  const createdAt = Number(thread.createdTimestamp);
+  if (!Number.isFinite(createdAt) || createdAt <= 0) return false;
+  const isExpired = (Date.now() - createdAt) >= (30 * 24 * 60 * 60 * 1000);
+  if (!isExpired) return false;
+
+  const nextTags = applyTagMutations(tags, {
+    add: [inactiveTagId, recalledTagId],
+    remove: [activeTagId, completedTagId, approvedTagId]
+  });
+
+  await thread.setAppliedTags(nextTags);
+  return true;
+}
+
 async function findActiveAosByUsername(client, username) {
   const target = normalizeUsername(username);
   if (!target) return [];
@@ -75,6 +116,12 @@ async function findActiveAosByUsername(client, username) {
   const matches = [];
 
   for (const thread of threads) {
+    try {
+      await enforceAos30DayExpirationForThread(thread);
+    } catch (err) {
+      // ignore mutation failures and continue lookup
+    }
+
     const tags = Array.isArray(thread.appliedTags) ? thread.appliedTags.map(String) : [];
     if (!activeTagId || !tags.includes(activeTagId)) continue;
 
@@ -113,6 +160,12 @@ async function listActiveAosEntries(client) {
   const entries = [];
 
   for (const thread of threads) {
+    try {
+      await enforceAos30DayExpirationForThread(thread);
+    } catch (err) {
+      // ignore mutation failures and continue listing
+    }
+
     const tags = Array.isArray(thread.appliedTags) ? thread.appliedTags.map(String) : [];
     if (!activeTagId || !tags.includes(activeTagId)) continue;
 
@@ -143,6 +196,7 @@ module.exports = {
   parseFieldValue,
   parseUsernameField,
   parseChargesField,
+  enforceAos30DayExpirationForThread,
   findActiveAosByUsername,
   listActiveAosEntries
 };

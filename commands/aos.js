@@ -1,7 +1,7 @@
-const { SlashCommandBuilder, ChannelType } = require('discord.js');
+const { SlashCommandBuilder, ChannelType, EmbedBuilder } = require('discord.js');
 const config = require('../config');
 const { computeJailTimeFromCharges } = require('../utils/aosSentencing');
-const { listActiveAosEntries } = require('../utils/aosForumLookup');
+const { listActiveAosEntries, enforceAos30DayExpirationForThread } = require('../utils/aosForumLookup');
 
 function hasAnyAllowedRole(member, roleIds) {
   if (!member || !member.roles || !member.roles.cache) return false;
@@ -27,26 +27,15 @@ function getAosForumThread(interaction) {
 
 function buildAosBody({ username, profile, victims, charges, summary, proof, jailMinutes }) {
   return [
-    '# :OSI: **AOS Order** :OSI:',
+    '# :osi: **AOS Order** :osi:',
     `<@&${config.AOS_PING_ROLE_ID}>`,
     '',
-    '**Username:**',
-    username,
-    '',
-    '**Profile:**',
-    profile,
-    '',
-    '**Victim(s):**',
-    victims,
-    '',
-    '**Charges:**',
-    charges,
-    '',
-    '**Summary:**',
-    summary,
-    '',
-    '**Proof:**',
-    proof,
+    `**Username:** ${username}`,
+    `**Profile:** ${profile}`,
+    `**Victim(s):** ${victims}`,
+    `**Charges:** ${charges}`,
+    `**Summary:** ${summary}`,
+    `**Proof:** ${proof}`,
     '',
     `**Jail time has been set to ${jailMinutes} minutes.**`
   ].join('\n');
@@ -61,6 +50,33 @@ function applyTagMutations(current, { add = [], remove = [] }) {
   for (const tagId of add) next.add(String(tagId));
   for (const tagId of remove) next.delete(String(tagId));
   return Array.from(next);
+}
+
+function clampForumTagsToLimit(tags, priority = [], max = 5) {
+  const dedup = Array.from(new Set((tags || []).map(String).filter(Boolean)));
+  if (dedup.length <= max) return dedup;
+
+  const out = [];
+  for (const p of priority.map(String)) {
+    if (dedup.includes(p) && !out.includes(p)) out.push(p);
+    if (out.length >= max) return out.slice(0, max);
+  }
+
+  for (const t of dedup) {
+    if (!out.includes(t)) out.push(t);
+    if (out.length >= max) break;
+  }
+
+  return out.slice(0, max);
+}
+
+function has30DayTagExpired(thread) {
+  const tags = Array.isArray(thread && thread.appliedTags) ? thread.appliedTags.map(String) : [];
+  const has30Day = tags.includes(String(config.AOS_TAG_30_DAY_ID || ''));
+  if (!has30Day) return false;
+  const createdAt = Number(thread && thread.createdTimestamp);
+  if (!Number.isFinite(createdAt) || createdAt <= 0) return false;
+  return (Date.now() - createdAt) >= (30 * 24 * 60 * 60 * 1000);
 }
 
 module.exports = {
@@ -80,7 +96,29 @@ module.exports = {
         .addStringOption(opt =>
           opt
             .setName('infraction')
-            .setDescription('Optional infraction level tag')
+            .setDescription('Optional infraction level tag (1)')
+            .setRequired(false)
+            .addChoices(
+              { name: 'Light', value: 'light' },
+              { name: 'Medium', value: 'medium' },
+              { name: 'Heavy', value: 'heavy' }
+            )
+        )
+        .addStringOption(opt =>
+          opt
+            .setName('infraction_2')
+            .setDescription('Optional infraction level tag (2)')
+            .setRequired(false)
+            .addChoices(
+              { name: 'Light', value: 'light' },
+              { name: 'Medium', value: 'medium' },
+              { name: 'Heavy', value: 'heavy' }
+            )
+        )
+        .addStringOption(opt =>
+          opt
+            .setName('infraction_3')
+            .setDescription('Optional infraction level tag (3)')
             .setRequired(false)
             .addChoices(
               { name: 'Light', value: 'light' },
@@ -122,14 +160,15 @@ module.exports = {
     ),
 
   async execute(interaction) {
-    await interaction.deferReply({ ephemeral: true });
+    const sub = interaction.options.getSubcommand(false);
+    const publicSuccessSubs = new Set(['approve', 'complete']);
+    await interaction.deferReply({ ephemeral: !publicSuccessSubs.has(sub) });
 
     if (!interaction.inGuild()) {
       await interaction.editReply('❌ This command can only be used in a server.');
       return;
     }
 
-    const sub = interaction.options.getSubcommand();
     const bannedRole = hasBannedRole(interaction.member);
 
     if (sub !== 'list' && bannedRole) {
@@ -149,7 +188,11 @@ module.exports = {
       const charges = interaction.options.getString('charges', true).trim();
       const summary = interaction.options.getString('summary', true).trim();
       const proof = interaction.options.getString('proof', true).trim();
-      const infraction = interaction.options.getString('infraction');
+      const infractionValues = [
+        interaction.options.getString('infraction'),
+        interaction.options.getString('infraction_2'),
+        interaction.options.getString('infraction_3')
+      ].filter(Boolean);
       const reward = interaction.options.getString('reward');
       const expires30Days = !!interaction.options.getBoolean('expires_30_days');
 
@@ -173,9 +216,11 @@ module.exports = {
       }
 
       const optionalTags = [];
-      if (infraction === 'light') optionalTags.push(config.AOS_TAG_INFRACTION_LIGHT_ID);
-      if (infraction === 'medium') optionalTags.push(config.AOS_TAG_INFRACTION_MEDIUM_ID);
-      if (infraction === 'heavy') optionalTags.push(config.AOS_TAG_INFRACTION_HEAVY_ID);
+      for (const infraction of Array.from(new Set(infractionValues.map(String)))) {
+        if (infraction === 'light') optionalTags.push(config.AOS_TAG_INFRACTION_LIGHT_ID);
+        if (infraction === 'medium') optionalTags.push(config.AOS_TAG_INFRACTION_MEDIUM_ID);
+        if (infraction === 'heavy') optionalTags.push(config.AOS_TAG_INFRACTION_HEAVY_ID);
+      }
       if (reward === 'medal') optionalTags.push(config.AOS_TAG_MEDAL_REWARD_ID);
       if (reward === 'requisition') optionalTags.push(config.AOS_TAG_REQUISITION_REWARD_ID);
       if (expires30Days) optionalTags.push(config.AOS_TAG_30_DAY_ID);
@@ -215,6 +260,13 @@ module.exports = {
       }
 
       const thread = ctx.thread;
+      if (has30DayTagExpired(thread)) {
+        const changed = await enforceAos30DayExpirationForThread(thread).catch(() => false);
+        if (changed) {
+          await interaction.editReply('⚠️ This AoS exceeded 30 days and was automatically recalled (inactive + recalled tags applied).');
+          return;
+        }
+      }
       const tags = (thread.appliedTags || []).map(String);
       const hasApproved = tags.includes(String(config.AOS_TAG_APPROVED_ID));
       const hasActive = tags.includes(String(config.AOS_TAG_ACTIVE_WARRANT_ID));
@@ -226,14 +278,24 @@ module.exports = {
         return;
       }
 
-      const nextTags = applyTagMutations(tags, {
+      let nextTags = applyTagMutations(tags, {
         add: [config.AOS_TAG_APPROVED_ID, config.AOS_TAG_ACTIVE_WARRANT_ID],
-        remove: [config.AOS_TAG_INACTIVE_WARRANT_ID, config.AOS_TAG_COMPLETED_ID]
+        remove: [config.AOS_TAG_INACTIVE_WARRANT_ID, config.AOS_TAG_COMPLETED_ID, config.AOS_TAG_RECALLED_ID]
       });
+      nextTags = clampForumTagsToLimit(nextTags, [
+        config.AOS_TAG_APPROVED_ID,
+        config.AOS_TAG_ACTIVE_WARRANT_ID,
+        config.AOS_TAG_30_DAY_ID,
+        config.AOS_TAG_INFRACTION_HEAVY_ID,
+        config.AOS_TAG_INFRACTION_MEDIUM_ID,
+        config.AOS_TAG_INFRACTION_LIGHT_ID,
+        config.AOS_TAG_MEDAL_REWARD_ID,
+        config.AOS_TAG_REQUISITION_REWARD_ID
+      ], 5);
 
       try {
         await thread.setAppliedTags(nextTags);
-        const reopened = !hasActive || hasInactive || hasCompleted;
+        const reopened = hasInactive || hasCompleted;
         await interaction.editReply(reopened
           ? '✅ AoS approved and set to active (re-opened).'
           : '✅ AoS approved and marked active.');
@@ -265,10 +327,21 @@ module.exports = {
         return;
       }
 
-      const nextTags = applyTagMutations(tags, {
+      let nextTags = applyTagMutations(tags, {
         add: [config.AOS_TAG_INACTIVE_WARRANT_ID, config.AOS_TAG_COMPLETED_ID],
-        remove: [config.AOS_TAG_ACTIVE_WARRANT_ID]
+        remove: [config.AOS_TAG_ACTIVE_WARRANT_ID, config.AOS_TAG_APPROVED_ID]
       });
+      nextTags = clampForumTagsToLimit(nextTags, [
+        config.AOS_TAG_INACTIVE_WARRANT_ID,
+        config.AOS_TAG_COMPLETED_ID,
+        config.AOS_TAG_RECALLED_ID,
+        config.AOS_TAG_30_DAY_ID,
+        config.AOS_TAG_INFRACTION_HEAVY_ID,
+        config.AOS_TAG_INFRACTION_MEDIUM_ID,
+        config.AOS_TAG_INFRACTION_LIGHT_ID,
+        config.AOS_TAG_MEDAL_REWARD_ID,
+        config.AOS_TAG_REQUISITION_REWARD_ID
+      ], 5);
 
       try {
         await thread.setAppliedTags(nextTags);
@@ -299,12 +372,18 @@ module.exports = {
         const lines = entries.slice(0, maxLines).map((entry, idx) => {
           const username = String(entry.username || 'Unknown').replace(/\n/g, ' ').trim();
           const charges = String(entry.charges || 'Unknown').replace(/\n/g, ' ').trim();
-          return `${idx + 1}. Username: ${username} | Charges: ${charges}`;
+          const url = String(entry.url || '');
+          const label = `${idx + 1}. ${username}`;
+          return url ? `${label} - [Thread](${url}) | Charges: ${charges}` : `${label} | Charges: ${charges}`;
         });
 
         const more = entries.length > maxLines ? `\n+${entries.length - maxLines} more active AoS not shown.` : '';
-        const message = `**Active AoS (${entries.length})**\n${lines.join('\n')}${more}`;
-        await interaction.editReply(message.slice(0, 1990));
+        const embed = new EmbedBuilder()
+          .setTitle(`Active AoS (${entries.length})`)
+          .setColor(config.EMBED_COLOR || 0x00aff1)
+          .setDescription(`${lines.join('\n')}${more}`.slice(0, 4000));
+
+        await interaction.editReply({ embeds: [embed] });
       } catch (err) {
         console.error('aos list failed:', err);
         await interaction.editReply('⚠️ Failed to fetch active AoS entries.');
