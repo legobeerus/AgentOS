@@ -32,6 +32,15 @@ function parseChargesField(content) {
   return parseFieldValue(content, 'Charges');
 }
 
+function parseJailMinutes(content) {
+  const text = String(content || '').replace(/\r/g, '');
+  const match = text.match(/Jail\s*time\s*has\s*been\s*set\s*to\s*(\d+)\s*minutes?/i);
+  if (!match || !match[1]) return null;
+  const minutes = Number(match[1]);
+  if (!Number.isFinite(minutes) || minutes < 0) return null;
+  return minutes;
+}
+
 function renderThreadUrl(guildId, threadId) {
   return `https://discord.com/channels/${guildId}/${threadId}`;
 }
@@ -179,12 +188,14 @@ async function listActiveAosEntries(client) {
     const content = starter && starter.content ? starter.content : '';
     const username = parseUsernameField(content) || 'Unknown';
     const charges = parseChargesField(content) || 'Unknown';
+    const jailMinutes = parseJailMinutes(content);
 
     entries.push({
       threadId: thread.id,
       threadName: thread.name || `AoS ${username}`,
       username,
       charges,
+      jailMinutes,
       url: renderThreadUrl(thread.guildId, thread.id)
     });
   }
@@ -196,6 +207,7 @@ module.exports = {
   parseFieldValue,
   parseUsernameField,
   parseChargesField,
+  parseJailMinutes,
   enforceAos30DayExpirationForThread,
   findActiveAosByUsername,
   listActiveAosEntries

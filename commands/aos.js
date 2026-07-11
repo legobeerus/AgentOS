@@ -3,6 +3,9 @@ const config = require('../config');
 const { computeJailTimeFromCharges } = require('../utils/aosSentencing');
 const { listActiveAosEntries, enforceAos30DayExpirationForThread } = require('../utils/aosForumLookup');
 
+const AOS_GLOBAL_COOLDOWN_MS = 60 * 1000;
+let nextAosAllowedAt = 0;
+
 function hasAnyAllowedRole(member, roleIds) {
   if (!member || !member.roles || !member.roles.cache) return false;
   if (!Array.isArray(roleIds) || roleIds.length === 0) return true;
@@ -147,6 +150,16 @@ module.exports = {
       sub
         .setName('approve')
         .setDescription('Approve an AoS and ensure it is active')
+        .addStringOption(opt =>
+          opt
+            .setName('status')
+            .setDescription('Final decision for this AoS')
+            .setRequired(true)
+            .addChoices(
+              { name: 'Approved', value: 'approved' },
+              { name: 'Denied', value: 'denied' }
+            )
+        )
     )
     .addSubcommand(sub =>
       sub
@@ -161,8 +174,15 @@ module.exports = {
 
   async execute(interaction) {
     const sub = interaction.options.getSubcommand(false);
-    const publicSuccessSubs = new Set(['approve', 'complete']);
-    await interaction.deferReply({ ephemeral: !publicSuccessSubs.has(sub) });
+    const now = Date.now();
+    if (now < nextAosAllowedAt) {
+      const waitSec = Math.max(1, Math.ceil((nextAosAllowedAt - now) / 1000));
+      await interaction.reply({ content: `⏳ /aos is on a global cooldown. Please wait ${waitSec}s.`, ephemeral: false });
+      return;
+    }
+    nextAosAllowedAt = now + AOS_GLOBAL_COOLDOWN_MS;
+
+    await interaction.deferReply({ ephemeral: false });
 
     if (!interaction.inGuild()) {
       await interaction.editReply('❌ This command can only be used in a server.');
@@ -253,6 +273,8 @@ module.exports = {
         return;
       }
 
+      const status = interaction.options.getString('status', true);
+
       const ctx = getAosForumThread(interaction);
       if (ctx.error) {
         await interaction.editReply(ctx.error);
@@ -272,6 +294,38 @@ module.exports = {
       const hasActive = tags.includes(String(config.AOS_TAG_ACTIVE_WARRANT_ID));
       const hasInactive = tags.includes(String(config.AOS_TAG_INACTIVE_WARRANT_ID));
       const hasCompleted = tags.includes(String(config.AOS_TAG_COMPLETED_ID));
+      const hasRecalled = tags.includes(String(config.AOS_TAG_RECALLED_ID));
+
+      if (status === 'denied') {
+        if (hasInactive && hasRecalled && !hasActive) {
+          await interaction.editReply('⚠️ This AoS is already denied (inactive + recalled).');
+          return;
+        }
+
+        let denyTags = applyTagMutations(tags, {
+          add: [config.AOS_TAG_INACTIVE_WARRANT_ID, config.AOS_TAG_RECALLED_ID],
+          remove: [config.AOS_TAG_ACTIVE_WARRANT_ID, config.AOS_TAG_APPROVED_ID, config.AOS_TAG_COMPLETED_ID]
+        });
+        denyTags = clampForumTagsToLimit(denyTags, [
+          config.AOS_TAG_INACTIVE_WARRANT_ID,
+          config.AOS_TAG_RECALLED_ID,
+          config.AOS_TAG_30_DAY_ID,
+          config.AOS_TAG_INFRACTION_HEAVY_ID,
+          config.AOS_TAG_INFRACTION_MEDIUM_ID,
+          config.AOS_TAG_INFRACTION_LIGHT_ID,
+          config.AOS_TAG_MEDAL_REWARD_ID,
+          config.AOS_TAG_REQUISITION_REWARD_ID
+        ], 5);
+
+        try {
+          await thread.setAppliedTags(denyTags);
+          await interaction.editReply('✅ AoS denied and set to inactive + recalled.');
+        } catch (err) {
+          console.error('aos deny failed:', err);
+          await interaction.editReply('⚠️ Failed to update AoS tags.');
+        }
+        return;
+      }
 
       if (hasApproved && hasActive && !hasInactive && !hasCompleted) {
         await interaction.editReply('⚠️ This AoS is already approved and active.');
@@ -372,9 +426,13 @@ module.exports = {
         const lines = entries.slice(0, maxLines).map((entry, idx) => {
           const username = String(entry.username || 'Unknown').replace(/\n/g, ' ').trim();
           const charges = String(entry.charges || 'Unknown').replace(/\n/g, ' ').trim();
+          const jailMinutes = Number.isFinite(Number(entry.jailMinutes)) ? Number(entry.jailMinutes) : null;
           const url = String(entry.url || '');
           const label = `${idx + 1}. ${username}`;
-          return url ? `${label} - [Thread](${url}) | Charges: ${charges}` : `${label} | Charges: ${charges}`;
+          const jailPart = jailMinutes !== null ? ` | Jail: ${jailMinutes}m` : '';
+          return url
+            ? `${label} - [Thread](${url}) | Charges: ${charges}${jailPart}`
+            : `${label} | Charges: ${charges}${jailPart}`;
         });
 
         const more = entries.length > maxLines ? `\n+${entries.length - maxLines} more active AoS not shown.` : '';
