@@ -114,7 +114,11 @@ function pruneRecentAlerts(now, dedupMinutes) {
 }
 
 function normalizeUsername(value) {
-  return String(value || '').trim().toLowerCase();
+  let text = String(value || '').trim();
+  while (text.length >= 2 && text.startsWith('*') && text.endsWith('*')) {
+    text = text.slice(1, -1).trim();
+  }
+  return text.toLowerCase();
 }
 
 function getAlertKey(username) {

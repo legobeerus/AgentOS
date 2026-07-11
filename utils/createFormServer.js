@@ -235,6 +235,18 @@ function createFormServer(client) {
             reasons: spamCheck.reasons,
             metrics: spamCheck.metrics
           });
+
+          try {
+            const channelId = config.VOTING_CHANNEL_ID;
+            const channel = await client.channels.fetch(channelId).catch(() => null);
+            const applicantUser = await resolveApplicantUser(client, channel, answers).catch(() => null);
+            if (applicantUser) {
+              await applicantUser.send('Your application was rejected by the anti-spam filter and was not posted for review. If you believe this was a mistake, please contact staff before resubmitting.').catch(() => null);
+            }
+          } catch (dmErr) {
+            console.warn('Failed to notify applicant about spam-filter rejection:', dmErr);
+          }
+
           return res.status(200).json({ success: false, message: "Blocked by spam filter" });
         }
       } catch (err) {
