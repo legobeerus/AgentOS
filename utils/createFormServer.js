@@ -4,8 +4,10 @@ const config = require("../config");
 const arrestStore = require('./arrestStore');
 const verificationStore = require('./verificationStore');
 const axios = require('axios');
+const { findActiveAosByUsername } = require('./aosForumLookup');
 const { findBlacklistEntry } = require("../utils/blacklistSheet");
 const { analyzeSpamAnswers } = require("./spamFilter");
+const { getState } = require('./adminState');
 
 /**
  * Creates an Express server to handle form submissions from Google Apps Script
@@ -89,6 +91,66 @@ function createFormServer(client) {
     return { guildId, enforced: !!enforced };
   }
 
+  function extractApplicantIdentity(answers) {
+    let applicantDiscordId = null;
+    let applicantDiscordUsername = null;
+
+    const discordIdKeys = [
+      "Enter your Discord User ID",
+      "Discord User ID",
+      "Discord ID",
+      "User ID",
+      "Applicant ID"
+    ];
+    const discordUsernameKeys = [
+      "Enter your Discord Username (not your display name)",
+      "Discord Username",
+      "Discord User",
+      "Username",
+      "Applicant"
+    ];
+
+    for (const [key, value] of Object.entries(answers || {})) {
+      if (!applicantDiscordId && discordIdKeys.some(k => k.toLowerCase() === String(key).toLowerCase())) {
+        applicantDiscordId = String(value || "").trim();
+      }
+      if (!applicantDiscordUsername && discordUsernameKeys.some(k => k.toLowerCase() === String(key).toLowerCase())) {
+        applicantDiscordUsername = String(value || "").trim();
+      }
+    }
+
+    if (applicantDiscordId) {
+      const idMatch = applicantDiscordId.match(/^<@!?([0-9]+)>$|^([0-9]{16,20})$/);
+      applicantDiscordId = idMatch ? (idMatch[1] || idMatch[2]) : applicantDiscordId;
+    }
+
+    return { applicantDiscordId, applicantDiscordUsername };
+  }
+
+  async function resolveApplicantUser(client, channel, answers) {
+    const { applicantDiscordId, applicantDiscordUsername } = extractApplicantIdentity(answers);
+
+    if (applicantDiscordId) {
+      const byId = await client.users.fetch(applicantDiscordId).catch(() => null);
+      if (byId) return byId;
+    }
+
+    if (applicantDiscordUsername && channel && channel.guild) {
+      const cachedMember = channel.guild.members.cache.find(m => m.user.username === applicantDiscordUsername);
+      if (cachedMember) return cachedMember.user;
+    }
+
+    if (applicantDiscordUsername && channel && channel.guild) {
+      const members = await channel.guild.members.fetch().catch(() => null);
+      if (members) {
+        const member = members.find(m => m.user.username === applicantDiscordUsername);
+        if (member) return member.user;
+      }
+    }
+
+    return null;
+  }
+
   function requireBotApiAuth(req, res, next) {
     const token = extractApiToken(req);
     const preferredToken = config.BOT_API_TOKEN;
@@ -137,6 +199,24 @@ function createFormServer(client) {
 
       if (!answers || typeof answers !== "object") {
         return res.status(400).json({ error: "Invalid form data: missing or invalid answers" });
+      }
+
+      // Global gate: when applications are paused, reject before posting to review channels.
+      try {
+        const state = await getState();
+        if (state && state.pausedApplications) {
+          const channelId = config.VOTING_CHANNEL_ID;
+          const channel = await client.channels.fetch(channelId).catch(() => null);
+          const applicantUser = await resolveApplicantUser(client, channel, answers).catch(() => null);
+
+          if (applicantUser) {
+            await applicantUser.send('Applications are currently paused by administration. Your submission was rejected and was not posted for review.').catch(() => null);
+          }
+
+          return res.status(200).json({ success: false, message: "Applications are paused" });
+        }
+      } catch (err) {
+        console.warn('Failed to check paused state, continuing submission flow:', err);
       }
 
       // Anti-spam: detect low-effort and repeated-pattern application spam
@@ -211,55 +291,8 @@ function createFormServer(client) {
             const entry = await findBlacklistEntry({ robloxUsername, robloxUserId });
             if (entry) {
               // Found a blocking blacklist entry (temporary/permanent)
-              let applicantDiscordId = null;
-              let applicantDiscordUsername = null;
-              const discordIdKeys = [
-                "Enter your Discord User ID",
-                "Discord User ID",
-                "Discord ID",
-                "User ID",
-                "Applicant ID"
-              ];
-              const discordUsernameKeys = [
-                "Enter your Discord Username (not your display name)",
-                "Discord Username",
-                "Discord User",
-                "Username",
-                "Applicant"
-              ];
-
-              for (const [key, value] of Object.entries(answers)) {
-                if (!applicantDiscordId && discordIdKeys.some(k => k.toLowerCase() === String(key).toLowerCase())) {
-                  applicantDiscordId = String(value || "").trim();
-                }
-                if (!applicantDiscordUsername && discordUsernameKeys.some(k => k.toLowerCase() === String(key).toLowerCase())) {
-                  applicantDiscordUsername = String(value || "").trim();
-                }
-              }
-
-              if (applicantDiscordId) {
-                const idMatch = applicantDiscordId.match(/^<@!?([0-9]+)>$|^([0-9]{16,20})$/);
-                applicantDiscordId = idMatch ? (idMatch[1] || idMatch[2]) : applicantDiscordId;
-              }
-
               try {
-                let userToDm = null;
-                if (applicantDiscordId) {
-                  userToDm = await client.users.fetch(applicantDiscordId).catch(() => null);
-                }
-
-                if (!userToDm && applicantDiscordUsername && channel.guild) {
-                  const cachedMember = channel.guild.members.cache.find(m => m.user.username === applicantDiscordUsername);
-                  if (cachedMember) userToDm = cachedMember.user;
-                }
-
-                if (!userToDm && applicantDiscordUsername && channel.guild) {
-                  const members = await channel.guild.members.fetch().catch(() => null);
-                  if (members) {
-                    const member = members.find(m => m.user.username === applicantDiscordUsername);
-                    if (member) userToDm = member.user;
-                  }
-                }
+                const userToDm = await resolveApplicantUser(client, channel, answers);
 
                 if (userToDm) {
                   const notifyMsg = `Your application was not sent, as the username "${robloxUsername}" is blacklisted. Your blacklist is ${entry.type} and ends at ${entry.endDate || '(no end date listed)'}, the reason is listed as: "${entry.reason || '(no reason provided)'}"`;
@@ -483,6 +516,23 @@ function createFormServer(client) {
           }
         } catch (err) {
           console.warn('Arrest log mini-search failed:', err?.message || err);
+        }
+
+        // Mini active AoS search (active warrant forum posts)
+        try {
+          if (robloxUsername) {
+            const aosMatches = await findActiveAosByUsername(client, String(robloxUsername).trim()).catch(() => []);
+            if (aosMatches && aosMatches.length) {
+              if (!bgcEmbed) bgcEmbed = new EmbedBuilder().setTitle('Background Check').setColor(0x00aff1).setFooter({ text: robloxUserId ? `User ID: ${robloxUserId}` : `User: ${robloxUsername}` });
+              const maxShowAoS = 6;
+              const shownAoS = aosMatches.slice(0, maxShowAoS).map(m => `• ${m.threadName} (${m.url})`).join('\n');
+              const moreAoS = aosMatches.length > maxShowAoS ? `\n+${aosMatches.length - maxShowAoS} more` : '';
+              const valueAoS = (shownAoS + moreAoS).slice(0, 1000);
+              bgcEmbed.addFields({ name: 'Active AoS Matches', value: valueAoS, inline: false });
+            }
+          }
+        } catch (err) {
+          console.warn('Active AoS mini-search failed:', err?.message || err);
         }
 
         // Add account creation date / age as the final BGC field

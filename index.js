@@ -11,6 +11,7 @@ const { handleExamDM } = require("./utils/examMessageHandler");
 const { handleTimeWebhookMessage } = require("./utils/timeWebhookHandler");
 const { startSuspensionScheduler } = require("./utils/trelloSuspensionScheduler");
 const { createFormServer } = require("./utils/createFormServer");
+const { handleXpAuditLogMessage } = require("./utils/xpWatcher");
 
 const client = new Client({
   intents: [
@@ -110,6 +111,7 @@ client.on("interactionCreate", async interaction => {
 client.on("messageCreate", async message => {
   // Handle exam DM answers first
   try { await handleExamDM(message, client); } catch (e) { /* continue to other handlers */ }
+  try { await handleXpAuditLogMessage(message, client); } catch (e) { console.error('XP watcher failed:', e); }
   await handleMessageCommands(message, client);
   await handleTrelloIngest(message);
   await handleTimeWebhookMessage(message);

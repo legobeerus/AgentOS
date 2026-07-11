@@ -2,7 +2,7 @@
   "id": "phase1",
   "title": "Phase 1 Knowledge Test",
   "instructions": "You will be DM'd each question. Reply with your answer to receive the next question.",
-  "timeLimitSeconds": 900,
+  "timeLimitSeconds": 1800,
   "questions": [
     {
       "text": "Name all the high command members.",

@@ -2,6 +2,7 @@ const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const axios = require('axios');
 const config = require('../config');
 const arrestStore = require('../utils/arrestStore');
+const { findActiveAosByUsername } = require('../utils/aosForumLookup');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -112,6 +113,18 @@ module.exports = {
               return `• ${idPart} — ${String(laws).slice(0, 180)}`;
             }).join('\n');
           embed.addFields({ name: 'Arrest Log Matches', value: shown.slice(0, 1000), inline: false });
+        }
+      } catch (e) { /* ignore */ }
+
+      // Active AoS forum matches
+      try {
+        const aosMatches = await findActiveAosByUsername(interaction.client, username);
+        if (aosMatches && aosMatches.length) {
+          const shown = aosMatches.slice(0, 6)
+            .map(m => `• ${m.threadName} (${m.url})`)
+            .join('\n');
+          const more = aosMatches.length > 6 ? `\n+${aosMatches.length - 6} more` : '';
+          embed.addFields({ name: 'Active AoS Matches', value: (shown + more).slice(0, 1000), inline: false });
         }
       } catch (e) { /* ignore */ }
 

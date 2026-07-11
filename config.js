@@ -169,6 +169,31 @@ module.exports = {
   // Comma-separated role IDs that may edit/delete any arrest
   ARREST_ADMIN_ROLE_IDS: process.env.ARREST_ADMIN_ROLE_IDS || "1449861438012133566,1106739929540730921",
 
+  // AoS forum workflow configuration
+  AOS_FORUM_CHANNEL_ID: cleanId(process.env.AOS_FORUM_CHANNEL_ID) || "1414714736679059599",
+  AOS_PING_ROLE_ID: cleanId(process.env.AOS_PING_ROLE_ID) || "1041577710067138561",
+  AOS_TAG_COMPLETED_ID: cleanId(process.env.AOS_TAG_COMPLETED_ID) || "1414717583524888598",
+  AOS_TAG_ACTIVE_WARRANT_ID: cleanId(process.env.AOS_TAG_ACTIVE_WARRANT_ID) || "1414718122971103333",
+  AOS_TAG_INACTIVE_WARRANT_ID: cleanId(process.env.AOS_TAG_INACTIVE_WARRANT_ID) || "1414718213261889626",
+  AOS_TAG_INFRACTION_LIGHT_ID: cleanId(process.env.AOS_TAG_INFRACTION_LIGHT_ID) || "1414718407621873764",
+  AOS_TAG_INFRACTION_MEDIUM_ID: cleanId(process.env.AOS_TAG_INFRACTION_MEDIUM_ID) || "1414718477612093571",
+  AOS_TAG_INFRACTION_HEAVY_ID: cleanId(process.env.AOS_TAG_INFRACTION_HEAVY_ID) || "1414718528774475786",
+  AOS_TAG_30_DAY_ID: cleanId(process.env.AOS_TAG_30_DAY_ID) || "1414731884872728709",
+  AOS_TAG_APPROVED_ID: cleanId(process.env.AOS_TAG_APPROVED_ID) || "1525486629458804928",
+  AOS_TAG_REQUISITION_REWARD_ID: cleanId(process.env.AOS_TAG_REQUISITION_REWARD_ID) || "1414718868966080586",
+  AOS_TAG_MEDAL_REWARD_ID: cleanId(process.env.AOS_TAG_MEDAL_REWARD_ID) || "1414719611378864168",
+  AOS_ADD_ROLE_IDS: process.env.AOS_ADD_ROLE_IDS || "1041577710067138561",
+  AOS_APPROVE_ROLE_IDS: process.env.AOS_APPROVE_ROLE_IDS || "1449861438012133566",
+  AOS_COMPLETE_ROLE_IDS: process.env.AOS_COMPLETE_ROLE_IDS || "1041577710067138561",
+  AOS_COMPLETE_PING_ROLE_ID: cleanId(process.env.AOS_COMPLETE_PING_ROLE_ID) || "1515073017804361728",
+  AOS_BANNED_ROLE_ID: cleanId(process.env.AOS_BANNED_ROLE_ID) || "1327721437276012595",
+  AOS_LOOKUP_MAX_THREADS: process.env.AOS_LOOKUP_MAX_THREADS !== undefined ? Number(process.env.AOS_LOOKUP_MAX_THREADS) : 100,
+
+  // XP log monitoring for online AoS alerts
+  XP_LOG_CHANNEL_ID: cleanId(process.env.XP_LOG_CHANNEL_ID) || "994328564625326152",
+  XP_ALERT_CHANNEL_ID: cleanId(process.env.XP_ALERT_CHANNEL_ID) || "1041577711665156155",
+  XP_ALERT_DEDUP_MINUTES: process.env.XP_ALERT_DEDUP_MINUTES !== undefined ? Number(process.env.XP_ALERT_DEDUP_MINUTES) : 10,
+
   // Service account credentials for private sheets. Provide the full JSON
   // as a string in `GOOGLE_SERVICE_ACCOUNT_JSON` (preferred) or a filesystem
   // path in `GOOGLE_SERVICE_ACCOUNT_PATH` (legacy).
@@ -198,3 +223,9 @@ const _rawKickStripRoles = process.env.KICK_ROLE_STRIP_ROLE_IDS || module.export
 module.exports.KICK_ROLE_STRIP_ROLE_IDS_LIST = String(_rawKickStripRoles).split(",").map(s => cleanId(s)).map(s => s.trim()).filter(Boolean);
 const _rawKickAllowedRoles = process.env.KICK_COMMAND_ALLOWED_ROLE_IDS || module.exports.KICK_COMMAND_ALLOWED_ROLE_IDS || "";
 module.exports.KICK_COMMAND_ALLOWED_ROLE_IDS_LIST = String(_rawKickAllowedRoles).split(",").map(s => cleanId(s)).map(s => s.trim()).filter(Boolean);
+const _rawAosAddRoles = process.env.AOS_ADD_ROLE_IDS || module.exports.AOS_ADD_ROLE_IDS || "";
+module.exports.AOS_ADD_ROLE_IDS_LIST = String(_rawAosAddRoles).split(",").map(s => cleanId(s)).map(s => s.trim()).filter(Boolean);
+const _rawAosApproveRoles = process.env.AOS_APPROVE_ROLE_IDS || module.exports.AOS_APPROVE_ROLE_IDS || "";
+module.exports.AOS_APPROVE_ROLE_IDS_LIST = String(_rawAosApproveRoles).split(",").map(s => cleanId(s)).map(s => s.trim()).filter(Boolean);
+const _rawAosCompleteRoles = process.env.AOS_COMPLETE_ROLE_IDS || module.exports.AOS_COMPLETE_ROLE_IDS || "";
+module.exports.AOS_COMPLETE_ROLE_IDS_LIST = String(_rawAosCompleteRoles).split(",").map(s => cleanId(s)).map(s => s.trim()).filter(Boolean);

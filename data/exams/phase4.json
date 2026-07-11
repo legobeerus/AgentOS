@@ -162,15 +162,15 @@
     },
     {
       "text": "Off-world lethal force can be used when:",
-      "type": "selection",
-      "maxScore": 1,
+      "type": "multiplechoice",
+      "maxScore": 2,
       "choices": [
         "A) Off-worlder exists",
-        "B) Walking to capture point",
+        "B) Walking to the stargate",
         "C) Capturing SGC owned point",
         "D) AFK"
       ],
-      "correctAnswer": "BC"
+      "correctAnswer": "C"
     },
     {
       "text": "Who may ignore gate restrictions?",
