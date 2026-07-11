@@ -27,7 +27,7 @@ function getAosForumThread(interaction) {
 
 function buildAosBody({ username, profile, victims, charges, summary, proof, jailMinutes }) {
   return [
-    '# :osi: **AOS Order** :osi:',
+    '# <:osi:1448992108500357150> **AOS Order** <:osi:1448992108500357150>',
     `<@&${config.AOS_PING_ROLE_ID}>`,
     '',
     `**Username:** ${username}`,
