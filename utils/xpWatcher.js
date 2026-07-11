@@ -7,6 +7,7 @@ let lastPruneAt = 0;
 let aosEntriesCache = null;
 let aosEntriesCacheExpiresAt = 0;
 let aosEntriesInFlight = null;
+let lastChannelMismatchLogAt = 0;
 
 function isVerbose() {
   return !!config.XP_ALERT_VERBOSE;
@@ -19,6 +20,38 @@ function debugLog(message, data) {
       console.info(`[xpWatcher] ${message}`, data);
     } else {
       console.info(`[xpWatcher] ${message}`);
+    }
+  } catch (e) {
+    // ignore logging issues
+  }
+}
+
+function looksLikeXpAuditMessage(message) {
+  const parts = [];
+  if (message && typeof message.content === 'string') parts.push(message.content);
+  if (message && Array.isArray(message.embeds)) {
+    for (const embed of message.embeds) {
+      if (!embed) continue;
+      if (embed.title) parts.push(String(embed.title));
+      if (embed.description) parts.push(String(embed.description));
+      if (Array.isArray(embed.fields)) {
+        for (const f of embed.fields) {
+          if (f && f.name) parts.push(String(f.name));
+          if (f && f.value) parts.push(String(f.value));
+        }
+      }
+    }
+  }
+  const text = parts.join('\n').toLowerCase();
+  return text.includes('xp') && (text.includes('changed') || text.includes('updated') || text.includes('audit'));
+}
+
+function warnLog(message, data) {
+  try {
+    if (data !== undefined) {
+      console.warn(`[xpWatcher] ${message}`, data);
+    } else {
+      console.warn(`[xpWatcher] ${message}`);
     }
   } catch (e) {
     // ignore logging issues
@@ -147,12 +180,27 @@ function formatTimeHM(date) {
 
 async function handleXpAuditLogMessage(message, client) {
   if (!message || !message.channel) return;
-  if (String(message.channel.id) !== String(config.XP_LOG_CHANNEL_ID)) return;
-  debugLog('Processing message in XP log channel', { messageId: message.id, channelId: message.channel.id });
+  const inXpChannel = String(message.channel.id) === String(config.XP_LOG_CHANNEL_ID);
+  if (!inXpChannel) {
+    if (looksLikeXpAuditMessage(message)) {
+      const now = Date.now();
+      // Prevent noisy logs if many audit messages are flowing in the wrong channel.
+      if (now - lastChannelMismatchLogAt > 60 * 1000) {
+        lastChannelMismatchLogAt = now;
+        warnLog('XP-like message seen outside configured XP_LOG_CHANNEL_ID', {
+          messageChannelId: message.channel.id,
+          configuredXpLogChannelId: String(config.XP_LOG_CHANNEL_ID)
+        });
+      }
+    }
+    return;
+  }
+
+  console.info('[xpWatcher] Processing XP channel message', { messageId: message.id, channelId: message.channel.id });
 
   const username = extractUsernameFromAuditMessage(message);
   if (!username) {
-    debugLog('No username parsed from XP log message', { messageId: message.id });
+    warnLog('No username parsed from XP log message', { messageId: message.id });
     return;
   }
 
@@ -162,14 +210,14 @@ async function handleXpAuditLogMessage(message, client) {
   pruneRecentAlerts(now, dedupMinutes);
   const lastSeen = recentAlerts.get(key);
   if (lastSeen && (now - lastSeen) < dedupMinutes * 60 * 1000) {
-    debugLog('Alert suppressed by dedupe window', { username, dedupMinutes });
+    console.info('[xpWatcher] Alert suppressed by dedupe window', { username, dedupMinutes });
     return;
   }
 
   const aosEntries = await getCachedAosEntries(client);
   const matches = aosEntries.filter(entry => normalizeUsername(entry.username) === key);
   if (!matches.length) {
-    debugLog('No active AoS match for parsed username', { username, cachedEntries: aosEntries.length });
+    warnLog('No active AoS match for parsed username', { username, cachedEntries: aosEntries.length });
     return;
   }
 
@@ -177,7 +225,7 @@ async function handleXpAuditLogMessage(message, client) {
 
   const alertChannel = await client.channels.fetch(config.XP_ALERT_CHANNEL_ID).catch(() => null);
   if (!alertChannel) {
-    debugLog('Alert channel not found', { channelId: config.XP_ALERT_CHANNEL_ID });
+    warnLog('Alert channel not found', { channelId: config.XP_ALERT_CHANNEL_ID });
     return;
   }
 
@@ -191,10 +239,10 @@ async function handleXpAuditLogMessage(message, client) {
     .setFooter({ text: 'XP monitor' });
 
   await alertChannel.send({ embeds: [embed] }).catch((err) => {
-    debugLog('Failed to send AoS alert', { error: err && (err.message || err) });
+    warnLog('Failed to send AoS alert', { error: err && (err.message || err) });
     return null;
   });
-  debugLog('AoS alert sent', { username, warrants: count, channelId: alertChannel.id });
+  console.info('[xpWatcher] AoS alert sent', { username, warrants: count, channelId: alertChannel.id });
 }
 
 module.exports = {
