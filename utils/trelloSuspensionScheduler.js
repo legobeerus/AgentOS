@@ -6,6 +6,8 @@ const TRELLO_TOKEN = process.env.TRELLO_TOKEN;
 const COMPLETED_LIST_NAME = process.env.TRELLO_SUSPENSIONS_COMPLETED_LIST || "Completed";
 const ACTIVE_LIST_NAMES = ["Approved", "Permanent"];
 const INTERVAL_MS = Number(process.env.TRELLO_SUSPENSIONS_POLL_MS || 15 * 60 * 1000);
+let intervalId = null;
+let runInFlight = false;
 
 async function getListIds() {
   const res = await axios.get(`https://api.trello.com/1/boards/${BOARD_ID}/lists`, {
@@ -39,20 +41,26 @@ async function moveCard(cardId, listId) {
 
 async function runOnce() {
   if (!TRELLO_KEY || !TRELLO_TOKEN || !BOARD_ID) return;
+  if (runInFlight) return;
+  runInFlight = true;
 
-  const { active, completedId } = await getListIds();
-  if (!completedId || active.size === 0) return;
+  try {
+    const { active, completedId } = await getListIds();
+    if (!completedId || active.size === 0) return;
 
-  const now = Date.now();
-  for (const listId of active.values()) {
-    const cards = await fetchCardsForList(listId);
-    for (const card of cards) {
-      if (card.closed) continue;
-      if (!card.due || card.dueComplete) continue;
-      if (new Date(card.due).getTime() <= now) {
-        await moveCard(card.id, completedId).catch(() => null);
+    const now = Date.now();
+    for (const listId of active.values()) {
+      const cards = await fetchCardsForList(listId);
+      for (const card of cards) {
+        if (card.closed) continue;
+        if (!card.due || card.dueComplete) continue;
+        if (new Date(card.due).getTime() <= now) {
+          await moveCard(card.id, completedId).catch(() => null);
+        }
       }
     }
+  } finally {
+    runInFlight = false;
   }
 }
 
@@ -62,10 +70,13 @@ function startSuspensionScheduler() {
     return;
   }
 
+  if (intervalId) return;
+
   runOnce().catch(() => null);
-  setInterval(() => {
+  intervalId = setInterval(() => {
     runOnce().catch(() => null);
   }, INTERVAL_MS);
+  if (typeof intervalId.unref === 'function') intervalId.unref();
 }
 
 module.exports = { startSuspensionScheduler };

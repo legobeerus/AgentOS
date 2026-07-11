@@ -3,6 +3,63 @@ const { EmbedBuilder } = require('discord.js');
 const { listActiveAosEntries } = require('./aosForumLookup');
 
 const recentAlerts = new Map();
+let lastPruneAt = 0;
+let aosEntriesCache = null;
+let aosEntriesCacheExpiresAt = 0;
+let aosEntriesInFlight = null;
+
+function getAosCacheTtlMs() {
+  const raw = Number(config.XP_AOS_CACHE_TTL_MS);
+  if (Number.isFinite(raw) && raw >= 0) return raw;
+  return 60 * 1000;
+}
+
+async function getCachedAosEntries(client) {
+  const now = Date.now();
+  if (Array.isArray(aosEntriesCache) && now < aosEntriesCacheExpiresAt) {
+    return aosEntriesCache;
+  }
+
+  if (aosEntriesInFlight) return aosEntriesInFlight;
+
+  aosEntriesInFlight = listActiveAosEntries(client)
+    .then((entries) => {
+      const safeEntries = Array.isArray(entries) ? entries : [];
+      aosEntriesCache = safeEntries;
+      aosEntriesCacheExpiresAt = Date.now() + getAosCacheTtlMs();
+      return safeEntries;
+    })
+    .catch(() => {
+      // On fetch errors, keep behavior non-breaking by returning empty list.
+      return [];
+    })
+    .finally(() => {
+      aosEntriesInFlight = null;
+    });
+
+  return aosEntriesInFlight;
+}
+
+function pruneRecentAlerts(now, dedupMinutes) {
+  const dedupMs = Math.max(1, Number(dedupMinutes) || 10) * 60 * 1000;
+  // Avoid pruning too frequently under heavy message throughput.
+  if (now - lastPruneAt < 60 * 1000) return;
+  lastPruneAt = now;
+
+  for (const [k, ts] of recentAlerts.entries()) {
+    if (!Number.isFinite(Number(ts)) || (now - Number(ts)) >= dedupMs) {
+      recentAlerts.delete(k);
+    }
+  }
+
+  // Hard cap to protect memory in unusually high-cardinality username streams.
+  const maxEntries = 5000;
+  while (recentAlerts.size > maxEntries) {
+    const firstKey = recentAlerts.keys().next().value;
+    if (!firstKey) break;
+    recentAlerts.delete(firstKey);
+  }
+}
 
 function normalizeUsername(value) {
   return String(value || '').trim().toLowerCase();
@@ -53,11 +110,12 @@ async function handleXpAuditLogMessage(message, client) {
 
   const key = getAlertKey(username);
   const dedupMinutes = Number.isFinite(Number(config.XP_ALERT_DEDUP_MINUTES)) ? Number(config.XP_ALERT_DEDUP_MINUTES) : 10;
-  const lastSeen = recentAlerts.get(key);
   const now = Date.now();
+  pruneRecentAlerts(now, dedupMinutes);
+  const lastSeen = recentAlerts.get(key);
   if (lastSeen && (now - lastSeen) < dedupMinutes * 60 * 1000) return;
 
-  const aosEntries = await listActiveAosEntries(client).catch(() => []);
+  const aosEntries = await getCachedAosEntries(client);
   const matches = aosEntries.filter(entry => normalizeUsername(entry.username) === key);
   if (!matches.length) return;
 

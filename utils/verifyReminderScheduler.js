@@ -9,13 +9,19 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 let timers = new Map(); // id -> timeout
 let isRunning = false;
 
+function clearTimer(id) {
+  if (!id) return;
+  const t = timers.get(id);
+  if (t) {
+    clearTimeout(t);
+    timers.delete(id);
+  }
+}
+
 function scheduleTimeoutForEntry(entry, client) {
   if (!entry || !entry.id) return;
   // clear existing
-  if (timers.has(entry.id)) {
-    clearTimeout(timers.get(entry.id));
-    timers.delete(entry.id);
-  }
+  clearTimer(entry.id);
   if (!entry.nextSendAt) return; // waiting for join event to set
   try {
     console.info('[verifyReminderScheduler] scheduling reminder', { id: entry.id, discordId: entry.discordId, guildId: entry.guildId, nextSendAt: entry.nextSendAt });
@@ -37,6 +43,7 @@ async function sendReminderIfDue(entry, client) {
     const verified = await verificationStore.getByDiscord(entry.discordId);
     if (verified) {
       console.info('[verifyReminderScheduler] user already verified, removing reminder', { discordId: entry.discordId, guildId: entry.guildId });
+      clearTimer(entry.id);
       await verifyReminderStore.removeReminder(entry.discordId, entry.guildId);
       return;
     }
@@ -45,6 +52,7 @@ async function sendReminderIfDue(entry, client) {
     if (!guild) {
       // guild not cached; remove reminder to avoid orphan
       console.warn('[verifyReminderScheduler] guild not cached, removing reminder', { guildId: entry.guildId, discordId: entry.discordId });
+      clearTimer(entry.id);
       await verifyReminderStore.removeReminder(entry.discordId, entry.guildId);
       return;
     }
@@ -53,6 +61,7 @@ async function sendReminderIfDue(entry, client) {
     if (!member) {
       // user not in guild, remove reminder
       console.warn('[verifyReminderScheduler] member not found in guild, removing reminder', { guildId: entry.guildId, discordId: entry.discordId });
+      clearTimer(entry.id);
       await verifyReminderStore.removeReminder(entry.discordId, entry.guildId);
       return;
     }
@@ -60,6 +69,7 @@ async function sendReminderIfDue(entry, client) {
     const verified2 = await verificationStore.getByDiscord(entry.discordId);
     if (verified2) {
       console.info('[verifyReminderScheduler] user verified after fetch, removing reminder', { discordId: entry.discordId, guildId: entry.guildId });
+      clearTimer(entry.id);
       await verifyReminderStore.removeReminder(entry.discordId, entry.guildId);
       return;
     }
@@ -125,6 +135,10 @@ async function onGuildMemberAdd(member) {
 
 async function onGuildMemberRemove(member) {
   try {
+    const list = await verifyReminderStore.listByDiscord(member.id);
+    for (const entry of list) {
+      if (entry && entry.guildId === member.guild.id) clearTimer(entry.id);
+    }
     await verifyReminderStore.removeReminder(member.id, member.guild.id);
   } catch (e) {
     console.error('[verifyReminderScheduler] onGuildMemberRemove failed', e);

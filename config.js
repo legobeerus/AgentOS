@@ -193,6 +193,8 @@ module.exports = {
   XP_LOG_CHANNEL_ID: cleanId(process.env.XP_LOG_CHANNEL_ID) || "994328564625326152",
   XP_ALERT_CHANNEL_ID: cleanId(process.env.XP_ALERT_CHANNEL_ID) || "1041577711665156155",
   XP_ALERT_DEDUP_MINUTES: process.env.XP_ALERT_DEDUP_MINUTES !== undefined ? Number(process.env.XP_ALERT_DEDUP_MINUTES) : 10,
+  // TTL for cached AoS entry lookups used by XP watcher (milliseconds)
+  XP_AOS_CACHE_TTL_MS: process.env.XP_AOS_CACHE_TTL_MS !== undefined ? Number(process.env.XP_AOS_CACHE_TTL_MS) : 60000,
 
   // Service account credentials for private sheets. Provide the full JSON
   // as a string in `GOOGLE_SERVICE_ACCOUNT_JSON` (preferred) or a filesystem
