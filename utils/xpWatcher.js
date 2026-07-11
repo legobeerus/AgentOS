@@ -240,8 +240,6 @@ async function handleXpAuditLogMessage(message, client) {
     return;
   }
 
-  console.info('[xpWatcher] Processing XP channel message', { messageId: message.id, channelId: message.channel.id });
-
   const username = extractUsernameFromAuditMessage(message);
   if (!username) {
     warnLog('No username parsed from XP log message', { messageId: message.id });
