@@ -4,6 +4,14 @@ function normalizeUsername(value) {
   return String(value || '').trim().toLowerCase();
 }
 
+function stripOuterAsterisks(value) {
+  let text = String(value || '').trim();
+  while (text.length >= 2 && text.startsWith('*') && text.endsWith('*')) {
+    text = text.slice(1, -1).trim();
+  }
+  return text;
+}
+
 function parseFieldValue(content, fieldName) {
   const text = String(content || '').replace(/\r/g, '');
   const escaped = String(fieldName || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -25,7 +33,9 @@ function parseFieldValue(content, fieldName) {
 }
 
 function parseUsernameField(content) {
-  return parseFieldValue(content, 'Username');
+  const parsed = parseFieldValue(content, 'Username');
+  if (!parsed) return parsed;
+  return stripOuterAsterisks(parsed);
 }
 
 function parseChargesField(content) {
