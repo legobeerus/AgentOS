@@ -178,6 +178,46 @@ function formatTimeHM(date) {
   }).format(time);
 }
 
+async function initXpWatcherDiagnostics(client) {
+  try {
+    if (!client) return;
+    const guilds = Array.from((client.guilds && client.guilds.cache && client.guilds.cache.values()) || []);
+    const guildSummary = guilds.map(g => `${g.name}(${g.id})`).slice(0, 25);
+    console.info('[xpWatcher] Startup diagnostics', {
+      guildCount: guilds.length,
+      guilds: guildSummary,
+      configuredXpLogChannelId: String(config.XP_LOG_CHANNEL_ID || ''),
+      configuredXpAlertChannelId: String(config.XP_ALERT_CHANNEL_ID || '')
+    });
+
+    const xpLogCh = await client.channels.fetch(config.XP_LOG_CHANNEL_ID).catch(() => null);
+    if (!xpLogCh) {
+      warnLog('Configured XP log channel could not be fetched', { channelId: String(config.XP_LOG_CHANNEL_ID || '') });
+    } else {
+      console.info('[xpWatcher] XP log channel resolved', {
+        channelId: xpLogCh.id,
+        guildId: xpLogCh.guildId || null,
+        guildName: (xpLogCh.guild && xpLogCh.guild.name) || null,
+        type: xpLogCh.type
+      });
+    }
+
+    const xpAlertCh = await client.channels.fetch(config.XP_ALERT_CHANNEL_ID).catch(() => null);
+    if (!xpAlertCh) {
+      warnLog('Configured XP alert channel could not be fetched', { channelId: String(config.XP_ALERT_CHANNEL_ID || '') });
+    } else {
+      console.info('[xpWatcher] XP alert channel resolved', {
+        channelId: xpAlertCh.id,
+        guildId: xpAlertCh.guildId || null,
+        guildName: (xpAlertCh.guild && xpAlertCh.guild.name) || null,
+        type: xpAlertCh.type
+      });
+    }
+  } catch (e) {
+    warnLog('Startup diagnostics failed', { error: e && (e.message || e) });
+  }
+}
+
 async function handleXpAuditLogMessage(message, client) {
   if (!message || !message.channel) return;
   const inXpChannel = String(message.channel.id) === String(config.XP_LOG_CHANNEL_ID);
@@ -246,6 +286,7 @@ async function handleXpAuditLogMessage(message, client) {
 }
 
 module.exports = {
+  initXpWatcherDiagnostics,
   handleXpAuditLogMessage,
   extractUsernameFromAuditMessage
 };

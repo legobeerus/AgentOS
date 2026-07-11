@@ -11,7 +11,7 @@ const { handleExamDM } = require("./utils/examMessageHandler");
 const { handleTimeWebhookMessage } = require("./utils/timeWebhookHandler");
 const { startSuspensionScheduler } = require("./utils/trelloSuspensionScheduler");
 const { createFormServer } = require("./utils/createFormServer");
-const { handleXpAuditLogMessage } = require("./utils/xpWatcher");
+const { initXpWatcherDiagnostics, handleXpAuditLogMessage } = require("./utils/xpWatcher");
 
 const client = new Client({
   intents: [
@@ -45,6 +45,7 @@ loadCommands(client);
 // Ready event
 client.once("ready", () => {
   console.log(`Logged in as ${client.user.tag}`);
+  try { initXpWatcherDiagnostics(client).catch(() => null); } catch (e) {}
   startSuspensionScheduler();
   // Start inactivity scheduler to DM expired INs and clean DB
   try { startInactivityScheduler(client); } catch (e) { console.error('Failed to start inactivity scheduler:', e); }
