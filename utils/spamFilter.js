@@ -1,34 +1,54 @@
 /**
- * Application spam detection with configurable heuristics.
- * Returns detailed analysis so callers can log why a submission was blocked.
+ * Application spam detection.
+ * Intentionally conservative: only blocks obvious repetitive spam or
+ * applications where every long-form answer is a short/generic low-effort reply.
  */
 
 const DEFAULTS = {
-  minTotalChars: 80,
-  minLongAnswerChars: 12,
-  minLongAnswerCount: 2,
-  maxShortLongAnswerRatio: 0.6,
-  duplicateLongAnswerThreshold: 3,
-  trustTotalCharsBypass: 1200
+  globalShortAnswerMaxChars: 18,
+  minAnswersForGlobalShortRule: 4,
+  shortAnswerMaxChars: 16,
+  repeatedCharRunThreshold: 10,
+  repeatedPatternMinRepeats: 3,
+  repeatedPatternMinLength: 18,
+  maxLowDiversityRatio: 0.15,
+  lowDiversityMinLength: 20,
+  maxUniqueWordsForAllShortSubmission: 12,
+  minLongFormQuestionsForAllShortRule: 2,
+  genericAnswerSet: [
+    'letmein',
+    'acceptme',
+    'accept',
+    'accept me',
+    'let me in',
+    'pick me',
+    'hire me',
+    'idk',
+    'i dont know',
+    'n/a',
+    'na',
+    'none',
+    'test'
+  ]
 };
 
 function mergeOptions(options) {
-  return {
+  const merged = {
     ...DEFAULTS,
     ...(options || {})
   };
+
+  // Backward compatibility with previous config keys.
+  if (options && options.minLongAnswerChars !== undefined && options.shortAnswerMaxChars === undefined) {
+    merged.shortAnswerMaxChars = Number(options.minLongAnswerChars);
+  }
+
+  return merged;
 }
 
 function normalizeText(value) {
   return String(value || '')
     .toLowerCase()
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function normalizeForDuplicateCheck(value) {
-  return normalizeText(value)
-    .replace(/[^a-z0-9\s]/g, '')
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -39,11 +59,22 @@ function isShortAllowedQuestion(question) {
   return /(discord|roblox|username|user\s*id|userid|id\b|age\b|timezone|time zone|rank|department|division|group|link|url|proof|evidence|date|time|email|tag|handle)/i.test(key);
 }
 
+function normalizeCompact(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+}
+
+function tokenizeWords(value) {
+  const normalized = normalizeText(value).replace(/[^a-z0-9\s]/g, ' ');
+  return normalized.split(/\s+/).filter(Boolean);
+}
+
 function isRepeatedWordOrChar(answer) {
   const s = String(answer || '').trim();
   if (!s) return false;
 
-  const words = s.split(/\s+/).filter(Boolean);
+  const words = tokenizeWords(s);
   if (words.length >= 3) {
     const lower = words.map(w => w.toLowerCase());
     const uniq = new Set(lower);
@@ -55,11 +86,51 @@ function isRepeatedWordOrChar(answer) {
   return false;
 }
 
-function hasLowCharacterDiversity(answer) {
+function hasRepeatedCharacterRun(answer, threshold) {
+  const compact = normalizeCompact(answer);
+  if (!compact) return false;
+  const re = new RegExp(`(.)\\1{${Math.max(2, Number(threshold || 10)) - 1},}`);
+  return re.test(compact);
+}
+
+function hasRepeatedPattern(answer, minRepeats, minLength) {
+  const compact = normalizeCompact(answer);
+  if (compact.length < Number(minLength || 18)) return false;
+  const repeatsRequired = Math.max(2, Number(minRepeats || 3));
+  const maxUnitLen = Math.floor(compact.length / repeatsRequired);
+
+  for (let unitLen = 2; unitLen <= maxUnitLen; unitLen += 1) {
+    if (compact.length % unitLen !== 0) continue;
+    const unit = compact.slice(0, unitLen);
+    const repeats = compact.length / unitLen;
+    if (repeats < repeatsRequired) continue;
+    if (unit.repeat(repeats) === compact) return true;
+  }
+
+  return false;
+}
+
+function hasLowCharacterDiversity(answer, cfg) {
   const s = String(answer || '').replace(/\s+/g, '');
-  if (s.length < 20) return false;
+  if (s.length < Number(cfg.lowDiversityMinLength || 20)) return false;
   const unique = new Set(s.toLowerCase().split('')).size;
-  return unique / s.length <= 0.2;
+  return unique / s.length <= Number(cfg.maxLowDiversityRatio || 0.15);
+}
+
+function isGenericLowEffort(answer, cfg) {
+  const normalized = normalizeText(answer)
+    .replace(/[^a-z0-9\s/]/g, '')
+    .trim();
+  if (!normalized) return true;
+
+  const compact = normalizeCompact(answer);
+  const phraseSet = new Set((cfg.genericAnswerSet || []).map(v => normalizeText(v)));
+  if (phraseSet.has(normalized)) return true;
+
+  const compactPhraseSet = new Set((cfg.genericAnswerSet || []).map(v => normalizeCompact(v)));
+  if (compactPhraseSet.has(compact)) return true;
+
+  return false;
 }
 
 function isPlaceholderText(answer) {
@@ -79,7 +150,10 @@ function analyzeSpamAnswers(answers, options) {
       totalCharsWithSpaces: 0,
       longAnswerCount: 0,
       shortLongAnswerCount: 0,
-      shortLongAnswerRatio: 0
+      shortLongAnswerRatio: 0,
+      obviousSpamAnswerCount: 0,
+      genericShortLongAnswerCount: 0,
+      uniqueWordCountInLongAnswers: 0
     }
   };
 
@@ -103,59 +177,66 @@ function analyzeSpamAnswers(answers, options) {
     result.metrics.totalChars = totalChars;
     result.metrics.totalCharsWithSpaces = totalCharsWithSpaces;
 
-    // Long submissions are unlikely to be low-effort spam; bypass stricter heuristics.
-    if (totalCharsWithSpaces >= Number(cfg.trustTotalCharsBypass || 0)) {
-      return result;
+    const allAnswersVeryShort =
+      nonEmpty.length >= Number(cfg.minAnswersForGlobalShortRule || 4) &&
+      nonEmpty.every(e => e.answer.length < Number(cfg.globalShortAnswerMaxChars || 18));
+
+    if (allAnswersVeryShort) {
+      result.reasons.push('all_answers_too_short');
     }
 
     const longFormEntries = nonEmpty.filter(e => !isShortAllowedQuestion(e.question));
     result.metrics.longAnswerCount = longFormEntries.length;
 
-    if (totalChars < cfg.minTotalChars) {
-      result.reasons.push('total_chars_below_min');
+    let shortLong = 0;
+    let obviousSpamAnswerCount = 0;
+    let genericShortLongAnswerCount = 0;
+    const longFormWordSet = new Set();
+
+    for (const entry of longFormEntries) {
+      const ans = entry.answer;
+      const words = tokenizeWords(ans);
+      for (const w of words) longFormWordSet.add(w);
+
+      if (ans.length <= cfg.shortAnswerMaxChars) shortLong += 1;
+
+      const obviousSpam =
+        hasRepeatedCharacterRun(ans, cfg.repeatedCharRunThreshold) ||
+        hasRepeatedPattern(ans, cfg.repeatedPatternMinRepeats, cfg.repeatedPatternMinLength) ||
+        isRepeatedWordOrChar(ans) ||
+        hasLowCharacterDiversity(ans, cfg);
+
+      if (obviousSpam) {
+        obviousSpamAnswerCount += 1;
+        result.reasons.push('obvious_repetition_spam');
+      }
+
+      const isVeryShort = ans.length <= cfg.shortAnswerMaxChars;
+      if (isVeryShort && (isGenericLowEffort(ans, cfg) || isPlaceholderText(ans))) {
+        genericShortLongAnswerCount += 1;
+      }
     }
 
-    if (longFormEntries.length >= cfg.minLongAnswerCount) {
-      let shortLong = 0;
-      const duplicateCounter = new Map();
-      let placeholderCount = 0;
+    result.metrics.shortLongAnswerCount = shortLong;
+    result.metrics.shortLongAnswerRatio = longFormEntries.length ? (shortLong / longFormEntries.length) : 0;
+    result.metrics.obviousSpamAnswerCount = obviousSpamAnswerCount;
+    result.metrics.genericShortLongAnswerCount = genericShortLongAnswerCount;
+    result.metrics.uniqueWordCountInLongAnswers = longFormWordSet.size;
 
-      for (const entry of longFormEntries) {
-        const ans = entry.answer;
-        const normalizedDup = normalizeForDuplicateCheck(ans);
+    const allLongFormAreVeryShort =
+      longFormEntries.length >= cfg.minLongFormQuestionsForAllShortRule &&
+      shortLong === longFormEntries.length;
 
-        if (ans.length < cfg.minLongAnswerChars) shortLong += 1;
-        if (isRepeatedWordOrChar(ans)) {
-          result.reasons.push('repeated_word_or_char');
-        }
-        if (hasLowCharacterDiversity(ans)) {
-          result.reasons.push('low_character_diversity');
-        }
-        if (isPlaceholderText(ans)) {
-          placeholderCount += 1;
-        }
+    const allLongFormAreGeneric =
+      longFormEntries.length > 0 &&
+      genericShortLongAnswerCount === longFormEntries.length;
 
-        if (normalizedDup.length >= cfg.minLongAnswerChars) {
-          duplicateCounter.set(normalizedDup, (duplicateCounter.get(normalizedDup) || 0) + 1);
-        }
-      }
+    const lowSubmissionWordDiversity =
+      longFormWordSet.size > 0 &&
+      longFormWordSet.size <= cfg.maxUniqueWordsForAllShortSubmission;
 
-      const ratio = shortLong / longFormEntries.length;
-      result.metrics.shortLongAnswerCount = shortLong;
-      result.metrics.shortLongAnswerRatio = Number.isFinite(ratio) ? ratio : 0;
-
-      if (ratio >= cfg.maxShortLongAnswerRatio) {
-        result.reasons.push('mostly_short_long_answers');
-      }
-
-      const maxDup = Math.max(0, ...Array.from(duplicateCounter.values()));
-      if (maxDup >= cfg.duplicateLongAnswerThreshold) {
-        result.reasons.push('duplicate_long_answers');
-      }
-
-      if (placeholderCount >= Math.ceil(longFormEntries.length * 0.5)) {
-        result.reasons.push('mostly_placeholder_answers');
-      }
+    if (allLongFormAreVeryShort && allLongFormAreGeneric && lowSubmissionWordDiversity) {
+      result.reasons.push('all_long_answers_short_and_generic');
     }
 
     const uniqueReasons = Array.from(new Set(result.reasons));

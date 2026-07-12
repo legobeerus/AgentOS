@@ -65,13 +65,17 @@ module.exports = {
   GAME_QUOTA_EXCLUDE_RANKS: process.env.GAME_QUOTA_EXCLUDE_RANKS || "Special Agent-in-Training,Director of Investigations,Deputy Director of Investigations,Section Chief,Overseer",
   // Channel to post quota check reports
     GAME_QUOTA_CHANNEL_ID: process.env.GAME_QUOTA_CHANNEL_ID || "1494043062991847546",
+    // Zero-based index of pass/fail status column in TIME_LOG_SHEET_RANGE (checkbox/IF TRUE/FALSE/IMMUNE)
+    GAME_QUOTA_PASS_COL: process.env.GAME_QUOTA_PASS_COL !== undefined ? Number(process.env.GAME_QUOTA_PASS_COL) : 5,
+    // Text marker in pass/fail column that excludes a user from quota and Agent of the Week
+    GAME_QUOTA_IMMUNE_TEXT: process.env.GAME_QUOTA_IMMUNE_TEXT || 'IMMUNE',
     GAME_LOG_STRIKE_COL: process.env.GAME_LOG_STRIKE_COL !== undefined ? Number(process.env.GAME_LOG_STRIKE_COL) : 6,
     // Probation detection: comma-separated rank names to consider probationary
     PROBATION_RANK_NAMES: process.env.PROBATION_RANK_NAMES || 'Special Agent-in-Training',
     // Comma-separated role IDs that should trigger an alert if a probationary agent has them
     PROBATION_SUSPICIOUS_ROLE_IDS: process.env.PROBATION_SUSPICIOUS_ROLE_IDS || "1487506799400849518",
     // Comma-separated role IDs that are required for probationary agents; alert if missing
-    PROBATION_REQUIRED_ROLE_IDS: process.env.PROBATION_REQUIRED_ROLE_IDS || "1482810978059161610",
+    PROBATION_REQUIRED_ROLE_IDS: process.env.PROBATION_REQUIRED_ROLE_IDS || "1449837003188342916",
     // Channel to post probation alerts
     PROBATION_ALERT_CHANNEL_ID: process.env.PROBATION_ALERT_CHANNEL_ID || "1041577711845519384",
     // Optional: a temporary role ID that the bot can add/remove to force a guildMemberUpdate
@@ -146,6 +150,8 @@ module.exports = {
   KICK_TARGET_GUILD_ID: cleanId(process.env.KICK_TARGET_GUILD_ID) || undefined,
   // Guild ID where /kick will remove configured roles from the same user
   KICK_ROLE_STRIP_GUILD_ID: cleanId(process.env.KICK_ROLE_STRIP_GUILD_ID) || undefined,
+  // Channel where /kick action logs are posted
+  KICK_LOG_CHANNEL_ID: cleanId(process.env.KICK_LOG_CHANNEL_ID) || "1488617010576490506",
   // Comma-separated role IDs to remove in KICK_ROLE_STRIP_GUILD_ID
   KICK_ROLE_STRIP_ROLE_IDS: process.env.KICK_ROLE_STRIP_ROLE_IDS || "",
   // Optional: comma-separated role IDs allowed to run /kick (empty = fallback to ADMIN_WHITELIST)

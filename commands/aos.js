@@ -3,8 +3,8 @@ const config = require('../config');
 const { computeJailTimeFromCharges } = require('../utils/aosSentencing');
 const { listActiveAosEntries, enforceAos30DayExpirationForThread } = require('../utils/aosForumLookup');
 
-const AOS_GLOBAL_COOLDOWN_MS = 60 * 1000;
-let nextAosAllowedAt = 0;
+const AOS_LIST_COOLDOWN_MS = 60 * 1000;
+let nextAosListAllowedAt = 0;
 
 function hasAnyAllowedRole(member, roleIds) {
   if (!member || !member.roles || !member.roles.cache) return false;
@@ -174,13 +174,15 @@ module.exports = {
 
   async execute(interaction) {
     const sub = interaction.options.getSubcommand(false);
-    const now = Date.now();
-    if (now < nextAosAllowedAt) {
-      const waitSec = Math.max(1, Math.ceil((nextAosAllowedAt - now) / 1000));
-      await interaction.reply({ content: `⏳ /aos is on a global cooldown. Please wait ${waitSec}s.`, ephemeral: false });
-      return;
+    if (sub === 'list') {
+      const now = Date.now();
+      if (now < nextAosListAllowedAt) {
+        const waitSec = Math.max(1, Math.ceil((nextAosListAllowedAt - now) / 1000));
+        await interaction.reply({ content: `⏳ /aos list is on cooldown. Please wait ${waitSec}s.`, ephemeral: false });
+        return;
+      }
+      nextAosListAllowedAt = now + AOS_LIST_COOLDOWN_MS;
     }
-    nextAosAllowedAt = now + AOS_GLOBAL_COOLDOWN_MS;
 
     await interaction.deferReply({ ephemeral: false });
 

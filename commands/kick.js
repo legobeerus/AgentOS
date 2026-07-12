@@ -39,6 +39,7 @@ module.exports = {
 
     const targetGuildId = config.KICK_TARGET_GUILD_ID;
     const stripGuildId = config.KICK_ROLE_STRIP_GUILD_ID;
+    const kickLogChannelId = config.KICK_LOG_CHANNEL_ID;
     const stripRoleIds = config.KICK_ROLE_STRIP_ROLE_IDS_LIST || [];
 
     if (!targetGuildId || !stripGuildId) {
@@ -53,6 +54,8 @@ module.exports = {
     const reason = reasonInput || `Action executed by ${interaction.user.tag} (${interaction.user.id})`;
 
     const summary = [];
+    let didKick = false;
+    let removedRoleCount = 0;
 
     // 1) Kick from configured target guild.
     try {
@@ -71,6 +74,7 @@ module.exports = {
             summary.push(`⚠️ ${user.tag} is in ${targetGuild.name}, but cannot be kicked (role hierarchy/permissions).`);
           } else {
             await targetMember.kick(reason);
+            didKick = true;
             summary.push(`✅ Kicked ${user.tag} from ${targetGuild.name}.`);
 
             const dmEmbed = new EmbedBuilder()
@@ -115,6 +119,7 @@ module.exports = {
             summary.push(`ℹ️ ${user.tag} does not currently have any configured strip roles in ${stripGuild.name}.`);
           } else {
             await stripMember.roles.remove(existingRoleIds, `Role strip via /kick by ${interaction.user.tag} (${interaction.user.id})`);
+            removedRoleCount = existingRoleIds.length;
             summary.push(`✅ Removed ${existingRoleIds.length} configured role(s) from ${user.tag} in ${stripGuild.name}.`);
           }
         }
@@ -122,6 +127,32 @@ module.exports = {
     } catch (err) {
       console.error('kick command: failed during role strip step', err);
       summary.push('⚠️ Failed while attempting role removal action.');
+    }
+
+    if (kickLogChannelId) {
+      try {
+        const logChannel = await interaction.client.channels.fetch(kickLogChannelId).catch(() => null);
+        if (logChannel && logChannel.isTextBased()) {
+          const logEmbed = new EmbedBuilder()
+            .setTitle('Kick Command Log')
+            .setColor(didKick ? 0x57F287 : 0xFEE75C)
+            .addFields(
+              { name: 'Moderator', value: `${interaction.user.tag} (${interaction.user.id})`, inline: false },
+              { name: 'User', value: `${user.tag} (${user.id})`, inline: false },
+              { name: 'Reason', value: reasonInput ? reasonInput.slice(0, 1024) : 'No reason provided', inline: false },
+              { name: 'Kick Executed', value: didKick ? 'Yes' : 'No', inline: true },
+              { name: 'Roles Removed', value: String(removedRoleCount), inline: true }
+            )
+            .setDescription(summary.join('\n').slice(0, 4096))
+            .setTimestamp(new Date());
+
+          await logChannel.send({ embeds: [logEmbed] });
+        } else {
+          console.warn(`kick command: log channel ${kickLogChannelId} is missing or not text-based`);
+        }
+      } catch (err) {
+        console.error('kick command: failed to send log message', err);
+      }
     }
 
     return interaction.editReply({ content: summary.join('\n'), ephemeral: true });

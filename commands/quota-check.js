@@ -2,6 +2,21 @@ const { SlashCommandBuilder } = require("discord.js");
 const config = require("../config");
 const { google } = require("googleapis");
 
+function normalizeCell(value) {
+  return (value || "").toString().trim();
+}
+
+function isImmuneStatus(value) {
+  const s = normalizeCell(value).toLowerCase();
+  return s === (config.GAME_QUOTA_IMMUNE_TEXT || "IMMUNE").toLowerCase();
+}
+
+function isFailedStatus(value) {
+  const s = normalizeCell(value).toLowerCase();
+  // Google Sheets checkbox/IF outputs are typically TRUE/FALSE (string values via values API).
+  return s === "false" || s === "unchecked" || s === "0" || s === "no" || s === "n";
+}
+
 async function getSheetRows(range) {
   // If an API key is provided, use the simple REST read (read-only)
   if (config.GOOGLE_SHEETS_API_KEY && config.GOOGLE_SHEET_ID) {
@@ -54,6 +69,7 @@ module.exports = {
       const nameCol = config.TIME_LOG_NAME_COL || 0;
       const minutesCol = config.TIME_LOG_MINUTES_COL || 2;
       const rankCol = (config.TIME_LOG_RANK_COL !== undefined && config.TIME_LOG_RANK_COL !== null) ? Number(config.TIME_LOG_RANK_COL) : undefined;
+      const passCol = (config.GAME_QUOTA_PASS_COL !== undefined && config.GAME_QUOTA_PASS_COL !== null) ? Number(config.GAME_QUOTA_PASS_COL) : undefined;
       const excludeRanks = (config.GAME_QUOTA_EXCLUDE_RANKS || "").split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
 
       const failed = [];
@@ -63,20 +79,32 @@ module.exports = {
       const strikeCol = (config.GAME_LOG_STRIKE_COL !== undefined && config.GAME_LOG_STRIKE_COL !== null) ? Number(config.GAME_LOG_STRIKE_COL) : undefined;
 
       for (const row of rows) {
-        const name = (row[nameCol] || "").toString().trim();
-        const raw = (row[minutesCol] || "").toString().trim();
+        const name = normalizeCell(row[nameCol]);
+        const raw = normalizeCell(row[minutesCol]);
         if (!name) continue;
         // If a rank column is configured and the rank matches an excluded rank, skip this row
         if (typeof rankCol === 'number' && excludeRanks.length) {
           const rank = (row[rankCol] || "").toString().trim().toLowerCase();
           if (rank && excludeRanks.includes(rank)) continue;
         }
+
+        const passStatusRaw = typeof passCol === 'number' ? row[passCol] : undefined;
+        if (isImmuneStatus(passStatusRaw)) {
+          // IMMUNE users are excluded from both fail checks and Agent of the Week nomination.
+          continue;
+        }
+
+        if (typeof passCol === 'number' && isFailedStatus(passStatusRaw)) {
+          failed.push({ name, row });
+        }
+
         // If the sheet cell contains exactly a single hyphen, treat it as ignored
         if (raw === "-") continue;
         if (raw !== "") {
           const val = Number(raw);
           if (!Number.isNaN(val)) {
-            if (val < 60) failed.push({ name, row });
+            // Legacy fallback: if pass-status column is not configured, use time-based quota failure.
+            if (typeof passCol !== 'number' && val < 60) failed.push({ name, row });
             if (val > topMinutes) { topMinutes = val; topName = name; }
           }
         }

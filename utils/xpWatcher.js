@@ -1,6 +1,7 @@
 const config = require('../config');
 const { EmbedBuilder } = require('discord.js');
 const { listActiveAosEntries } = require('./aosForumLookup');
+const { getState } = require('./adminState');
 
 const recentAlerts = new Map();
 let lastPruneAt = 0;
@@ -8,9 +9,39 @@ let aosEntriesCache = null;
 let aosEntriesCacheExpiresAt = 0;
 let aosEntriesInFlight = null;
 let lastChannelMismatchLogAt = 0;
+let adminDebugModeCached = false;
+let adminDebugModeCheckedAt = 0;
+let adminDebugModeInFlight = null;
+
+const ADMIN_DEBUG_CACHE_MS = 5000;
+
+async function refreshAdminDebugMode() {
+  const now = Date.now();
+  if ((now - adminDebugModeCheckedAt) < ADMIN_DEBUG_CACHE_MS) {
+    return adminDebugModeCached;
+  }
+
+  if (adminDebugModeInFlight) return adminDebugModeInFlight;
+
+  adminDebugModeInFlight = getState()
+    .then((state) => {
+      adminDebugModeCached = !!(state && state.debugMode);
+      adminDebugModeCheckedAt = Date.now();
+      return adminDebugModeCached;
+    })
+    .catch(() => {
+      adminDebugModeCheckedAt = Date.now();
+      return adminDebugModeCached;
+    })
+    .finally(() => {
+      adminDebugModeInFlight = null;
+    });
+
+  return adminDebugModeInFlight;
+}
 
 function isVerbose() {
-  return !!config.XP_ALERT_VERBOSE;
+  return !!config.XP_ALERT_VERBOSE || adminDebugModeCached;
 }
 
 function debugLog(message, data) {
@@ -173,17 +204,15 @@ function extractUsernameFromAuditMessage(message) {
   return null;
 }
 
-function formatTimeHM(date) {
-  const time = date || new Date();
-  return new Intl.DateTimeFormat('en-US', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false
-  }).format(time);
+function formatDiscordTimestamp(date, style = 'f') {
+  const time = date instanceof Date ? date : new Date();
+  const unixSeconds = Math.floor(time.getTime() / 1000);
+  return `<t:${unixSeconds}:${style}>`;
 }
 
 async function initXpWatcherDiagnostics(client) {
   try {
+    await refreshAdminDebugMode();
     if (!client) return;
     const guilds = Array.from((client.guilds && client.guilds.cache && client.guilds.cache.values()) || []);
     const guildSummary = guilds.map(g => `${g.name}(${g.id})`).slice(0, 25);
@@ -223,6 +252,7 @@ async function initXpWatcherDiagnostics(client) {
 }
 
 async function handleXpAuditLogMessage(message, client) {
+  await refreshAdminDebugMode();
   if (!message || !message.channel) return;
   const inXpChannel = String(message.channel.id) === String(config.XP_LOG_CHANNEL_ID);
   if (!inXpChannel) {
@@ -242,7 +272,7 @@ async function handleXpAuditLogMessage(message, client) {
 
   const username = extractUsernameFromAuditMessage(message);
   if (!username) {
-    warnLog('No username parsed from XP log message', { messageId: message.id });
+    debugLog('No username parsed from XP log message', { messageId: message.id });
     return;
   }
 
@@ -252,14 +282,14 @@ async function handleXpAuditLogMessage(message, client) {
   pruneRecentAlerts(now, dedupMinutes);
   const lastSeen = recentAlerts.get(key);
   if (lastSeen && (now - lastSeen) < dedupMinutes * 60 * 1000) {
-    console.info('[xpWatcher] Alert suppressed by dedupe window', { username, dedupMinutes });
+    debugLog('Alert suppressed by dedupe window', { username, dedupMinutes });
     return;
   }
 
   const aosEntries = await getCachedAosEntries(client);
   const matches = aosEntries.filter(entry => normalizeUsername(entry.username) === key);
   if (!matches.length) {
-    warnLog('No active AoS match for parsed username', { username, cachedEntries: aosEntries.length });
+    debugLog('No active AoS match for parsed username', { username, cachedEntries: aosEntries.length });
     return;
   }
 
@@ -272,7 +302,7 @@ async function handleXpAuditLogMessage(message, client) {
   }
 
   const count = matches.length;
-  const currentTime = formatTimeHM(new Date());
+  const currentTime = formatDiscordTimestamp(new Date(), 'f');
 
   const embed = new EmbedBuilder()
     .setTitle('AOS Alert')
