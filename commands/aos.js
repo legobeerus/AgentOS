@@ -28,11 +28,12 @@ function getAosForumThread(interaction) {
   return { thread: channel };
 }
 
-function buildAosBody({ username, profile, victims, charges, summary, proof, jailMinutes }) {
+function buildAosBody({ submitter, username, profile, victims, charges, summary, proof, jailMinutes }) {
   return [
     '# <:osi:1448992108500357150> **AOS Order** <:osi:1448992108500357150>',
     `<@&${config.AOS_PING_ROLE_ID}>`,
     '',
+    `**Submitter:** ${submitter}`,
     `**Username:** ${username}`,
     `**Profile:** ${profile}`,
     `**Victim(s):** ${victims}`,
@@ -222,6 +223,7 @@ module.exports = {
       const jailMinutes = sentencing.totalMinutes;
 
       const content = buildAosBody({
+        submitter: `<@${interaction.user.id}>`,
         username,
         profile,
         victims,
