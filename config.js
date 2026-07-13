@@ -41,12 +41,12 @@ module.exports = {
   TRELLO_SUSPENSIONS_BOARD_ID: process.env.TRELLO_SUSPENSIONS_BOARD_ID || "693f1533319531ec08ae2ff4",
 
   // Database URL for blacklist roster
-  DATABASE_URL: process.env.DATABASE_URL || "postgresql://postgres:FsafHCChNBfgeTRpRHHeYsGIXvMQWzmc@postgres.railway.internal:5432/railway"
-  ,
+  DATABASE_URL: process.env.DATABASE_URL || undefined,
+  
   // Optional: Google Sheets lookup for background checks
   // Set GOOGLE_SHEET_ID and GOOGLE_SHEETS_API_KEY in your environment to enable
   GOOGLE_SHEET_ID: process.env.GOOGLE_SHEET_ID || "11k9MP9Qqt2-2xTWMco_YyAysAPVXG5PN3E7P18clWXc",
-  GOOGLE_SHEETS_API_KEY: process.env.GOOGLE_SHEETS_API_KEY || "AIzaSyBU73pFrxOsIrwj4W_6GlwPv98gpZJBWPg",
+  GOOGLE_SHEETS_API_KEY: process.env.GOOGLE_SHEETS_API_KEY || undefined,
   // Range to fetch (e.g. 'Sheet1!A:C'). Defaults to the first 3 columns.
   GOOGLE_SHEETS_RANGE: process.env.GOOGLE_SHEETS_RANGE || 'Blacklists!A4:B1000',
 
@@ -160,10 +160,18 @@ module.exports = {
   // Website role lookup API configuration
   // Shared API token preferred for web callers (do not expose DISCORD_TOKEN to browsers)
   BOT_API_TOKEN: process.env.BOT_API_TOKEN || undefined,
+  // Comma-separated CORS allowlist for web API requests. Empty or '*' allows any origin.
+  BOT_API_ALLOWED_ORIGINS: process.env.BOT_API_ALLOWED_ORIGINS || '*',
+  // Temporary compatibility mode for legacy clients that pass api_token in query/body.
+  BOT_API_ALLOW_LEGACY_QUERY_TOKEN: process.env.BOT_API_ALLOW_LEGACY_QUERY_TOKEN === undefined
+    ? true
+    : (process.env.BOT_API_ALLOW_LEGACY_QUERY_TOKEN || '').toLowerCase() === 'true' || process.env.BOT_API_ALLOW_LEGACY_QUERY_TOKEN === '1',
   // Optional hard lock: force website role lookups to this guild ID
   BOT_API_ENFORCED_GUILD_ID: cleanId(process.env.BOT_API_ENFORCED_GUILD_ID) || undefined,
   // Optional compatibility mode: allow using DISCORD_TOKEN as API auth (not recommended)
   BOT_API_ALLOW_DISCORD_TOKEN: (process.env.BOT_API_ALLOW_DISCORD_TOKEN || '').toLowerCase() === 'true' || process.env.BOT_API_ALLOW_DISCORD_TOKEN === '1',
+  // Optional shared secret for /form-submission endpoint. If unset, endpoint remains open.
+  FORM_SUBMISSION_TOKEN: process.env.FORM_SUBMISSION_TOKEN || undefined,
 
   // Comma-separated role IDs that should be excluded from the !verifylist output
   // Example: VERIFYLIST_EXCLUDE_ROLE_IDS=12345,67890

@@ -11,8 +11,6 @@ const DEFAULTS = {
   repeatedCharRunThreshold: 10,
   repeatedPatternMinRepeats: 3,
   repeatedPatternMinLength: 18,
-  maxLowDiversityRatio: 0.15,
-  lowDiversityMinLength: 20,
   maxUniqueWordsForAllShortSubmission: 12,
   minLongFormQuestionsForAllShortRule: 2,
   genericAnswerSet: [
@@ -110,13 +108,6 @@ function hasRepeatedPattern(answer, minRepeats, minLength) {
   return false;
 }
 
-function hasLowCharacterDiversity(answer, cfg) {
-  const s = String(answer || '').replace(/\s+/g, '');
-  if (s.length < Number(cfg.lowDiversityMinLength || 20)) return false;
-  const unique = new Set(s.toLowerCase().split('')).size;
-  return unique / s.length <= Number(cfg.maxLowDiversityRatio || 0.15);
-}
-
 function isGenericLowEffort(answer, cfg) {
   const normalized = normalizeText(answer)
     .replace(/[^a-z0-9\s/]/g, '')
@@ -203,8 +194,7 @@ function analyzeSpamAnswers(answers, options) {
       const obviousSpam =
         hasRepeatedCharacterRun(ans, cfg.repeatedCharRunThreshold) ||
         hasRepeatedPattern(ans, cfg.repeatedPatternMinRepeats, cfg.repeatedPatternMinLength) ||
-        isRepeatedWordOrChar(ans) ||
-        hasLowCharacterDiversity(ans, cfg);
+        isRepeatedWordOrChar(ans);
 
       if (obviousSpam) {
         obviousSpamAnswerCount += 1;

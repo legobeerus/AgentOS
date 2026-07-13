@@ -18,11 +18,27 @@ function createFormServer(client) {
   const app = express();
   app.use(express.json());
 
+  const allowedOrigins = String(config.BOT_API_ALLOWED_ORIGINS || '')
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean);
+  const allowAllOrigins = allowedOrigins.length === 0 || allowedOrigins.includes('*');
+
   // Simple CORS middleware to allow front-end hosted elsewhere to call the bot
   app.use((req, res, next) => {
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    const requestOrigin = req.get('origin');
+    if (allowAllOrigins) {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+    } else if (requestOrigin && allowedOrigins.includes(requestOrigin)) {
+      res.setHeader('Access-Control-Allow-Origin', requestOrigin);
+      res.setHeader('Vary', 'Origin');
+    }
     res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,x-discord-token,x-api-token,x-bot-token');
+    if (!allowAllOrigins && requestOrigin && !allowedOrigins.includes(requestOrigin)) {
+      if (req.method === 'OPTIONS') return res.sendStatus(403);
+      return res.status(403).json({ error: 'CORS origin not allowed' });
+    }
     if (req.method === 'OPTIONS') return res.sendStatus(204);
     next();
   });
@@ -42,13 +58,33 @@ function createFormServer(client) {
   function extractApiToken(req) {
     const auth = (req.get('authorization') || '').trim();
     if (auth.toLowerCase().startsWith('bearer ')) return auth.slice(7).trim();
-    return (
-      req.get('x-api-token') ||
-      req.get('x-bot-token') ||
-      req.query?.api_token ||
-      req.body?.api_token ||
-      null
-    );
+
+    const headerToken = req.get('x-api-token') || req.get('x-bot-token') || null;
+    if (headerToken) return headerToken;
+
+    if (config.BOT_API_ALLOW_LEGACY_QUERY_TOKEN) {
+      return req.query?.api_token || req.body?.api_token || null;
+    }
+
+    return null;
+  }
+
+  function extractFormSubmissionToken(req) {
+    const auth = (req.get('authorization') || '').trim();
+    if (auth.toLowerCase().startsWith('bearer ')) return auth.slice(7).trim();
+    return req.get('x-form-token') || null;
+  }
+
+  function requireFormSubmissionAuth(req, res, next) {
+    const configuredToken = config.FORM_SUBMISSION_TOKEN;
+    if (!configuredToken) return next();
+
+    const token = extractFormSubmissionToken(req);
+    if (!token || token !== configuredToken) {
+      return res.status(401).json({ error: 'Unauthorized', message: 'Invalid form submission token' });
+    }
+
+    return next();
   }
 
   function buildMemberRolesPayload(guild, member) {
@@ -188,7 +224,7 @@ function createFormServer(client) {
    *   }
    * }
    */
-  app.post("/form-submission", async (req, res) => {
+  app.post("/form-submission", requireFormSubmissionAuth, async (req, res) => {
     console.debug && console.debug("📨 Form submission received:", req.body);
     if (!client || !client.user) {
       console.warn("Bot not ready yet - rejecting form submission");
