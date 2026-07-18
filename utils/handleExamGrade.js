@@ -11,6 +11,93 @@ function isSectionItem(item) {
   return !!(item && typeof item === 'object' && String(item.type || '').toLowerCase() === 'section');
 }
 
+function isAutoGradedQuestion(q) {
+  return !!(q && typeof q === 'object' && (
+    (q.type === 'multiplechoice' && q.correctAnswer) ||
+    (q.type === 'selection' && q.correctAnswer)
+  ));
+}
+
+function clampScore(value, maxScore) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 0;
+  const max = Number.isFinite(Number(maxScore)) ? Number(maxScore) : 1;
+  if (n < 0) return 0;
+  if (n > max) return max;
+  return n;
+}
+
+function buildManualScoreMap(rawScores, questions) {
+  const map = new Map();
+  const qs = Array.isArray(questions) ? questions : [];
+
+  if (!rawScores) return map;
+
+  // Accept object payloads keyed by question index: { "21": 4, "22": 5 }
+  if (!Array.isArray(rawScores) && typeof rawScores === 'object') {
+    for (const [k, v] of Object.entries(rawScores)) {
+      const idx = Number(k);
+      if (!Number.isInteger(idx) || idx < 0 || idx >= qs.length) continue;
+      const q = qs[idx];
+      const maxScore = (typeof q === 'object' && q.maxScore) ? q.maxScore : 1;
+      map.set(idx, clampScore(v, maxScore));
+    }
+    return map;
+  }
+
+  if (!Array.isArray(rawScores)) return map;
+
+  const scores = rawScores.map(v => Number(v));
+  const nonSectionIndices = [];
+  const manualOnlyIndices = [];
+  for (let i = 0; i < qs.length; i++) {
+    const q = qs[i];
+    if (isSectionItem(q)) continue;
+    nonSectionIndices.push(i);
+    if (!isAutoGradedQuestion(q)) manualOnlyIndices.push(i);
+  }
+
+  // Format A: full question-indexed array, including section placeholders.
+  if (scores.length === qs.length) {
+    for (let i = 0; i < scores.length; i++) {
+      const q = qs[i];
+      const maxScore = (typeof q === 'object' && q.maxScore) ? q.maxScore : 1;
+      map.set(i, clampScore(scores[i], maxScore));
+    }
+    return map;
+  }
+
+  // Format B: compact array over non-section questions only.
+  if (scores.length === nonSectionIndices.length) {
+    for (let i = 0; i < nonSectionIndices.length; i++) {
+      const qIdx = nonSectionIndices[i];
+      const q = qs[qIdx];
+      const maxScore = (typeof q === 'object' && q.maxScore) ? q.maxScore : 1;
+      map.set(qIdx, clampScore(scores[i], maxScore));
+    }
+    return map;
+  }
+
+  // Format C: manual-only compact array (non auto-graded items).
+  if (scores.length === manualOnlyIndices.length) {
+    for (let i = 0; i < manualOnlyIndices.length; i++) {
+      const qIdx = manualOnlyIndices[i];
+      const q = qs[qIdx];
+      const maxScore = (typeof q === 'object' && q.maxScore) ? q.maxScore : 1;
+      map.set(qIdx, clampScore(scores[i], maxScore));
+    }
+    return map;
+  }
+
+  // Fallback for legacy payloads: treat values as direct indices.
+  for (let i = 0; i < scores.length && i < qs.length; i++) {
+    const q = qs[i];
+    const maxScore = (typeof q === 'object' && q.maxScore) ? q.maxScore : 1;
+    map.set(i, clampScore(scores[i], maxScore));
+  }
+  return map;
+}
+
 async function handleGradeButton(interaction) {
   // customId: exam_grade:<sessionId>
   try {
@@ -61,6 +148,7 @@ async function processGrade({ sessionId, scores = [], feedback = '', reviewerTag
   
   // Auto-grade objective question types and merge with manual scores.
   const finalScores = [];
+  const manualScoreMap = buildManualScoreMap(scores, qs);
   const as = sess.answers || [];
   const answerByIndex = new Map(as.map(entry => [Number(entry.index), entry]));
   for (let i = 0; i < qs.length; i++) {
@@ -82,8 +170,8 @@ async function processGrade({ sessionId, scores = [], feedback = '', reviewerTag
       const correctAnswer = normalizeSelectionAnswer(q.correctAnswer);
       finalScores[i] = userAnswer && userAnswer === correctAnswer ? maxScore : 0;
     } else {
-      // Use manual score if provided, else 0
-      finalScores[i] = scores && scores[i] !== undefined ? Number(scores[i]) || 0 : 0;
+      // Use normalized manual score mapping to avoid index drift with section rows.
+      finalScores[i] = manualScoreMap.has(i) ? manualScoreMap.get(i) : 0;
     }
   }
   
