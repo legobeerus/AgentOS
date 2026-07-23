@@ -31,7 +31,7 @@ async function handleMessageCommands(message, client) {
       const embed = new EmbedBuilder()
         .setTitle('Twenty One Pilots Quote')
         .setColor(config.EMBED_COLOR || 0x00aff1)
-        .setDescription(`${quote}\n\n|-/`);
+        .setDescription(`"${quote}"\n\n|-/`);
 
       await message.reply({ embeds: [embed] });
     } catch (err) {

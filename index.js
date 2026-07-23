@@ -2,6 +2,7 @@ require("dotenv").config();
 const { startKeepAlive } = require("./utils/dbKeepAlive");
 const verificationStore = require('./utils/verificationStore');
 const arrestStore = require('./utils/arrestStore');
+const aosActiveStore = require('./utils/aosActiveStore');
 const { Client, GatewayIntentBits } = require("discord.js");
 const { loadCommands } = require("./utils/loadCommands");
 const { handleInteraction } = require("./utils/handleInteraction");
@@ -35,8 +36,9 @@ startKeepAlive();
 if (process.env.DATABASE_URL) {
   verificationStore.init().catch(err => console.error('verificationStore.init failed:', err));
   arrestStore.init().catch(err => console.error('arrestStore.init failed:', err));
+  aosActiveStore.init().catch(err => console.error('aosActiveStore.init failed:', err));
 } else {
-  console.info('DATABASE_URL not set — skipping verificationStore init.');
+  console.info('DATABASE_URL not set — skipping DB-backed store init.');
 }
 
 // Load all commands

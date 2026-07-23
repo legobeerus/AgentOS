@@ -42,6 +42,26 @@ function parseChargesField(content) {
   return parseFieldValue(content, 'Charges');
 }
 
+function parseSubmitterField(content) {
+  return parseFieldValue(content, 'Submitter');
+}
+
+function parseProfileField(content) {
+  return parseFieldValue(content, 'Profile');
+}
+
+function parseVictimsField(content) {
+  return parseFieldValue(content, 'Victim(s)') || parseFieldValue(content, 'Victims');
+}
+
+function parseSummaryField(content) {
+  return parseFieldValue(content, 'Summary');
+}
+
+function parseProofField(content) {
+  return parseFieldValue(content, 'Proof');
+}
+
 function parseJailMinutes(content) {
   const text = String(content || '').replace(/\r/g, '');
   const match = text.match(/Jail\s*time\s*has\s*been\s*set\s*to\s*(\d+)\s*minutes?/i);
@@ -49,6 +69,25 @@ function parseJailMinutes(content) {
   const minutes = Number(match[1]);
   if (!Number.isFinite(minutes) || minutes < 0) return null;
   return minutes;
+}
+
+function parseAosStarterData(content) {
+  const text = String(content || '');
+  const username = parseUsernameField(text) || null;
+  const charges = parseChargesField(text) || null;
+  const jailMinutes = parseJailMinutes(text);
+
+  return {
+    submitter: parseSubmitterField(text) || null,
+    username,
+    profile: parseProfileField(text) || null,
+    victims: parseVictimsField(text) || null,
+    charges,
+    summary: parseSummaryField(text) || null,
+    proof: parseProofField(text) || null,
+    jailMinutes,
+    calculatedTimeMinutes: jailMinutes
+  };
 }
 
 function renderThreadUrl(guildId, threadId) {
@@ -196,16 +235,25 @@ async function listActiveAosEntries(client) {
     }
 
     const content = starter && starter.content ? starter.content : '';
-    const username = parseUsernameField(content) || 'Unknown';
-    const charges = parseChargesField(content) || 'Unknown';
-    const jailMinutes = parseJailMinutes(content);
+    const parsed = parseAosStarterData(content);
+    const username = parsed.username || 'Unknown';
 
     entries.push({
       threadId: thread.id,
+      guildId: thread.guildId,
+      forumChannelId: thread.parentId,
       threadName: thread.name || `AoS ${username}`,
       username,
-      charges,
-      jailMinutes,
+      submitter: parsed.submitter,
+      profile: parsed.profile,
+      victims: parsed.victims,
+      charges: parsed.charges || 'Unknown',
+      summary: parsed.summary,
+      proof: parsed.proof,
+      jailMinutes: parsed.jailMinutes,
+      calculatedTimeMinutes: parsed.calculatedTimeMinutes,
+      tags,
+      createdTimestamp: Number(thread.createdTimestamp) || null,
       url: renderThreadUrl(thread.guildId, thread.id)
     });
   }
@@ -218,6 +266,7 @@ module.exports = {
   parseUsernameField,
   parseChargesField,
   parseJailMinutes,
+  parseAosStarterData,
   enforceAos30DayExpirationForThread,
   findActiveAosByUsername,
   listActiveAosEntries

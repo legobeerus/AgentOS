@@ -1,7 +1,8 @@
 const { SlashCommandBuilder, ChannelType, EmbedBuilder } = require('discord.js');
 const config = require('../config');
 const { computeJailTimeFromCharges } = require('../utils/aosSentencing');
-const { listActiveAosEntries, enforceAos30DayExpirationForThread } = require('../utils/aosForumLookup');
+const { listActiveAosEntries, enforceAos30DayExpirationForThread, parseAosStarterData } = require('../utils/aosForumLookup');
+const aosActiveStore = require('../utils/aosActiveStore');
 
 const AOS_LIST_COOLDOWN_MS = 60 * 1000;
 let nextAosListAllowedAt = 0;
@@ -81,6 +82,72 @@ function has30DayTagExpired(thread) {
   const createdAt = Number(thread && thread.createdTimestamp);
   if (!Number.isFinite(createdAt) || createdAt <= 0) return false;
   return (Date.now() - createdAt) >= (30 * 24 * 60 * 60 * 1000);
+}
+
+function buildAosWebUrlForUsername(username) {
+  const baseRaw = String(config.EXAM_WEB_BASE_URL || '').trim();
+  if (!baseRaw) return null;
+
+  const base = baseRaw.replace(/\/$/, '');
+  const path = String(config.AOS_WEB_PATH || '/aos.html').trim() || '/aos.html';
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  const safeUsername = encodeURIComponent(String(username || '').trim());
+  return `${base}${normalizedPath}?username=${safeUsername}`;
+}
+
+function formatAgeFromMs(ageMs) {
+  const value = Number(ageMs);
+  if (!Number.isFinite(value) || value < 0) return 'Unknown time';
+
+  const minutes = Math.max(1, Math.floor(value / 60000));
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? '' : 's'}`;
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'}`;
+
+  const days = Math.floor(hours / 24);
+  return `${days} day${days === 1 ? '' : 's'}`;
+}
+
+function groupEntriesByUsername(entries) {
+  const grouped = new Map();
+  for (const entry of Array.isArray(entries) ? entries : []) {
+    const username = String(entry?.username || 'Unknown').trim() || 'Unknown';
+    const key = username.toLowerCase();
+    const createdMs = Number(entry?.createdTimestamp)
+      || (entry?.createdAt ? Date.parse(entry.createdAt) : NaN)
+      || (entry?.activatedAt ? Date.parse(entry.activatedAt) : NaN)
+      || NaN;
+
+    if (!grouped.has(key)) {
+      grouped.set(key, {
+        username,
+        count: 0,
+        latestCreatedMs: Number.isFinite(createdMs) ? createdMs : null,
+        linkUrl: null
+      });
+    }
+
+    const bucket = grouped.get(key);
+    bucket.count += 1;
+    if (Number.isFinite(createdMs)) {
+      if (!bucket.latestCreatedMs || createdMs > bucket.latestCreatedMs) {
+        bucket.latestCreatedMs = createdMs;
+      }
+    }
+
+    if (!bucket.linkUrl) {
+      bucket.linkUrl = buildAosWebUrlForUsername(username) || String(entry?.url || '').trim() || null;
+    }
+  }
+
+  return Array.from(grouped.values()).sort((a, b) => {
+    if (b.count !== a.count) return b.count - a.count;
+    const aMs = Number(a.latestCreatedMs || 0);
+    const bMs = Number(b.latestCreatedMs || 0);
+    if (bMs !== aMs) return bMs - aMs;
+    return a.username.localeCompare(b.username);
+  });
 }
 
 module.exports = {
@@ -323,6 +390,11 @@ module.exports = {
 
         try {
           await thread.setAppliedTags(denyTags);
+          try {
+            await aosActiveStore.removeActiveAosByThreadId(thread.id);
+          } catch (storeErr) {
+            console.warn('aos deny: failed to remove active AOS row:', storeErr?.message || storeErr);
+          }
           await interaction.editReply('✅ AoS denied and set to inactive + recalled.');
         } catch (err) {
           console.error('aos deny failed:', err);
@@ -353,6 +425,38 @@ module.exports = {
 
       try {
         await thread.setAppliedTags(nextTags);
+        try {
+          let starter = null;
+          try {
+            starter = await thread.fetchStarterMessage();
+          } catch (starterErr) {
+            starter = await thread.messages.fetch(thread.id).catch(() => null);
+          }
+          const starterContent = String(starter?.content || '');
+          const parsed = parseAosStarterData(starterContent);
+          const parsedUsername = parsed.username || String(thread.name || '').replace(/^AOS\s*-\s*/i, '').trim() || thread.name;
+
+          await aosActiveStore.upsertActiveAos({
+            threadId: thread.id,
+            guildId: interaction.guildId,
+            forumChannelId: thread.parentId,
+            threadName: thread.name,
+            url: `https://discord.com/channels/${interaction.guildId}/${thread.id}`,
+            submitter: parsed.submitter,
+            username: parsedUsername,
+            profile: parsed.profile,
+            victims: parsed.victims,
+            charges: parsed.charges,
+            summary: parsed.summary,
+            proof: parsed.proof,
+            tags: nextTags,
+            calculatedTimeMinutes: parsed.calculatedTimeMinutes,
+            jailMinutes: parsed.jailMinutes,
+            createdTimestamp: thread.createdTimestamp
+          }, { postedByBot: true });
+        } catch (storeErr) {
+          console.warn('aos approve: failed to upsert active AOS row:', storeErr?.message || storeErr);
+        }
         const reopened = hasInactive || hasCompleted;
         await interaction.editReply(reopened
           ? '✅ AoS approved and set to active (re-opened).'
@@ -403,6 +507,11 @@ module.exports = {
 
       try {
         await thread.setAppliedTags(nextTags);
+        try {
+          await aosActiveStore.removeActiveAosByThreadId(thread.id);
+        } catch (storeErr) {
+          console.warn('aos complete: failed to remove active AOS row:', storeErr?.message || storeErr);
+        }
         await thread.send(`✅ AoS marked complete by <@${interaction.user.id}>.`).catch(() => null);
         await thread.send(`<@&${config.AOS_COMPLETE_PING_ROLE_ID}>`).catch(() => null);
         await interaction.editReply('✅ AoS marked complete.');
@@ -420,30 +529,44 @@ module.exports = {
       }
 
       try {
-        const entries = await listActiveAosEntries(interaction.client);
+        const liveEntries = await listActiveAosEntries(interaction.client);
+        if (aosActiveStore.isEnabled()) {
+          await aosActiveStore.upsertLegacyFromForumEntries(liveEntries).catch(err => {
+            console.warn('aos list: failed to seed legacy active rows:', err?.message || err);
+          });
+        }
+
+        const entries = aosActiveStore.isEnabled()
+          ? await aosActiveStore.listActiveAosRows().catch(() => liveEntries)
+          : liveEntries;
+
         if (!entries.length) {
           await interaction.editReply('No active AoS entries found.');
           return;
         }
 
-        const maxLines = 25;
-        const lines = entries.slice(0, maxLines).map((entry, idx) => {
-          const username = String(entry.username || 'Unknown').replace(/\n/g, ' ').trim();
-          const charges = String(entry.charges || 'Unknown').replace(/\n/g, ' ').trim();
-          const jailMinutes = Number.isFinite(Number(entry.jailMinutes)) ? Number(entry.jailMinutes) : null;
-          const url = String(entry.url || '');
-          const label = `${idx + 1}. ${username}`;
-          const jailPart = jailMinutes !== null ? ` | Jail: ${jailMinutes}m` : '';
-          return url
-            ? `${label} - [Thread](${url}) | Charges: ${charges}${jailPart}`
-            : `${label} | Charges: ${charges}${jailPart}`;
-        });
+        const grouped = groupEntriesByUsername(entries);
+        const maxUsers = 20;
+        const shown = grouped.slice(0, maxUsers);
+        const lines = [];
 
-        const more = entries.length > maxLines ? `\n+${entries.length - maxLines} more active AoS not shown.` : '';
+        for (const row of shown) {
+          const label = `${row.count} Warrant${row.count === 1 ? '' : 's'}`;
+          const age = row.latestCreatedMs ? formatAgeFromMs(Date.now() - row.latestCreatedMs) : 'Unknown time';
+          const linkedLabel = row.linkUrl ? `[${label}](${row.linkUrl})` : label;
+          lines.push(`**${row.username}**`);
+          lines.push(`${linkedLabel} | ${age}`);
+          lines.push('');
+        }
+
+        const more = grouped.length > maxUsers
+          ? `\n+${grouped.length - maxUsers} more user${grouped.length - maxUsers === 1 ? '' : 's'} not shown.`
+          : '';
+
         const embed = new EmbedBuilder()
-          .setTitle(`Active AoS (${entries.length})`)
+          .setTitle('Active Warrants')
           .setColor(config.EMBED_COLOR || 0x00aff1)
-          .setDescription(`${lines.join('\n')}${more}`.slice(0, 4000));
+          .setDescription(`Click on a warrant count to view on the website.\n\n${lines.join('\n').trim()}${more}`.slice(0, 4000));
 
         await interaction.editReply({ embeds: [embed] });
       } catch (err) {

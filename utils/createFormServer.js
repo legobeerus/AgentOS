@@ -8,6 +8,7 @@ const { findActiveAosByUsername } = require('./aosForumLookup');
 const { findBlacklistEntry } = require("../utils/blacklistSheet");
 const { analyzeSpamAnswers } = require("./spamFilter");
 const { getState } = require('./adminState');
+const aosActiveStore = require('./aosActiveStore');
 
 /**
  * Creates an Express server to handle form submissions from Google Apps Script
@@ -832,6 +833,75 @@ function createFormServer(client) {
     } catch (e) {
       console.error('Failed to process grade via web (api):', e);
       res.status(500).json({ error: 'Internal error' });
+    }
+  });
+
+  // --- AoS website endpoints ---
+  app.get('/api/aos/active', requireExamAuth, async (req, res) => {
+    try {
+      if (!aosActiveStore.isEnabled()) {
+        return res.status(503).json({ error: 'AoS store is unavailable (DATABASE_URL not configured).' });
+      }
+
+      const list = await aosActiveStore.listActiveAosRows();
+      res.json({
+        count: list.length,
+        items: list.map(item => ({
+          threadId: item.threadId,
+          guildId: item.guildId,
+          forumChannelId: item.forumChannelId,
+          threadName: item.threadName,
+          url: item.url,
+          submitter: item.submitter,
+          username: item.username,
+          profile: item.profile,
+          victims: item.victims,
+          charges: item.charges,
+          summary: item.summary,
+          proof: item.proof,
+          tags: Array.isArray(item.tags) ? item.tags : [],
+          calculatedTimeMinutes: item.calculatedTimeMinutes,
+          jailMinutes: item.jailMinutes,
+          postedByBot: !!item.postedByBot,
+          createdAt: item.createdAt,
+          activatedAt: item.activatedAt,
+          lastSeenAt: item.lastSeenAt
+        }))
+      });
+    } catch (err) {
+      console.error('Failed to list active AoS rows for web:', err);
+      res.status(500).json({ error: 'Internal error' });
+    }
+  });
+
+  app.delete('/api/aos/:threadId', requireExamAuth, async (req, res) => {
+    try {
+      if (!aosActiveStore.isEnabled()) {
+        return res.status(503).json({ error: 'AoS store is unavailable (DATABASE_URL not configured).' });
+      }
+
+      const threadId = String(req.params.threadId || '').trim();
+      if (!/^\d{16,20}$/.test(threadId)) {
+        return res.status(400).json({ error: 'Invalid threadId' });
+      }
+
+      const all = await aosActiveStore.listActiveAosRows();
+      const row = all.find(item => String(item.threadId) === threadId);
+      if (!row) return res.status(404).json({ error: 'Not found' });
+
+      if (row.postedByBot) {
+        return res.status(403).json({
+          error: 'Forbidden',
+          message: 'Bot-posted AoS records can only be removed by /aos complete in Discord.'
+        });
+      }
+
+      const removed = await aosActiveStore.removeLegacyAosByThreadId(threadId);
+      if (!removed) return res.status(409).json({ error: 'Unable to remove row' });
+      return res.json({ ok: true, removed: { threadId } });
+    } catch (err) {
+      console.error('Failed to remove legacy AoS row:', err);
+      return res.status(500).json({ error: 'Internal error' });
     }
   });
 

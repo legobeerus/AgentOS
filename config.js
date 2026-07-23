@@ -140,6 +140,8 @@ module.exports = {
   EXAM_GUILD_ID: cleanId(process.env.EXAM_GUILD_ID) || "1041577710067138560",
   // Public base URL for the web grading UI (e.g. https://grading.example.com)
   EXAM_WEB_BASE_URL: process.env.EXAM_WEB_BASE_URL || "https://legobeerus.github.io",
+  // Path on EXAM_WEB_BASE_URL where the AoS section is hosted
+  AOS_WEB_PATH: process.env.AOS_WEB_PATH || '/aos.html',
   // DB exam update poll fallback controls (used with LISTEN/NOTIFY)
   EXAM_DB_POLL_ENABLED: (process.env.EXAM_DB_POLL_ENABLED || '').toLowerCase() === 'true' || process.env.EXAM_DB_POLL_ENABLED === '1',
   // Poll interval in ms for fallback exam update checks (default 2 minutes)
