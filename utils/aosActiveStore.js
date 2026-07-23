@@ -137,7 +137,7 @@ async function upsertActiveAos(entry, options = {}) {
       created_at,
       activated_at,
       last_seen_at
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,NOW(),NOW())
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,NOW(),NOW())
     ON CONFLICT (thread_id) DO UPDATE SET
       guild_id = COALESCE(EXCLUDED.guild_id, bot_active_aos.guild_id),
       forum_channel_id = COALESCE(EXCLUDED.forum_channel_id, bot_active_aos.forum_channel_id),
