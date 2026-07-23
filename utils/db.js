@@ -24,13 +24,20 @@ async function init() {
     `CREATE TABLE IF NOT EXISTS bot_admin_state (
       id INTEGER PRIMARY KEY,
       paused_applications BOOLEAN DEFAULT false,
-      debug_mode BOOLEAN DEFAULT false
+      debug_mode BOOLEAN DEFAULT false,
+      pause_time_logging BOOLEAN DEFAULT false
     )`
   );
 
+  // Backward-compatible migration for existing databases
   await pool.query(
-    `INSERT INTO bot_admin_state (id, paused_applications, debug_mode)
-     VALUES (1, false, false) ON CONFLICT (id) DO NOTHING`);
+    `ALTER TABLE bot_admin_state
+     ADD COLUMN IF NOT EXISTS pause_time_logging BOOLEAN DEFAULT false`
+  );
+
+  await pool.query(
+    `INSERT INTO bot_admin_state (id, paused_applications, debug_mode, pause_time_logging)
+     VALUES (1, false, false, false) ON CONFLICT (id) DO NOTHING`);
 
   await pool.query(
     `CREATE TABLE IF NOT EXISTS bot_paused_commands (

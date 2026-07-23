@@ -174,11 +174,15 @@ async function handleTimeWebhookMessage(message) {
     if (!parsed) return; // not in expected format
 
     if (isTimeLogChannel) {
-      const res = await updateMinutesForUser(parsed.username, parsed.minutes);
-      if (res) {
-        if (isDebug) console.debug(`Updated ${parsed.username}: +${parsed.minutes} weekly=${res.updatedWeekly} total=${res.updatedTotal} (weekly ${res.weeklyCol}${res.row}, total ${res.totalCol}${res.row})`);
+      if (state.pauseTimeLogging) {
+        if (isDebug) console.debug('Skipping sheet update because automatic time logging is paused by admin state.');
       } else {
-        if (isDebug) console.debug(`Username not found in sheet: ${parsed.username}`);
+        const res = await updateMinutesForUser(parsed.username, parsed.minutes);
+        if (res) {
+          if (isDebug) console.debug(`Updated ${parsed.username}: +${parsed.minutes} weekly=${res.updatedWeekly} total=${res.updatedTotal} (weekly ${res.weeklyCol}${res.row}, total ${res.totalCol}${res.row})`);
+        } else {
+          if (isDebug) console.debug(`Username not found in sheet: ${parsed.username}`);
+        }
       }
     } else {
       if (isDebug) console.debug('Skipping sheet update because message is not in TIME_LOG_CHANNEL_ID; continuing to probation checks.');

@@ -5,17 +5,41 @@ const agentosStore = require('./agentosStore');
 const { getChangelog, setChangelog } = require("./changelogStore");
 const { getState, setState } = require("./adminState");
 const verificationStore = require('./verificationStore');
+const topTexts = require('../data/top-texts.json');
 
 async function handleMessageCommands(message, client) {
   // Ignore bots
   if (message.author.bot) return;
 
+  const content = message.content || "";
+
   // Only respond when the bot is mentioned and the message contains a ! command
   const mention = message.mentions && message.mentions.users && message.mentions.users.has(client.user.id);
   if (!mention) return;
 
-  const content = message.content || "";
   const lower = content.toLowerCase();
+
+  if (/(^|\s)!top(\s|$)/i.test(content) || /(^|\s)!tøp(\s|$)/i.test(content)) {
+    try {
+      if (!Array.isArray(topTexts) || topTexts.length === 0) {
+        await message.reply('No entries are configured for !top yet.');
+        return;
+      }
+
+      const idx = Math.floor(Math.random() * topTexts.length);
+      const quote = String(topTexts[idx]);
+      const embed = new EmbedBuilder()
+        .setTitle('Twenty One Pilots Quote')
+        .setColor(config.EMBED_COLOR || 0x00aff1)
+        .setDescription(`${quote}\n\n|-/`);
+
+      await message.reply({ embeds: [embed] });
+    } catch (err) {
+      console.error('Failed to handle !top message command:', err);
+      try { await message.reply('Failed to fetch a random top text.'); } catch (e) {}
+    }
+    return;
+  }
 
   if (lower.includes("!errorindex")) {
     const embed = getIndexEmbed();
@@ -80,6 +104,7 @@ async function handleMessageCommands(message, client) {
       const adminLabel = adminWhitelist.length > 0 ? 'Admin (whitelist)' : 'Admin';
       const commands = [
         { name: '!ping', auth: 'Public' },
+        { name: '!top / !tøp', auth: 'Public' },
         { name: '!help', auth: 'Public' },
         { name: '!changelog', auth: 'Public' },
         { name: '!errorindex', auth: 'Public' },
@@ -118,12 +143,13 @@ async function handleMessageCommands(message, client) {
     const embed = new EmbedBuilder()
       .setTitle("Admin Menu")
       .setColor(config.EMBED_COLOR)
-      .setDescription(`Paused Applications: ${state.pausedApplications}\nDebug Mode: ${state.debugMode}`)
+      .setDescription(`Paused Applications: ${state.pausedApplications}\nDebug Mode: ${state.debugMode}\nPaused Time Logging: ${state.pauseTimeLogging}`)
       .setFooter({ text: `User: ${message.author.tag}` });
 
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId('admin_toggle_pause').setStyle(ButtonStyle.Secondary).setLabel('Toggle Pause'),
       new ButtonBuilder().setCustomId('admin_toggle_debug').setStyle(ButtonStyle.Secondary).setLabel('Toggle Debug'),
+      new ButtonBuilder().setCustomId('admin_toggle_time_logging').setStyle(ButtonStyle.Secondary).setLabel('Toggle Time Logging'),
       new ButtonBuilder().setCustomId('admin_show_changelog').setStyle(ButtonStyle.Primary).setLabel('Show Changelog'),
       new ButtonBuilder().setCustomId('admin_edit_changelog').setStyle(ButtonStyle.Primary).setLabel('Edit Changelog')
     );

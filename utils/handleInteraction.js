@@ -86,6 +86,16 @@ async function handleInteraction(interaction, client) {
         return;
       }
 
+      if (interaction.customId === 'admin_toggle_time_logging') {
+        await interaction.deferUpdate();
+        const s = await getState();
+        const updated = await setState({ pauseTimeLogging: !s.pauseTimeLogging });
+        try {
+          await interaction.followUp({ content: `Automatic Time Logging Paused: ${updated.pauseTimeLogging}`, ephemeral: true });
+        } catch (e) {}
+        return;
+      }
+
       if (interaction.customId === 'admin_show_changelog') {
         await interaction.deferReply({ ephemeral: true });
         const cl = await getChangelog();
