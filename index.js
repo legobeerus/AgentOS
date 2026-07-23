@@ -47,15 +47,6 @@ loadCommands(client);
 // Ready event
 client.once("ready", () => {
   console.log(`Logged in as ${client.user.tag}`);
-  if (aosActiveStore.isEnabled()) {
-    aosActiveStore.syncActiveAosFromForum(client, { reason: 'startup' })
-      .then((result) => {
-        console.info('AoS startup sync completed:', result);
-      })
-      .catch((err) => {
-        console.warn('AoS startup sync failed:', err?.message || err);
-      });
-  }
   try { initXpWatcherDiagnostics(client).catch(() => null); } catch (e) {}
   startSuspensionScheduler();
   // Start inactivity scheduler to DM expired INs and clean DB
