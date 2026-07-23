@@ -184,7 +184,7 @@ function buildAosListEmbed(grouped, page, pageSize) {
     const missingPart = row.missingJailCount > 0
       ? ` (missing time on ${row.missingJailCount} warrant${row.missingJailCount === 1 ? '' : 's'} = 0m)`
       : '';
-    const jailSummary = `${row.totalJailMinutes}m total jail${missingPart}`;
+    const jailSummary = `${row.totalJailMinutes} Minutes${missingPart}`;
     lines.push(`**${safeDisplayName(row.username)}**`);
     lines.push(`${linkedLabel} | ${jailSummary}`);
     lines.push('');
