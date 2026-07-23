@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, ChannelType, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, ChannelType, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType } = require('discord.js');
 const config = require('../config');
 const { computeJailTimeFromCharges } = require('../utils/aosSentencing');
 const { listActiveAosEntries, enforceAos30DayExpirationForThread, parseAosStarterData } = require('../utils/aosForumLookup');
@@ -109,10 +109,27 @@ function formatAgeFromMs(ageMs) {
   return `${days} day${days === 1 ? '' : 's'}`;
 }
 
+function sanitizeSingleLine(value) {
+  return String(value || '')
+    .replace(/[\r\n\t]+/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
+function escapeMarkdown(text) {
+  return String(text || '').replace(/([\\`*_{}\[\]()#+\-.!|>~])/g, '\\$1');
+}
+
+function safeDisplayName(username) {
+  const oneLine = sanitizeSingleLine(username || 'Unknown') || 'Unknown';
+  const clipped = oneLine.length > 64 ? `${oneLine.slice(0, 61)}...` : oneLine;
+  return escapeMarkdown(clipped);
+}
+
 function groupEntriesByUsername(entries) {
   const grouped = new Map();
   for (const entry of Array.isArray(entries) ? entries : []) {
-    const username = String(entry?.username || 'Unknown').trim() || 'Unknown';
+    const username = sanitizeSingleLine(entry?.username || 'Unknown') || 'Unknown';
     const key = username.toLowerCase();
     const createdMs = Number(entry?.createdTimestamp)
       || (entry?.createdAt ? Date.parse(entry.createdAt) : NaN)
@@ -148,6 +165,44 @@ function groupEntriesByUsername(entries) {
     if (bMs !== aMs) return bMs - aMs;
     return a.username.localeCompare(b.username);
   });
+}
+
+function buildAosListEmbed(grouped, page, pageSize) {
+  const totalPages = Math.max(1, Math.ceil(grouped.length / pageSize));
+  const safePage = Math.min(Math.max(0, page), totalPages - 1);
+  const start = safePage * pageSize;
+  const shown = grouped.slice(start, start + pageSize);
+  const lines = [];
+
+  for (const row of shown) {
+    const label = `${row.count} Warrant${row.count === 1 ? '' : 's'}`;
+    const age = row.latestCreatedMs ? formatAgeFromMs(Date.now() - row.latestCreatedMs) : 'Unknown time';
+    const linkedLabel = row.linkUrl ? `[${label}](${row.linkUrl})` : label;
+    lines.push(`**${safeDisplayName(row.username)}**`);
+    lines.push(`${linkedLabel} | ${age}`);
+    lines.push('');
+  }
+
+  const descriptionBody = lines.join('\n').trim() || 'No active warrants found.';
+  return new EmbedBuilder()
+    .setTitle('Active Warrants')
+    .setColor(config.EMBED_COLOR || 0x00aff1)
+    .setDescription(`Click on a warrant count to view on the website.\n\n${descriptionBody}`.slice(0, 4000))
+    .setFooter({ text: `Page ${safePage + 1} of ${totalPages} • ${grouped.length} user${grouped.length === 1 ? '' : 's'}` });
+}
+
+function buildAosListComponents(token, page, totalPages) {
+  const prev = new ButtonBuilder()
+    .setCustomId(`${token}:prev`)
+    .setLabel('◀ Prev')
+    .setStyle(ButtonStyle.Primary)
+    .setDisabled(page <= 0);
+  const next = new ButtonBuilder()
+    .setCustomId(`${token}:next`)
+    .setLabel('Next ▶')
+    .setStyle(ButtonStyle.Primary)
+    .setDisabled(page >= totalPages - 1);
+  return [new ActionRowBuilder().addComponents(prev, next)];
 }
 
 module.exports = {
@@ -551,29 +606,53 @@ module.exports = {
         }
 
         const grouped = groupEntriesByUsername(entries);
-        const maxUsers = 20;
-        const shown = grouped.slice(0, maxUsers);
-        const lines = [];
+        const pageSize = 10;
+        const totalPages = Math.max(1, Math.ceil(grouped.length / pageSize));
+        let page = 0;
 
-        for (const row of shown) {
-          const label = `${row.count} Warrant${row.count === 1 ? '' : 's'}`;
-          const age = row.latestCreatedMs ? formatAgeFromMs(Date.now() - row.latestCreatedMs) : 'Unknown time';
-          const linkedLabel = row.linkUrl ? `[${label}](${row.linkUrl})` : label;
-          lines.push(`**${row.username}**`);
-          lines.push(`${linkedLabel} | ${age}`);
-          lines.push('');
-        }
+        const token = `aos_${Date.now().toString(36)}_${interaction.id}`;
+        const embed = buildAosListEmbed(grouped, page, pageSize);
+        const components = buildAosListComponents(token, page, totalPages);
 
-        const more = grouped.length > maxUsers
-          ? `\n+${grouped.length - maxUsers} more user${grouped.length - maxUsers === 1 ? '' : 's'} not shown.`
-          : '';
+        await interaction.editReply({ embeds: [embed], components: totalPages > 1 ? components : [] });
 
-        const embed = new EmbedBuilder()
-          .setTitle('Active Warrants')
-          .setColor(config.EMBED_COLOR || 0x00aff1)
-          .setDescription(`Click on a warrant count to view on the website.\n\n${lines.join('\n').trim()}${more}`.slice(0, 4000));
+        if (totalPages <= 1) return;
 
-        await interaction.editReply({ embeds: [embed] });
+        const replyMessage = await interaction.fetchReply();
+        const filter = (i) => i.isButton() && typeof i.customId === 'string' && i.customId.startsWith(`${token}:`);
+        const collector = replyMessage.createMessageComponentCollector({ filter, componentType: ComponentType.Button, time: 10 * 60 * 1000 });
+
+        collector.on('collect', async (btnInt) => {
+          try {
+            if (btnInt.user.id !== interaction.user.id) {
+              await btnInt.reply({ content: 'Only the command user can control these pages.', ephemeral: true });
+              return;
+            }
+
+            await btnInt.deferUpdate();
+            const action = btnInt.customId.split(':')[1];
+            if (action === 'prev' && page > 0) page -= 1;
+            if (action === 'next' && page < totalPages - 1) page += 1;
+
+            const newEmbed = buildAosListEmbed(grouped, page, pageSize);
+            const newComponents = buildAosListComponents(token, page, totalPages);
+            await replyMessage.edit({ embeds: [newEmbed], components: newComponents });
+          } catch (collectErr) {
+            console.error('aos list pagination collect failed:', collectErr);
+          }
+        });
+
+        collector.on('end', async () => {
+          try {
+            const disabled = [new ActionRowBuilder().addComponents(
+              new ButtonBuilder().setCustomId('aos_prev_disabled').setLabel('◀ Prev').setStyle(ButtonStyle.Primary).setDisabled(true),
+              new ButtonBuilder().setCustomId('aos_next_disabled').setLabel('Next ▶').setStyle(ButtonStyle.Primary).setDisabled(true)
+            )];
+            await replyMessage.edit({ components: disabled });
+          } catch (endErr) {
+            // ignore cleanup failures
+          }
+        });
       } catch (err) {
         console.error('aos list failed:', err);
         await interaction.editReply('⚠️ Failed to fetch active AoS entries.');
