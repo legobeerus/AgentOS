@@ -85,7 +85,7 @@ module.exports = {
   // Channel where inactivity notices are posted for staff review
   INACTIVITY_CHANNEL_ID: process.env.INACTIVITY_CHANNEL_ID || "1107773216140832878",
   // Comma-separated role IDs allowed to approve inactivity notices
-  INACTIVITY_APPROVER_ROLE_IDS: process.env.INACTIVITY_APPROVER_ROLE_IDS || "1449861438012133566",
+  INACTIVITY_APPROVER_ROLE_IDS: process.env.INACTIVITY_APPROVER_ROLE_IDS || "1449861438012133566,1515073280883687475",
   // Zero-based index (within TIME_LOG_SHEET_RANGE) of the column to write the end-date to
   TIME_LOG_ENDDATE_COL: process.env.TIME_LOG_ENDDATE_COL !== undefined ? Number(process.env.TIME_LOG_ENDDATE_COL) : 7,
   // Optional: column index (zero-based) for the running total time column (adjacent to minutes column)
