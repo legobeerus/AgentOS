@@ -1,11 +1,27 @@
 const { getIndexEmbed } = require("./errorCodes");
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ButtonStyle } = require("discord.js");
+const { randomInt } = require('crypto');
 const config = require("../config");
 const agentosStore = require('./agentosStore');
 const { getChangelog, setChangelog } = require("./changelogStore");
 const { getState, setState } = require("./adminState");
 const verificationStore = require('./verificationStore');
 const topTexts = require('../data/top-texts.json');
+
+let lastTopTextIndex = -1;
+
+function pickTopTextIndex(length) {
+  if (!Number.isFinite(length) || length <= 0) return -1;
+  if (length === 1) return 0;
+
+  let idx = randomInt(0, length);
+  if (idx === lastTopTextIndex) {
+    // Force a different index to avoid back-to-back repeats.
+    idx = (idx + 1 + randomInt(0, length - 1)) % length;
+  }
+  lastTopTextIndex = idx;
+  return idx;
+}
 
 async function handleMessageCommands(message, client) {
   // Ignore bots
@@ -26,7 +42,11 @@ async function handleMessageCommands(message, client) {
         return;
       }
 
-      const idx = Math.floor(Math.random() * topTexts.length);
+      const idx = pickTopTextIndex(topTexts.length);
+      if (idx < 0) {
+        await message.reply('No entries are configured for !top yet.');
+        return;
+      }
       const quote = String(topTexts[idx]);
       const embed = new EmbedBuilder()
         .setTitle('Twenty One Pilots Quote')
