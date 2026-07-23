@@ -305,6 +305,93 @@ async function listActiveAosRows() {
   }));
 }
 
+async function listActiveAosRowsByUsername(username) {
+  const pool = getPool();
+  if (!pool) return [];
+
+  const target = String(username || '').trim().toLowerCase();
+  if (!target) return [];
+
+  const res = await pool.query(
+    `SELECT
+      thread_id,
+      guild_id,
+      forum_channel_id,
+      thread_name,
+      thread_url,
+      submitter,
+      username,
+      profile,
+      victims,
+      charges,
+      summary,
+      proof,
+      tags,
+      calculated_time_minutes,
+      jail_minutes,
+      posted_by_bot,
+      created_at,
+      activated_at,
+      last_seen_at
+    FROM bot_active_aos
+    WHERE LOWER(username) = LOWER($1)
+    ORDER BY activated_at DESC`,
+    [target]
+  );
+
+  return (res.rows || []).map(row => ({
+    threadId: row.thread_id,
+    guildId: row.guild_id,
+    forumChannelId: row.forum_channel_id,
+    threadName: row.thread_name,
+    url: row.thread_url,
+    submitter: row.submitter,
+    username: row.username,
+    profile: row.profile,
+    victims: row.victims,
+    charges: row.charges,
+    summary: row.summary,
+    proof: row.proof,
+    tags: Array.isArray(row.tags) ? row.tags : [],
+    calculatedTimeMinutes: row.calculated_time_minutes,
+    jailMinutes: row.jail_minutes,
+    postedByBot: !!row.posted_by_bot,
+    createdAt: row.created_at,
+    activatedAt: row.activated_at,
+    lastSeenAt: row.last_seen_at
+  }));
+}
+
+async function syncActiveAosFromForum(client, options = {}) {
+  const pool = getPool();
+  if (!pool) return { synced: 0, found: 0, skipped: 0, reason: options.reason || 'unknown' };
+  if (!client) return { synced: 0, found: 0, skipped: 0, reason: options.reason || 'unknown' };
+
+  // Lazy import avoids circular dependency at module load time.
+  const { listActiveAosEntries } = require('./aosForumLookup');
+  const entries = await listActiveAosEntries(client);
+
+  let synced = 0;
+  let skipped = 0;
+
+  for (const entry of Array.isArray(entries) ? entries : []) {
+    try {
+      const row = await upsertActiveAos(entry, { postedByBot: false });
+      if (row) synced += 1;
+      else skipped += 1;
+    } catch (err) {
+      skipped += 1;
+    }
+  }
+
+  return {
+    synced,
+    found: Array.isArray(entries) ? entries.length : 0,
+    skipped,
+    reason: options.reason || 'unknown'
+  };
+}
+
 module.exports = {
   init,
   isEnabled: () => enabled,
@@ -312,5 +399,7 @@ module.exports = {
   upsertLegacyFromForumEntries,
   removeActiveAosByThreadId,
   removeLegacyAosByThreadId,
-  listActiveAosRows
+  listActiveAosRows,
+  listActiveAosRowsByUsername,
+  syncActiveAosFromForum
 };

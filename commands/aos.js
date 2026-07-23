@@ -529,16 +529,21 @@ module.exports = {
       }
 
       try {
-        const liveEntries = await listActiveAosEntries(interaction.client);
+        let entries = [];
         if (aosActiveStore.isEnabled()) {
-          await aosActiveStore.upsertLegacyFromForumEntries(liveEntries).catch(err => {
-            console.warn('aos list: failed to seed legacy active rows:', err?.message || err);
-          });
+          entries = await aosActiveStore.listActiveAosRows().catch(() => []);
+          if (!entries.length) {
+            const syncResult = await aosActiveStore.syncActiveAosFromForum(interaction.client, {
+              reason: 'aos-list-empty-db'
+            }).catch(() => null);
+            if (syncResult) {
+              console.info('aos list: db warm sync completed', syncResult);
+            }
+            entries = await aosActiveStore.listActiveAosRows().catch(() => []);
+          }
+        } else {
+          entries = await listActiveAosEntries(interaction.client);
         }
-
-        const entries = aosActiveStore.isEnabled()
-          ? await aosActiveStore.listActiveAosRows().catch(() => liveEntries)
-          : liveEntries;
 
         if (!entries.length) {
           await interaction.editReply('No active AoS entries found.');

@@ -161,6 +161,22 @@ async function findActiveAosByUsername(client, username) {
   const target = normalizeUsername(username);
   if (!target) return [];
 
+  try {
+    const aosActiveStore = require('./aosActiveStore');
+    if (aosActiveStore && typeof aosActiveStore.isEnabled === 'function' && aosActiveStore.isEnabled()) {
+      const dbRows = await aosActiveStore.listActiveAosRowsByUsername(target).catch(() => []);
+      if (Array.isArray(dbRows) && dbRows.length) {
+        return dbRows.map(row => ({
+          threadId: row.threadId,
+          threadName: row.threadName || `AoS ${row.username || target}`,
+          url: row.url || renderThreadUrl(row.guildId, row.threadId)
+        }));
+      }
+    }
+  } catch (err) {
+    // ignore and continue with live fallback
+  }
+
   const forumChannel = await client.channels.fetch(config.AOS_FORUM_CHANNEL_ID).catch(() => null);
   if (!forumChannel) return [];
 

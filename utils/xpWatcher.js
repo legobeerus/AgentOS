@@ -1,6 +1,7 @@
 const config = require('../config');
 const { EmbedBuilder } = require('discord.js');
 const { listActiveAosEntries } = require('./aosForumLookup');
+const aosActiveStore = require('./aosActiveStore');
 const { getState } = require('./adminState');
 
 const recentAlerts = new Map();
@@ -103,7 +104,11 @@ async function getCachedAosEntries(client) {
 
   if (aosEntriesInFlight) return aosEntriesInFlight;
 
-  aosEntriesInFlight = listActiveAosEntries(client)
+  const sourcePromise = aosActiveStore.isEnabled()
+    ? aosActiveStore.listActiveAosRows().catch(() => [])
+    : listActiveAosEntries(client);
+
+  aosEntriesInFlight = sourcePromise
     .then((entries) => {
       const safeEntries = Array.isArray(entries) ? entries : [];
       aosEntriesCache = safeEntries;
