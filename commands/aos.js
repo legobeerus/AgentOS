@@ -95,18 +95,13 @@ function buildAosWebUrlForUsername(username) {
   return `${base}${normalizedPath}?username=${safeUsername}`;
 }
 
-function formatAgeFromMs(ageMs) {
-  const value = Number(ageMs);
-  if (!Number.isFinite(value) || value < 0) return 'Unknown time';
-
-  const minutes = Math.max(1, Math.floor(value / 60000));
-  if (minutes < 60) return `${minutes} minute${minutes === 1 ? '' : 's'}`;
-
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'}`;
-
-  const days = Math.floor(hours / 24);
-  return `${days} day${days === 1 ? '' : 's'}`;
+function extractEntryJailMinutes(entry) {
+  const candidate = entry?.calculatedTimeMinutes !== undefined && entry?.calculatedTimeMinutes !== null
+    ? entry.calculatedTimeMinutes
+    : entry?.jailMinutes;
+  const n = Number(candidate);
+  if (!Number.isFinite(n) || n < 0) return null;
+  return Math.floor(n);
 }
 
 function sanitizeSingleLine(value) {
@@ -141,7 +136,9 @@ function groupEntriesByUsername(entries) {
         username,
         count: 0,
         latestCreatedMs: Number.isFinite(createdMs) ? createdMs : null,
-        linkUrl: null
+        linkUrl: null,
+        totalJailMinutes: 0,
+        missingJailCount: 0
       });
     }
 
@@ -155,6 +152,13 @@ function groupEntriesByUsername(entries) {
 
     if (!bucket.linkUrl) {
       bucket.linkUrl = buildAosWebUrlForUsername(username) || String(entry?.url || '').trim() || null;
+    }
+
+    const entryMinutes = extractEntryJailMinutes(entry);
+    if (entryMinutes === null) {
+      bucket.missingJailCount += 1;
+    } else {
+      bucket.totalJailMinutes += entryMinutes;
     }
   }
 
@@ -176,10 +180,13 @@ function buildAosListEmbed(grouped, page, pageSize) {
 
   for (const row of shown) {
     const label = `${row.count} Warrant${row.count === 1 ? '' : 's'}`;
-    const age = row.latestCreatedMs ? formatAgeFromMs(Date.now() - row.latestCreatedMs) : 'Unknown time';
     const linkedLabel = row.linkUrl ? `[${label}](${row.linkUrl})` : label;
+    const missingPart = row.missingJailCount > 0
+      ? ` (missing time on ${row.missingJailCount} warrant${row.missingJailCount === 1 ? '' : 's'} = 0m)`
+      : '';
+    const jailSummary = `${row.totalJailMinutes}m total jail${missingPart}`;
     lines.push(`**${safeDisplayName(row.username)}**`);
-    lines.push(`${linkedLabel} | ${age}`);
+    lines.push(`${linkedLabel} | ${jailSummary}`);
     lines.push('');
   }
 
