@@ -18,7 +18,17 @@ module.exports = {
     try {
       const reqRole = config.ARREST_REQUIRED_ROLE_ID;
       if (reqRole) {
-        const member = interaction.member;
+        // interaction.member can be a raw API object without a RoleManager cache.
+        // Fetch the full GuildMember to avoid false permission denials.
+        let member = interaction.member;
+        if (!(member && member.roles && member.roles.cache)) {
+          if (!interaction.guild) {
+            await interaction.editReply({ content: '❌ This command can only be used in a server.', ephemeral: true });
+            return;
+          }
+          member = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
+        }
+
         if (!(member && member.roles && member.roles.cache && member.roles.cache.has(reqRole))) {
           await interaction.editReply({ content: '❌ You do not have permission to run this command.', ephemeral: true });
           return;
