@@ -1009,24 +1009,169 @@ else {
     res.send(html);
   });
 
+  function escapeHtml(value) {
+    return String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function buildOAuthResultPage({ title, message, statusLabel }) {
+    const safeTitle = escapeHtml(title);
+    const safeMessage = escapeHtml(message);
+    const safeStatusLabel = escapeHtml(statusLabel || 'Verification');
+    const homeBase = String(config.EXAM_WEB_BASE_URL || 'https://legobeerus.github.io').trim().replace(/\/+$/, '');
+    const homeUrl = `${homeBase}/index.html`;
+
+    return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${safeTitle}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0b0b0b;
+      --fg: #ffffff;
+      --muted: #8b8b8b;
+      --primary: #00aff1;
+      --accent: #f5d77a;
+      --panel-border: rgba(255, 255, 255, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: radial-gradient(circle at 20% 15%, rgba(0, 175, 241, 0.14), transparent 40%), var(--bg);
+      color: var(--fg);
+      display: grid;
+      place-items: center;
+      padding: 20px;
+      -webkit-font-smoothing: antialiased;
+    }
+    .panel {
+      width: min(560px, 100%);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+      border: 1px solid var(--panel-border);
+      border-radius: 14px;
+      padding: 24px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+    }
+    .status {
+      display: inline-block;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+    h1 {
+      margin: 0;
+      font-size: clamp(28px, 4.2vw, 40px);
+      line-height: 1.08;
+    }
+    p {
+      margin: 12px 0 0;
+      color: var(--muted);
+      line-height: 1.6;
+      font-size: 16px;
+    }
+    .actions {
+      margin-top: 22px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .btn {
+      display: inline-block;
+      padding: 11px 16px;
+      border-radius: 8px;
+      border: 0;
+      text-decoration: none;
+      font-weight: 700;
+      transition: filter 0.18s ease, transform 0.18s ease;
+    }
+    .btn-primary {
+      background: var(--primary);
+      color: #000;
+    }
+    .btn-primary:hover,
+    .btn-primary:focus {
+      color: var(--fg);
+      filter: brightness(0.95);
+      transform: translateY(-1px);
+      outline: none;
+    }
+    .meta {
+      margin-top: 12px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .meta strong {
+      color: var(--accent);
+      font-weight: 600;
+    }
+    @media (max-width: 700px) {
+      .panel { padding: 20px; border-radius: 12px; }
+      .actions { width: 100%; }
+      .btn { width: 100%; text-align: center; }
+    }
+  </style>
+</head>
+<body>
+  <main class="panel" role="main" aria-live="polite">
+    <div class="status">${safeStatusLabel}</div>
+    <h1>${safeTitle}</h1>
+    <p>${safeMessage}</p>
+    <div class="actions">
+      <a class="btn btn-primary" href="${homeUrl}">Go to Home Page</a>
+    </div>
+    <div class="meta">To return to Discord, just <strong>close this tab</strong>.</div>
+  </main>
+</body>
+</html>`;
+  }
+
 
   // OAuth callback for Roblox verification
   // Expects query params: code, state
   app.get('/oauth/roblox/callback', async (req, res) => {
     try {
       const { code, state } = req.query || {};
-      if (!code || !state) return res.status(400).send('Missing code or state');
+      if (!code || !state) {
+        return res.status(400).send(buildOAuthResultPage({
+          title: 'Verification failed',
+          message: 'Missing code or state. Please restart verification from Discord.',
+          statusLabel: 'Error'
+        }));
+      }
 
       // Find matching challenge by the stored state code
       const challenge = await verificationStore.getChallengeByCode(String(state));
-      if (!challenge) return res.status(400).send('Invalid or expired verification state');
+      if (!challenge) {
+        return res.status(400).send(buildOAuthResultPage({
+          title: 'Verification expired',
+          message: 'This verification session is invalid or expired. Run /agentos-verify again in Discord.',
+          statusLabel: 'Expired'
+        }));
+      }
 
       // Exchange code for access token
       const tokenUrl = 'https://apis.roblox.com/oauth/v1/token';
       const clientId = config.ROBLOX_OAUTH_CLIENT_ID;
       const clientSecret = config.ROBLOX_OAUTH_CLIENT_SECRET;
       const redirectUri = config.ROBLOX_OAUTH_REDIRECT_URI;
-      if (!clientId || !clientSecret || !redirectUri) return res.status(500).send('OAuth not configured');
+      if (!clientId || !clientSecret || !redirectUri) {
+        return res.status(500).send(buildOAuthResultPage({
+          title: 'Verification unavailable',
+          message: 'OAuth is not configured right now. Please contact a bot administrator.',
+          statusLabel: 'Setup issue'
+        }));
+      }
 
       const params = new URLSearchParams();
       params.append('grant_type', 'authorization_code');
@@ -1041,7 +1186,11 @@ else {
 
       if (!tokenRes || tokenRes.error || !tokenRes.data || !tokenRes.data.access_token) {
         console.warn('Roblox token exchange failed', tokenRes && tokenRes.error ? tokenRes.error : tokenRes.data);
-        return res.status(500).send('Failed to exchange OAuth code for token');
+        return res.status(500).send(buildOAuthResultPage({
+          title: 'Verification failed',
+          message: 'Failed to exchange the OAuth code. Please run /agentos-verify again.',
+          statusLabel: 'OAuth error'
+        }));
       }
 
       const accessToken = tokenRes.data.access_token;
@@ -1051,7 +1200,11 @@ else {
       const userInfoRes = await axios.get(userInfoUrl, { headers: { Authorization: `Bearer ${accessToken}` } }).catch(e => ({ error: e }));
       if (!userInfoRes || userInfoRes.error || !userInfoRes.data) {
         console.warn('Roblox userinfo fetch failed', userInfoRes && userInfoRes.error ? userInfoRes.error : userInfoRes.data);
-        return res.status(500).send('Failed to fetch Roblox user info');
+        return res.status(500).send(buildOAuthResultPage({
+          title: 'Verification failed',
+          message: 'Could not fetch Roblox account details. Please try again shortly.',
+          statusLabel: 'Roblox error'
+        }));
       }
 
       // Attempt to extract a Roblox user id from the response
@@ -1061,13 +1214,21 @@ else {
 
       if (!robloxId) {
         console.warn('Roblox user id not found in userinfo response', info);
-        return res.status(500).send('Could not determine Roblox user id');
+        return res.status(500).send(buildOAuthResultPage({
+          title: 'Verification failed',
+          message: 'Could not determine the Roblox account from OAuth response.',
+          statusLabel: 'Roblox error'
+        }));
       }
 
       // Verify that the OAuth-authenticated account matches the requested username/userid
       if (challenge.roblox_userid && String(challenge.roblox_userid) !== String(robloxId)) {
         console.warn('OAuth returned different Roblox id than requested', { expected: challenge.roblox_userid, got: robloxId });
-        return res.status(400).send('Authenticated Roblox account does not match the requested username');
+        return res.status(400).send(buildOAuthResultPage({
+          title: 'Wrong Roblox account',
+          message: 'The authenticated Roblox account does not match the username you selected in Discord.',
+          statusLabel: 'Account mismatch'
+        }));
       }
 
       // Persist verification
@@ -1077,7 +1238,11 @@ else {
         console.error('Failed to add verification record:', err);
         // clear the challenge regardless
         await verificationStore.clearChallengeByCode(String(state)).catch(() => null);
-        return res.status(500).send('Failed to finalize verification (possibly already bound)');
+        return res.status(500).send(buildOAuthResultPage({
+          title: 'Verification failed',
+          message: 'Failed to finalize verification. This account may already be linked.',
+          statusLabel: 'Database error'
+        }));
       }
 
       // Clear the challenge
@@ -1093,11 +1258,19 @@ else {
         console.warn('Failed to DM user after verification:', err);
       }
 
-      // Render a simple success page
-      return res.status(200).send('<html><body><h2>Verification complete</h2><p>You may close this window and return to Discord.</p></body></html>');
+      // Render success page
+      return res.status(200).send(buildOAuthResultPage({
+        title: 'Verification complete',
+        message: 'Your Roblox account is now linked to Discord.',
+        statusLabel: 'Success'
+      }));
     } catch (err) {
       console.error('Unhandled error in OAuth callback:', err);
-      return res.status(500).send('Internal server error');
+      return res.status(500).send(buildOAuthResultPage({
+        title: 'Internal server error',
+        message: 'An unexpected error occurred while finishing verification.',
+        statusLabel: 'Server error'
+      }));
     }
   });
   // Catch-all 404 handler (must be after all routes)
