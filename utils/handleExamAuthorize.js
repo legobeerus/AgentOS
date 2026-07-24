@@ -1,6 +1,7 @@
 const { ActionRowBuilder, ButtonBuilder, EmbedBuilder, ButtonStyle } = require('discord.js');
 const config = require('../config');
 const examStore = require('./examStore');
+const verificationStore = require('./verificationStore');
 
 function isSectionItem(item) {
   return !!(item && typeof item === 'object' && String(item.type || '').toLowerCase() === 'section');
@@ -40,6 +41,15 @@ function buildQuestionEmbed(question, questions, index) {
   return qEmbed;
 }
 
+function formatTimeLimitMinutes(timeLimitSeconds) {
+  const seconds = Number(timeLimitSeconds) || 0;
+  if (seconds <= 0) return 'No time limit';
+
+  const minutes = seconds / 60;
+  const minuteLabel = Number.isInteger(minutes) ? String(minutes) : minutes.toFixed(1);
+  return `${minuteLabel} minute${Number(minuteLabel) === 1 ? '' : 's'}`;
+}
+
 async function handleExamAuthorize(interaction) {
   // customId format: exam_authorize:<userId>:<examId>
   try {
@@ -69,9 +79,23 @@ async function handleExamAuthorize(interaction) {
       return interaction.followUp({ content: `❌ Could not resolve user <@${userId}>.`, ephemeral: true });
     }
 
+    const linked = await verificationStore.getByDiscord(userId).catch(() => null);
+    if (!linked || !linked.roblox_username) {
+      return interaction.followUp({
+        content: '⚠️ Candidate must have a linked Roblox account before this exam can be started.',
+        ephemeral: true
+      });
+    }
+
     // create session
     const timeLimit = examDef.timeLimitSeconds || config.EXAM_TIME_LIMIT_SECONDS || 0;
-    const sess = await examStore.createSession({ userId, username: user.username, examId, questions: examDef.questions || [], timeLimitSeconds: timeLimit });
+    const sess = await examStore.createSession({
+      userId,
+      username: linked.roblox_username,
+      examId,
+      questions: examDef.questions || [],
+      timeLimitSeconds: timeLimit
+    });
 
     const advanced = await examStore.advancePastSections(sess.id);
     const activeSession = advanced && advanced.session ? advanced.session : sess;
@@ -83,7 +107,7 @@ async function handleExamAuthorize(interaction) {
       .setTitle(`${examDef.title || examId} — Exam Started`)
       .setColor(config.EMBED_COLOR)
       .addFields(
-        { name: 'Time Limit', value: `${timeLimit} seconds`, inline: true },
+        { name: 'Time Limit', value: formatTimeLimitMinutes(timeLimit), inline: true },
         { name: 'Instructions', value: examDef.instructions || 'Answer each question in this DM. Your next question will be posted after each answer.', inline: false }
       )
       .setTimestamp(new Date());

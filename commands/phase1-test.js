@@ -1,10 +1,19 @@
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const config = require('../config');
+const verificationStore = require('../utils/verificationStore');
 
 module.exports = {
   data: new SlashCommandBuilder().setName('phase1-test').setDescription('Request the Phase 1 Knowledge Test'),
   async execute(interaction) {
     await interaction.deferReply({ ephemeral: true });
+
+    const linked = await verificationStore.getByDiscord(interaction.user.id).catch(() => null);
+    if (!linked || !linked.roblox_username) {
+      return interaction.editReply({
+        content: 'You must link a Roblox account before requesting this exam. Use /agentos-verify first.',
+        ephemeral: true
+      });
+    }
 
     const examGuildId = config.EXAM_GUILD_ID;
     if (!examGuildId) {
