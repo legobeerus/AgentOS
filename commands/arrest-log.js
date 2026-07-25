@@ -18,18 +18,28 @@ module.exports = {
     try {
       const reqRole = config.ARREST_REQUIRED_ROLE_ID;
       if (reqRole) {
-        // interaction.member can be a raw API object without a RoleManager cache.
-        // Fetch the full GuildMember to avoid false permission denials.
-        let member = interaction.member;
-        if (!(member && member.roles && member.roles.cache)) {
+        // Handle both GuildMember role cache and APIInteractionGuildMember role ID arrays.
+        let hasRequiredRole = false;
+        const member = interaction.member;
+        const memberRoles = member && member.roles;
+
+        if (memberRoles && memberRoles.cache && typeof memberRoles.cache.has === 'function') {
+          hasRequiredRole = memberRoles.cache.has(reqRole);
+        } else if (Array.isArray(memberRoles)) {
+          hasRequiredRole = memberRoles.includes(reqRole);
+        }
+
+        // Last-resort fetch for environments where interaction.member is partial.
+        if (!hasRequiredRole) {
           if (!interaction.guild) {
             await interaction.editReply({ content: '❌ This command can only be used in a server.', ephemeral: true });
             return;
           }
-          member = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
+          const fetchedMember = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
+          hasRequiredRole = !!(fetchedMember && fetchedMember.roles && fetchedMember.roles.cache && fetchedMember.roles.cache.has(reqRole));
         }
 
-        if (!(member && member.roles && member.roles.cache && member.roles.cache.has(reqRole))) {
+        if (!hasRequiredRole) {
           await interaction.editReply({ content: '❌ You do not have permission to run this command.', ephemeral: true });
           return;
         }
