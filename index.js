@@ -119,6 +119,12 @@ client.once("ready", () => {
       const newCharges = parsed?.newCharges === undefined || parsed?.newCharges === null
         ? null
         : String(parsed.newCharges);
+      const oldUsername = parsed?.oldUsername === undefined || parsed?.oldUsername === null
+        ? null
+        : String(parsed.oldUsername).trim();
+      const newUsername = parsed?.newUsername === undefined || parsed?.newUsername === null
+        ? String(parsed?.username || '').trim()
+        : String(parsed.newUsername).trim();
       const oldJailMinutes = parsed?.oldJailMinutes === undefined || parsed?.oldJailMinutes === null
         ? null
         : Number(parsed.oldJailMinutes);
@@ -127,14 +133,16 @@ client.once("ready", () => {
         : Number(parsed.newJailMinutes);
 
       const chargesChanged = oldCharges !== newCharges;
+      const usernameChanged = oldUsername !== newUsername;
       const jailChanged = oldJailMinutes !== newJailMinutes;
-      if (!chargesChanged && !jailChanged) return;
+      if (!chargesChanged && !jailChanged && !usernameChanged) return;
 
-      const username = String(parsed?.username || '').trim();
+      const username = String(newUsername || parsed?.username || '').trim();
       const webViewUrl = buildAosWebUrlForUsername(username);
       const changedFields = [
+        usernameChanged ? 'username' : null,
         chargesChanged ? 'charges' : null,
-        jailChanged ? 'jail_minutes' : null
+        jailChanged ? 'jail time' : null
       ].filter(Boolean).join(', ');
 
       const thread = await client.channels.fetch(threadId).catch(() => null);

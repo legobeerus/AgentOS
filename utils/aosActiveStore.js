@@ -101,12 +101,15 @@ async function init() {
      RETURNS trigger AS $$
      BEGIN
        IF NEW.charges IS DISTINCT FROM OLD.charges
-          OR NEW.jail_minutes IS DISTINCT FROM OLD.jail_minutes THEN
+          OR NEW.jail_minutes IS DISTINCT FROM OLD.jail_minutes
+          OR NEW.username IS DISTINCT FROM OLD.username THEN
          PERFORM pg_notify(
            'aos_field_updates',
            json_build_object(
              'threadId', NEW.thread_id,
              'username', NEW.username,
+             'oldUsername', OLD.username,
+             'newUsername', NEW.username,
              'oldCharges', OLD.charges,
              'newCharges', NEW.charges,
              'oldJailMinutes', OLD.jail_minutes,
@@ -122,7 +125,7 @@ async function init() {
   await pool.query(`DROP TRIGGER IF EXISTS trg_notify_aos_field_updates ON bot_active_aos`);
   await pool.query(
     `CREATE TRIGGER trg_notify_aos_field_updates
-     AFTER UPDATE OF charges, jail_minutes ON bot_active_aos
+      AFTER UPDATE OF charges, jail_minutes, username ON bot_active_aos
      FOR EACH ROW
      EXECUTE FUNCTION notify_aos_field_updates()`
   );

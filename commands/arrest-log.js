@@ -14,44 +14,25 @@ module.exports = {
 
   async execute(interaction) {
     await interaction.deferReply({ ephemeral: true });
-    // Validate only by role membership in the interaction's guild (no required guild check)
+    // Validate membership/role strictly in the configured arrest guild.
     try {
       const reqRole = config.ARREST_REQUIRED_ROLE_ID;
       if (reqRole) {
-        const permissionGuildId = String(config.ARREST_GUILD_ID || interaction.guildId || '').trim();
-
-        // Handle both GuildMember role cache and APIInteractionGuildMember role ID arrays.
-        let hasRequiredRole = false;
-        const isPermissionGuildInteraction = permissionGuildId && String(interaction.guildId || '') === permissionGuildId;
-
-        if (isPermissionGuildInteraction) {
-          const member = interaction.member;
-          const memberRoles = member && member.roles;
-
-          if (memberRoles && memberRoles.cache && typeof memberRoles.cache.has === 'function') {
-            hasRequiredRole = memberRoles.cache.has(reqRole);
-          } else if (Array.isArray(memberRoles)) {
-            hasRequiredRole = memberRoles.includes(reqRole);
-          }
+        const permissionGuildId = String(config.ARREST_GUILD_ID || '').trim();
+        if (!permissionGuildId) {
+          await interaction.editReply({ content: '❌ Arrest permission guild is not configured.', ephemeral: true });
+          return;
         }
 
-        // Fetch membership from the configured arrest guild as source of truth.
-        if (!hasRequiredRole) {
-          if (!permissionGuildId) {
-            await interaction.editReply({ content: '❌ Arrest permission guild is not configured.', ephemeral: true });
-            return;
-          }
-
-          const permissionGuild = interaction.client.guilds.cache.get(permissionGuildId)
-            || await interaction.client.guilds.fetch(permissionGuildId).catch(() => null);
-          if (!permissionGuild) {
-            await interaction.editReply({ content: '❌ Could not resolve the arrest permission guild.', ephemeral: true });
-            return;
-          }
-
-          const fetchedMember = await permissionGuild.members.fetch(interaction.user.id).catch(() => null);
-          hasRequiredRole = !!(fetchedMember && fetchedMember.roles && fetchedMember.roles.cache && fetchedMember.roles.cache.has(reqRole));
+        const permissionGuild = interaction.client.guilds.cache.get(permissionGuildId)
+          || await interaction.client.guilds.fetch(permissionGuildId).catch(() => null);
+        if (!permissionGuild) {
+          await interaction.editReply({ content: '❌ Could not resolve the arrest permission guild.', ephemeral: true });
+          return;
         }
+
+        const fetchedMember = await permissionGuild.members.fetch(interaction.user.id).catch(() => null);
+        const hasRequiredRole = !!(fetchedMember && fetchedMember.roles && fetchedMember.roles.cache && fetchedMember.roles.cache.has(reqRole));
 
         if (!hasRequiredRole) {
           await interaction.editReply({ content: '❌ You do not have permission to run this command.', ephemeral: true });
