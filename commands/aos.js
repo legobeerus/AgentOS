@@ -30,9 +30,10 @@ function getAosForumThread(interaction) {
 }
 
 function buildAosBody({ submitter, username, profile, victims, charges, summary, proof, jailMinutes }) {
+  const webViewUrl = buildAosWebUrlForUsername(username);
   return [
     '# <:osi:1448992108500357150> **AOS Order** <:osi:1448992108500357150>',
-    `<@&${config.AOS_PING_ROLE_ID}>`,
+    webViewUrl ? `[**View in browser**](${webViewUrl})` : '*Error - Unable to generate web view link*',
     '',
     `**Submitter:** ${submitter}`,
     `**Username:** ${username}`,
@@ -96,9 +97,9 @@ function buildAosWebUrlForUsername(username) {
 }
 
 function extractEntryJailMinutes(entry) {
-  const candidate = entry?.calculatedTimeMinutes !== undefined && entry?.calculatedTimeMinutes !== null
-    ? entry.calculatedTimeMinutes
-    : entry?.jailMinutes;
+  const candidate = entry?.jailMinutes !== undefined && entry?.jailMinutes !== null
+    ? entry.jailMinutes
+    : entry?.calculatedTimeMinutes;
   const n = Number(candidate);
   if (!Number.isFinite(n) || n < 0) return null;
   return Math.floor(n);
@@ -487,6 +488,7 @@ module.exports = {
 
       try {
         await thread.setAppliedTags(nextTags);
+        await thread.send(`<@&${config.AOS_PING_ROLE_ID}>`).catch(() => null);
         try {
           let starter = null;
           try {

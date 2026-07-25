@@ -94,6 +94,38 @@ async function init() {
   await pool.query(`ALTER TABLE bot_active_aos ADD COLUMN IF NOT EXISTS proof TEXT`);
   await pool.query(`ALTER TABLE bot_active_aos ADD COLUMN IF NOT EXISTS tags JSONB NOT NULL DEFAULT '[]'::jsonb`);
   await pool.query(`ALTER TABLE bot_active_aos ADD COLUMN IF NOT EXISTS calculated_time_minutes INTEGER`);
+  await pool.query(`ALTER TABLE bot_active_aos ADD COLUMN IF NOT EXISTS jail_minutes INTEGER`);
+
+  await pool.query(
+    `CREATE OR REPLACE FUNCTION notify_aos_field_updates()
+     RETURNS trigger AS $$
+     BEGIN
+       IF NEW.charges IS DISTINCT FROM OLD.charges
+          OR NEW.jail_minutes IS DISTINCT FROM OLD.jail_minutes THEN
+         PERFORM pg_notify(
+           'aos_field_updates',
+           json_build_object(
+             'threadId', NEW.thread_id,
+             'username', NEW.username,
+             'oldCharges', OLD.charges,
+             'newCharges', NEW.charges,
+             'oldJailMinutes', OLD.jail_minutes,
+             'newJailMinutes', NEW.jail_minutes
+           )::text
+         );
+       END IF;
+       RETURN NEW;
+     END;
+     $$ LANGUAGE plpgsql`
+  );
+
+  await pool.query(`DROP TRIGGER IF EXISTS trg_notify_aos_field_updates ON bot_active_aos`);
+  await pool.query(
+    `CREATE TRIGGER trg_notify_aos_field_updates
+     AFTER UPDATE OF charges, jail_minutes ON bot_active_aos
+     FOR EACH ROW
+     EXECUTE FUNCTION notify_aos_field_updates()`
+  );
 
   await pool.query(
     `CREATE INDEX IF NOT EXISTS idx_bot_active_aos_username

@@ -163,3 +163,31 @@ async function listenForExamUpdates(handler, opts = {}) {
 }
 
 module.exports.listenForExamUpdates = listenForExamUpdates;
+
+async function listenForAosFieldUpdates(handler) {
+  if (!process.env.DATABASE_URL) {
+    console.info('DATABASE_URL not set — skipping listenForAosFieldUpdates');
+    return () => {};
+  }
+
+  const client = await pool.connect();
+  client.on('error', (err) => console.error('Postgres AoS listener client error:', err));
+  client.on('notification', async (msg) => {
+    if (!msg || msg.channel !== 'aos_field_updates') return;
+    try {
+      await handler(msg.payload || '');
+    } catch (e) {
+      console.error('Error handling aos_field_updates payload:', e);
+    }
+  });
+
+  await client.query('LISTEN aos_field_updates');
+  console.info('Listening for Postgres NOTIFY on channel: aos_field_updates');
+
+  return () => {
+    client.query('UNLISTEN aos_field_updates').catch(() => null);
+    client.release();
+  };
+}
+
+module.exports.listenForAosFieldUpdates = listenForAosFieldUpdates;

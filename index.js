@@ -28,6 +28,18 @@ const { startInactivityScheduler } = require("./utils/inactivityScheduler");
 const { startFollowupScheduler } = require("./utils/followupScheduler");
 const probationWatcher = require('./utils/probationWatcher');
 const verifyReminderScheduler = require('./utils/verifyReminderScheduler');
+const config = require('./config');
+
+function buildAosWebUrlForUsername(username) {
+  const baseRaw = String(config.EXAM_WEB_BASE_URL || '').trim();
+  if (!baseRaw) return null;
+
+  const base = baseRaw.replace(/\/$/, '');
+  const path = String(config.AOS_WEB_PATH || '/aos.html').trim() || '/aos.html';
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  const safeUsername = encodeURIComponent(String(username || '').trim());
+  return `${base}${normalizedPath}?username=${safeUsername}`;
+}
 
 // Start DB keep-alive (if configured)
 startKeepAlive();
@@ -70,7 +82,6 @@ client.once("ready", () => {
   try {
     const db = require('./utils/db');
     const examStore = require('./utils/examStore');
-    const config = require('./config');
     const { finalizeReview } = require('./utils/handleExamGrade');
     db.listenForExamUpdates(async (payload, source) => {
       try {
@@ -90,6 +101,51 @@ client.once("ready", () => {
       pollEnabled: config.EXAM_DB_POLL_ENABLED,
       pollMs: config.EXAM_DB_POLL_MS
     }).catch(err => console.error('Failed to start DB exam update listener:', err));
+
+    db.listenForAosFieldUpdates(async (payload) => {
+      let parsed = null;
+      try {
+        parsed = JSON.parse(payload || '{}');
+      } catch (e) {
+        return;
+      }
+
+      const threadId = String(parsed?.threadId || '').trim();
+      if (!threadId) return;
+
+      const oldCharges = parsed?.oldCharges === undefined || parsed?.oldCharges === null
+        ? null
+        : String(parsed.oldCharges);
+      const newCharges = parsed?.newCharges === undefined || parsed?.newCharges === null
+        ? null
+        : String(parsed.newCharges);
+      const oldJailMinutes = parsed?.oldJailMinutes === undefined || parsed?.oldJailMinutes === null
+        ? null
+        : Number(parsed.oldJailMinutes);
+      const newJailMinutes = parsed?.newJailMinutes === undefined || parsed?.newJailMinutes === null
+        ? null
+        : Number(parsed.newJailMinutes);
+
+      const chargesChanged = oldCharges !== newCharges;
+      const jailChanged = oldJailMinutes !== newJailMinutes;
+      if (!chargesChanged && !jailChanged) return;
+
+      const username = String(parsed?.username || '').trim();
+      const webViewUrl = buildAosWebUrlForUsername(username);
+      const changedFields = [
+        chargesChanged ? 'charges' : null,
+        jailChanged ? 'jail_minutes' : null
+      ].filter(Boolean).join(', ');
+
+      const thread = await client.channels.fetch(threadId).catch(() => null);
+      if (!thread || typeof thread.send !== 'function') return;
+
+      const content = webViewUrl
+        ? `⚠️ This AoS has been updated (${changedFields}), view changes on [the dashboard](${webViewUrl})`
+        : `⚠️ This AoS has been updated (${changedFields})`;
+
+      await thread.send(content).catch(() => null);
+    }).catch(err => console.error('Failed to start AoS update listener:', err));
   } catch (e) { console.debug && console.debug('DB listener not started (no DB configured?)', e.message || e); }
   // Start probation watcher to handle role-change based alerts
   try { probationWatcher.init(client); } catch (e) { console.error('Failed to init probationWatcher:', e); }
