@@ -1,6 +1,7 @@
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const { google } = require('googleapis');
 const config = require('../config');
+const { getByDiscord } = require('../utils/verificationStore');
 
 function colIndexToLetter(index) {
   let s = '';
@@ -28,7 +29,7 @@ function parseRange(range) {
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('points')
-    .setDescription("Modify a user's points on the configured Google Sheet")
+    .setDescription('Modify verified users points on the configured Google Sheet')
     .addStringOption(o =>
       o.setName('operation')
        .setDescription('Operation to perform')
@@ -39,7 +40,12 @@ module.exports = {
          { name: 'Set', value: 'set' }
        )
     )
-    .addStringOption(o => o.setName('username').setDescription('Username to find').setRequired(true))
+    .addStringOption(o =>
+      o
+        .setName('users')
+        .setDescription('Mention one or more Discord users (example: @user1 @user2)')
+        .setRequired(true)
+    )
     .addIntegerOption(o => o.setName('amount').setDescription('Amount/value').setRequired(true)),
 
   async execute(interaction) {
@@ -57,8 +63,19 @@ module.exports = {
     }
 
     const operation = interaction.options.getString('operation');
-    const username = interaction.options.getString('username');
+    const usersInput = interaction.options.getString('users');
     const amount = interaction.options.getInteger('amount');
+
+    const mentionIds = Array.from(new Set((String(usersInput).match(/<@!?(\d+)>/g) || [])
+      .map((mention) => mention.match(/\d+/)[0])));
+
+    if (!mentionIds.length) {
+      const invalidEmbed = new EmbedBuilder()
+        .setColor(0xed4245)
+        .setTitle('Points Update Failed')
+        .setDescription('No valid user mentions were provided. Mention users like @user1 @user2.');
+      return interaction.editReply({ embeds: [invalidEmbed] });
+    }
 
     const RANGE = config.TIME_LOG_SHEET_RANGE;
     const NAME_COL = Number.isFinite(Number(config.TIME_LOG_NAME_COL)) ? Number(config.TIME_LOG_NAME_COL) : 0;
@@ -90,27 +107,6 @@ module.exports = {
       const rows = (fetchRes.data && fetchRes.data.values) || [];
       if (!rows.length) return interaction.editReply('No rows found in configured range.');
 
-      let foundIdx = -1;
-      for (let i = 0; i < rows.length; i++) {
-        const row = rows[i] || [];
-        const cell = String(row[NAME_COL] || '').trim();
-        const rowStr = (row || []).join(' | ');
-        if (!cell && !rowStr) continue;
-        if (cell && cell.toLowerCase() === username.toLowerCase()) { foundIdx = i; break; }
-        if (String(rowStr).toLowerCase().includes(username.toLowerCase())) { foundIdx = i; break; }
-      }
-
-      if (foundIdx === -1) return interaction.editReply(`Username '${username}' not found in sheet range.`);
-
-      const targetRow = foundIdx; // 0-based within fetched range
-      const currentValRaw = String((rows[targetRow] || [])[POINTS_COL] || '').trim();
-      const currentVal = currentValRaw === '' ? 0 : Number(currentValRaw) || 0;
-
-      let newVal;
-      if (operation === 'add') newVal = currentVal + amount;
-      else if (operation === 'subtract') newVal = currentVal - amount;
-      else newVal = amount;
-
       const parsed = parseRange(RANGE);
       if (!parsed) return interaction.editReply('Configured range is not in an expected A1 format like Sheet1!A4:K1000.');
 
@@ -118,16 +114,87 @@ module.exports = {
       const startColIndex = letterToIndex(parsed.startCol);
       const targetColIndex = startColIndex + POINTS_COL;
       const targetColLetter = colIndexToLetter(targetColIndex);
-      const targetRowNumber = parsed.startRow + targetRow; // 1-based
 
-      const targetA1 = `${parsed.sheetName}!${targetColLetter}${targetRowNumber}`;
+      const succeeded = [];
+      const notVerified = [];
+      const notFoundInSheet = [];
+      const failed = [];
 
-      await sheets.spreadsheets.values.update({ spreadsheetId: config.GOOGLE_SHEET_ID, range: targetA1, valueInputOption: 'RAW', requestBody: { values: [[String(newVal)]] } });
+      for (const discordId of mentionIds) {
+        const mentionTag = `<@${discordId}>`;
+        let verification;
+        try {
+          verification = await getByDiscord(discordId);
+        } catch (verificationErr) {
+          failed.push(`${mentionTag}: verification lookup failed (${verificationErr.message || String(verificationErr)})`);
+          continue;
+        }
 
-      return interaction.editReply(`Updated points for '${username}': ${currentVal} -> ${newVal} (operation: ${operation}).`);
+        if (!verification || !verification.roblox_username) {
+          notVerified.push(mentionTag);
+          continue;
+        }
+
+        const username = String(verification.roblox_username).trim();
+        let foundIdx = -1;
+        for (let i = 0; i < rows.length; i++) {
+          const row = rows[i] || [];
+          const cell = String(row[NAME_COL] || '').trim();
+          const rowStr = (row || []).join(' | ');
+          if (!cell && !rowStr) continue;
+          if (cell && cell.toLowerCase() === username.toLowerCase()) { foundIdx = i; break; }
+          if (String(rowStr).toLowerCase().includes(username.toLowerCase())) { foundIdx = i; break; }
+        }
+
+        if (foundIdx === -1) {
+          notFoundInSheet.push(`${mentionTag} -> ${username}`);
+          continue;
+        }
+
+        const targetRow = foundIdx; // 0-based within fetched range
+        const currentValRaw = String((rows[targetRow] || [])[POINTS_COL] || '').trim();
+        const currentVal = currentValRaw === '' ? 0 : Number(currentValRaw) || 0;
+
+        let newVal;
+        if (operation === 'add') newVal = currentVal + amount;
+        else if (operation === 'subtract') newVal = currentVal - amount;
+        else newVal = amount;
+
+        const targetRowNumber = parsed.startRow + targetRow; // 1-based
+        const targetA1 = `${parsed.sheetName}!${targetColLetter}${targetRowNumber}`;
+
+        try {
+          await sheets.spreadsheets.values.update({ spreadsheetId: config.GOOGLE_SHEET_ID, range: targetA1, valueInputOption: 'RAW', requestBody: { values: [[String(newVal)]] } });
+          rows[targetRow][POINTS_COL] = String(newVal);
+          succeeded.push(`${mentionTag} -> ${username}: ${currentVal} -> ${newVal}`);
+        } catch (updateErr) {
+          failed.push(`${mentionTag} -> ${username}: ${updateErr.message || String(updateErr)}`);
+        }
+      }
+
+      const total = mentionIds.length;
+      const successCount = succeeded.length;
+      const summary = `${successCount}/${total} successful`;
+
+      const resultEmbed = new EmbedBuilder()
+        .setTitle('Points Update Results')
+        .setColor(successCount === total ? 0x57f287 : (successCount > 0 ? 0xfee75c : 0xed4245))
+        .setDescription(`${summary}. Operation: ${operation}. Amount: ${amount}.`)
+        .addFields(
+          { name: 'Successful', value: succeeded.length ? succeeded.join('\n').slice(0, 1024) : 'None', inline: false },
+          { name: 'Not Verified', value: notVerified.length ? notVerified.join(', ').slice(0, 1024) : 'None', inline: false },
+          { name: 'Verified But Not Found In Sheet', value: notFoundInSheet.length ? notFoundInSheet.join('\n').slice(0, 1024) : 'None', inline: false },
+          { name: 'Failed', value: failed.length ? failed.join('\n').slice(0, 1024) : 'None', inline: false }
+        );
+
+      return interaction.editReply({ embeds: [resultEmbed] });
     } catch (err) {
       console.error('points command failed:', err);
-      return interaction.editReply('Failed to update sheet: ' + (err.message || String(err)));
+      const failedEmbed = new EmbedBuilder()
+        .setColor(0xed4245)
+        .setTitle('Points Update Failed')
+        .setDescription('Failed to update sheet: ' + (err.message || String(err)));
+      return interaction.editReply({ embeds: [failedEmbed] });
     }
   }
 };

@@ -18,24 +18,38 @@ module.exports = {
     try {
       const reqRole = config.ARREST_REQUIRED_ROLE_ID;
       if (reqRole) {
+        const permissionGuildId = String(config.ARREST_GUILD_ID || interaction.guildId || '').trim();
+
         // Handle both GuildMember role cache and APIInteractionGuildMember role ID arrays.
         let hasRequiredRole = false;
-        const member = interaction.member;
-        const memberRoles = member && member.roles;
+        const isPermissionGuildInteraction = permissionGuildId && String(interaction.guildId || '') === permissionGuildId;
 
-        if (memberRoles && memberRoles.cache && typeof memberRoles.cache.has === 'function') {
-          hasRequiredRole = memberRoles.cache.has(reqRole);
-        } else if (Array.isArray(memberRoles)) {
-          hasRequiredRole = memberRoles.includes(reqRole);
+        if (isPermissionGuildInteraction) {
+          const member = interaction.member;
+          const memberRoles = member && member.roles;
+
+          if (memberRoles && memberRoles.cache && typeof memberRoles.cache.has === 'function') {
+            hasRequiredRole = memberRoles.cache.has(reqRole);
+          } else if (Array.isArray(memberRoles)) {
+            hasRequiredRole = memberRoles.includes(reqRole);
+          }
         }
 
-        // Last-resort fetch for environments where interaction.member is partial.
+        // Fetch membership from the configured arrest guild as source of truth.
         if (!hasRequiredRole) {
-          if (!interaction.guild) {
-            await interaction.editReply({ content: '❌ This command can only be used in a server.', ephemeral: true });
+          if (!permissionGuildId) {
+            await interaction.editReply({ content: '❌ Arrest permission guild is not configured.', ephemeral: true });
             return;
           }
-          const fetchedMember = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
+
+          const permissionGuild = interaction.client.guilds.cache.get(permissionGuildId)
+            || await interaction.client.guilds.fetch(permissionGuildId).catch(() => null);
+          if (!permissionGuild) {
+            await interaction.editReply({ content: '❌ Could not resolve the arrest permission guild.', ephemeral: true });
+            return;
+          }
+
+          const fetchedMember = await permissionGuild.members.fetch(interaction.user.id).catch(() => null);
           hasRequiredRole = !!(fetchedMember && fetchedMember.roles && fetchedMember.roles.cache && fetchedMember.roles.cache.has(reqRole));
         }
 
