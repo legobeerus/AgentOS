@@ -308,12 +308,16 @@ async function handleXpAuditLogMessage(message, client) {
 
   const count = matches.length;
   const currentTime = formatDiscordTimestamp(new Date(), 'f');
+  const primaryMatch = matches.find((entry) => typeof entry?.profile === 'string' && /^https?:\/\//i.test(entry.profile.trim())) || matches[0];
+  const aosPageUrl = String((primaryMatch && (primaryMatch.profile || primaryMatch.url)) || '').trim();
 
   const embed = new EmbedBuilder()
     .setTitle('AOS Alert')
     .setColor(0xed4245)
-    .setDescription(`User ${username} with ${count} outstanding warrant${count === 1 ? '' : 's'} has been detected online at ${currentTime}. Please respond.`)
-    .setFooter({ text: 'XP monitor' });
+    .setDescription(`User [${username}](${aosPageUrl || 'https://legobeerus.github.io/dashboard.html'}) with ${count} outstanding warrant${count === 1 ? '' : 's'} has been detected online at ${currentTime}. Please respond.`)
+    .setFooter('XP Monitor');
+
+  if (aosPageUrl) embed.setURL(aosPageUrl);
 
   await alertChannel.send({ embeds: [embed] }).catch((err) => {
     warnLog('Failed to send AoS alert', { error: err && (err.message || err) });
