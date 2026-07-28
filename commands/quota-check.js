@@ -50,16 +50,16 @@ module.exports = {
   async execute(interaction) {
     await interaction.deferReply({ ephemeral: true });
     // Restrict to the same approver role used for case approvals
-    try {
-      if (!interaction.member.roles.cache.has(require('../config').REQUIRED_ROLE_ID)) {
-        await interaction.editReply({ content: '❌ You do not have permission to run this command.', ephemeral: true });
-        return;
-      }
-    } catch (err) {
-      // If anything goes wrong resolving roles, deny by default
-      try { await interaction.editReply({ content: '❌ You do not have permission to run this command.', ephemeral: true }); } catch (e) {}
-      return;
-    }
+    // try {
+    //   if (!interaction.member.roles.cache.has(require('../config').REQUIRED_ROLE_ID)) {
+    //     await interaction.editReply({ content: '❌ You do not have permission to run this command.', ephemeral: true });
+    //     return;
+    //   }
+    // } catch (err) {
+    //   // If anything goes wrong resolving roles, deny by default
+    //   try { await interaction.editReply({ content: '❌ You do not have permission to run this command.', ephemeral: true }); } catch (e) {}
+    //   return;
+    // }
 
     try {
       if (!config.GOOGLE_SHEET_ID) return interaction.editReply("Google sheet not configured.");
