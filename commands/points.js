@@ -53,7 +53,11 @@ module.exports = {
 
     // Restrict to the same approver role used for case approvals
     try {
-      if (!interaction.member.roles.cache.has(require('../config').REQUIRED_ROLE_ID)) {
+      const requiredRoles = Array.isArray(config.REQUIRED_ROLE_IDS_LIST)
+        ? config.REQUIRED_ROLE_IDS_LIST
+        : String(config.REQUIRED_ROLE_ID || '').split(',').map(s => s.trim()).filter(Boolean);
+      const hasRequiredRole = requiredRoles.some(roleId => interaction.member.roles.cache.has(roleId));
+      if (!hasRequiredRole) {
         await interaction.editReply({ content: '❌ You do not have permission to run this command.', ephemeral: true });
         return;
       }

@@ -50,16 +50,20 @@ module.exports = {
   async execute(interaction) {
     await interaction.deferReply({ ephemeral: true });
     // Restrict to the same approver role used for case approvals
-    // try {
-    //   if (!interaction.member.roles.cache.has(require('../config').REQUIRED_ROLE_ID)) {
-    //     await interaction.editReply({ content: '❌ You do not have permission to run this command.', ephemeral: true });
-    //     return;
-    //   }
-    // } catch (err) {
-    //   // If anything goes wrong resolving roles, deny by default
-    //   try { await interaction.editReply({ content: '❌ You do not have permission to run this command.', ephemeral: true }); } catch (e) {}
-    //   return;
-    // }
+    try {
+      const requiredRoles = Array.isArray(config.REQUIRED_ROLE_IDS_LIST)
+        ? config.REQUIRED_ROLE_IDS_LIST
+        : String(config.REQUIRED_ROLE_ID || '').split(',').map(s => s.trim()).filter(Boolean);
+      const hasRequiredRole = requiredRoles.some(roleId => interaction.member.roles.cache.has(roleId));
+      if (!hasRequiredRole) {
+        await interaction.editReply({ content: '❌ You do not have permission to run this command.', ephemeral: true });
+        return;
+      }
+    } catch (err) {
+      // If anything goes wrong resolving roles, deny by default
+      try { await interaction.editReply({ content: '❌ You do not have permission to run this command.', ephemeral: true }); } catch (e) {}
+      return;
+    }
 
     try {
       if (!config.GOOGLE_SHEET_ID) return interaction.editReply("Google sheet not configured.");
@@ -129,7 +133,7 @@ module.exports = {
         }).join("\n") : "- None";
         const agent = topName ? `- ${topName}` : "- None";
 
-        const channelId = config.GAME_QUOTA_CHANNEL_ID || config.TARGET_CHANNEL_ID;
+        const channelId = String(config.GAME_QUOTA_CHANNEL_ID || '').trim();
         if (!channelId) return interaction.editReply("No target channel configured for quota reports.");
 
         const channel = await interaction.client.channels.fetch(channelId).catch(() => null);
@@ -147,7 +151,7 @@ module.exports = {
         console.error('Failed to filter by IN DB:', err);
       }
 
-      const channelId = config.GAME_QUOTA_CHANNEL_ID || null;
+      const channelId = String(config.GAME_QUOTA_CHANNEL_ID || '').trim();
       if (!channelId) return interaction.editReply("No target channel configured for quota reports.");
 
       const channel = await interaction.client.channels.fetch(channelId).catch(() => null);

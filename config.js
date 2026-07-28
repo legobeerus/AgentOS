@@ -64,7 +64,7 @@ module.exports = {
   // Comma-separated list of rank names (case-insensitive) to exclude from quota checks
   GAME_QUOTA_EXCLUDE_RANKS: process.env.GAME_QUOTA_EXCLUDE_RANKS || "Special Agent-in-Training,Director of Investigations,Deputy Director of Investigations,Section Chief,Overseer",
   // Channel to post quota check reports
-    GAME_QUOTA_CHANNEL_ID: process.env.GAME_QUOTA_CHANNEL_ID || "1060495855817334887",
+    GAME_QUOTA_CHANNEL_ID: cleanId(process.env.GAME_QUOTA_CHANNEL_ID) || "1060495855817334887",
     // Zero-based index of pass/fail status column in TIME_LOG_SHEET_RANGE (checkbox/IF TRUE/FALSE/IMMUNE)
     GAME_QUOTA_PASS_COL: process.env.GAME_QUOTA_PASS_COL !== undefined ? Number(process.env.GAME_QUOTA_PASS_COL) : 5,
     // Text marker in pass/fail column that excludes a user from quota and Agent of the Week
@@ -236,6 +236,8 @@ module.exports = {
 // Admin whitelist: comma-separated user IDs in env var ADMIN_WHITELIST
 // Example: ADMIN_WHITELIST=123,456,789
 module.exports.ADMIN_WHITELIST = (process.env.ADMIN_WHITELIST || "716248402513494027").split(",").map(s => cleanId(s)).map(s => s.trim()).filter(Boolean);
+const _rawRequiredRoles = process.env.REQUIRED_ROLE_ID || module.exports.REQUIRED_ROLE_ID || "";
+module.exports.REQUIRED_ROLE_IDS_LIST = String(_rawRequiredRoles).split(",").map(s => cleanId(s)).map(s => s.trim()).filter(Boolean);
 // Processed list of role IDs to exclude from verifylist (from VERIFYLIST_EXCLUDE_ROLE_IDS)
 // Build processed list of role IDs to exclude from verifylist. Prefer explicit env var, otherwise use the
 // `VERIFYLIST_EXCLUDE_ROLE_IDS` value defined above in the exported config object.

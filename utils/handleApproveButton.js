@@ -19,7 +19,11 @@ async function handleApproveButton(interaction) {
   }
 
   // Role check from config
-  if (!interaction.member.roles.cache.has(config.REQUIRED_ROLE_ID)) {
+  const requiredRoles = Array.isArray(config.REQUIRED_ROLE_IDS_LIST)
+    ? config.REQUIRED_ROLE_IDS_LIST
+    : String(config.REQUIRED_ROLE_ID || '').split(',').map(s => s.trim()).filter(Boolean);
+  const hasRequiredRole = requiredRoles.some(roleId => interaction.member.roles.cache.has(roleId));
+  if (!hasRequiredRole) {
     return interaction.followUp({
       content: "❌ You do not have permission to approve this.",
       ephemeral: true
@@ -52,7 +56,8 @@ async function handleApproveButton(interaction) {
   // Persist a follow-up message to be sent after 48 hours and schedule it
   try {
     const sendAt = Date.now() + 48 * 60 * 60 * 1000;
-    const content = `<@&${config.REQUIRED_ROLE_ID}>\n\nPunishment Discussion ${casenumber} is complete (48 hours has passed).`;
+    const roleMentions = requiredRoles.length ? requiredRoles.map(roleId => `<@&${roleId}>`).join(' ') : '';
+    const content = `${roleMentions}\n\nPunishment Discussion ${casenumber} is complete (48 hours has passed).`;
     const entry = await addFollowup({ guildId: interaction.guildId, threadId: thread.id, sendAt, content });
     // Try to schedule now (scheduler will also pick this up on restart)
     try { scheduleFollowup(entry); } catch (e) {}
