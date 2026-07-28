@@ -5,7 +5,7 @@ function cleanId(v) {
 
 module.exports = {
   // Role allowed to approve cases
-  REQUIRED_ROLE_ID: cleanId(process.env.REQUIRED_ROLE_ID) || "1449861438012133566",
+  REQUIRED_ROLE_ID: cleanId(process.env.REQUIRED_ROLE_ID) || "1449861438012133566,1106739929540730921",
   // Channel where approved cases are posted
   TARGET_CHANNEL_ID: cleanId(process.env.TARGET_CHANNEL_ID) || "1449832209316839455",
   // Role to ping when posting approved cases
@@ -64,7 +64,7 @@ module.exports = {
   // Comma-separated list of rank names (case-insensitive) to exclude from quota checks
   GAME_QUOTA_EXCLUDE_RANKS: process.env.GAME_QUOTA_EXCLUDE_RANKS || "Special Agent-in-Training,Director of Investigations,Deputy Director of Investigations,Section Chief,Overseer",
   // Channel to post quota check reports
-    GAME_QUOTA_CHANNEL_ID: process.env.GAME_QUOTA_CHANNEL_ID || "1494043062991847546",
+    GAME_QUOTA_CHANNEL_ID: process.env.GAME_QUOTA_CHANNEL_ID || "1060495855817334887",
     // Zero-based index of pass/fail status column in TIME_LOG_SHEET_RANGE (checkbox/IF TRUE/FALSE/IMMUNE)
     GAME_QUOTA_PASS_COL: process.env.GAME_QUOTA_PASS_COL !== undefined ? Number(process.env.GAME_QUOTA_PASS_COL) : 5,
     // Text marker in pass/fail column that excludes a user from quota and Agent of the Week
@@ -202,7 +202,7 @@ module.exports = {
   AOS_TAG_REQUISITION_REWARD_ID: cleanId(process.env.AOS_TAG_REQUISITION_REWARD_ID) || "1414718868966080586",
   AOS_TAG_MEDAL_REWARD_ID: cleanId(process.env.AOS_TAG_MEDAL_REWARD_ID) || "1414719611378864168",
   AOS_ADD_ROLE_IDS: process.env.AOS_ADD_ROLE_IDS || "1041577710067138561",
-  AOS_APPROVE_ROLE_IDS: process.env.AOS_APPROVE_ROLE_IDS || "1449861438012133566,1515073017804361728",
+  AOS_APPROVE_ROLE_IDS: process.env.AOS_APPROVE_ROLE_IDS || "1449861438012133566,1515073017804361728,1106739929540730921",
   AOS_COMPLETE_ROLE_IDS: process.env.AOS_COMPLETE_ROLE_IDS || "1041577710067138561",
   AOS_COMPLETE_PING_ROLE_ID: cleanId(process.env.AOS_COMPLETE_PING_ROLE_ID) || "1515073017804361728",
   AOS_BANNED_ROLE_ID: cleanId(process.env.AOS_BANNED_ROLE_ID) || "1327721437276012595",
