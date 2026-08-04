@@ -276,7 +276,11 @@ module.exports = {
       const minutesCol = config.TIME_LOG_MINUTES_COL || 2;
       const rankCol = (config.TIME_LOG_RANK_COL !== undefined && config.TIME_LOG_RANK_COL !== null) ? Number(config.TIME_LOG_RANK_COL) : undefined;
       const passCol = (config.GAME_QUOTA_PASS_COL !== undefined && config.GAME_QUOTA_PASS_COL !== null) ? Number(config.GAME_QUOTA_PASS_COL) : undefined;
-      const excludeRanks = (config.GAME_QUOTA_EXCLUDE_RANKS || "").split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+      const excludeRanks = new Set([
+        ...(config.GAME_QUOTA_EXCLUDE_RANKS || "").split(',').map(s => s.trim().toLowerCase()).filter(Boolean),
+        'low command',
+        'medium command'
+      ]);
 
       const failed = [];
       const candidates = [];
@@ -290,9 +294,9 @@ module.exports = {
         const raw = normalizeCell(row[minutesCol]);
         if (!name) continue;
         // If a rank column is configured and the rank matches an excluded rank, skip this row
-        if (typeof rankCol === 'number' && excludeRanks.length) {
+        if (typeof rankCol === 'number' && excludeRanks.size) {
           const rank = (row[rankCol] || "").toString().trim().toLowerCase();
-          if (rank && excludeRanks.includes(rank)) continue;
+          if (rank && excludeRanks.has(rank)) continue;
         }
 
         const passStatusRaw = typeof passCol === 'number' ? row[passCol] : undefined;

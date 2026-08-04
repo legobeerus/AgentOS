@@ -5,6 +5,24 @@ const DATABASE_URL = process.env.DATABASE_URL || config.DATABASE_URL || '';
 let pool = null;
 let initPromise = null;
 
+const EVENT_TYPE_KEYS = ['deployments', 'combat_trainings', 'mock_investigations', 'court_martials', 'sting_operations', 'custom'];
+
+function normalizeWeeklyByType(value) {
+  const base = {
+    deployments: 0,
+    combat_trainings: 0,
+    mock_investigations: 0,
+    court_martials: 0,
+    sting_operations: 0,
+    custom: 0
+  };
+  if (!value || typeof value !== 'object') return base;
+  for (const key of EVENT_TYPE_KEYS) {
+    base[key] = Number(value[key] || 0);
+  }
+  return base;
+}
+
 function requireDb() {
   if (!DATABASE_URL) {
     const err = new Error('events_db_not_configured');
@@ -65,6 +83,7 @@ async function ensureTables() {
           vc_link TEXT,
           ping_role_id TEXT,
           scheduled_for TIMESTAMPTZ,
+          event_type_key TEXT,
           started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
           auto_end_at TIMESTAMPTZ,
           status TEXT NOT NULL DEFAULT 'active',
@@ -84,15 +103,20 @@ async function ensureTables() {
           operations_channel_id TEXT,
           operations_message_id TEXT,
           weekly_completed_count INTEGER NOT NULL DEFAULT 0,
+          weekly_completed_by_type JSONB NOT NULL DEFAULT '{}'::jsonb,
           last_week_reset_key TEXT,
           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )`
       );
 
+      await db.query(`ALTER TABLE bot_live_events ADD COLUMN IF NOT EXISTS event_type_key TEXT`);
+      await db.query(`ALTER TABLE bot_event_system_state ADD COLUMN IF NOT EXISTS weekly_completed_by_type JSONB NOT NULL DEFAULT '{}'::jsonb`);
+
       await db.query(
-        `INSERT INTO bot_event_system_state (id, weekly_completed_count)
-         VALUES (1, 0)
-         ON CONFLICT (id) DO NOTHING`
+        `INSERT INTO bot_event_system_state (id, weekly_completed_count, weekly_completed_by_type)
+         VALUES (1, 0, $1::jsonb)
+         ON CONFLICT (id) DO NOTHING`,
+        [JSON.stringify(normalizeWeeklyByType(null))]
       );
 
       console.info('[eventStore] ensured event tables exist');
@@ -149,6 +173,7 @@ function mapLiveEvent(row) {
     gameLink: row.game_link || '',
     vcLink: row.vc_link || '',
     pingRoleId: row.ping_role_id || null,
+    eventTypeKey: row.event_type_key || null,
     scheduledFor: row.scheduled_for ? new Date(row.scheduled_for).toISOString() : null,
     startedAt: row.started_at ? new Date(row.started_at).toISOString() : null,
     autoEndAt: row.auto_end_at ? new Date(row.auto_end_at).toISOString() : null,
@@ -291,8 +316,8 @@ async function createLiveEvent(input) {
     `INSERT INTO bot_live_events (
       id, source, event_id, guild_id, channel_id, message_id, event_title, hosts_text,
       host_user_id, description, game_link, vc_link, ping_role_id, scheduled_for,
-      started_at, auto_end_at, status, created_at, updated_at
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+      event_type_key, started_at, auto_end_at, status, created_at, updated_at
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
     RETURNING *`,
     [
       id,
@@ -309,6 +334,7 @@ async function createLiveEvent(input) {
       String(input.vcLink || '').trim(),
       normalizeRoleId(input.pingRoleId),
       input.scheduledFor ? new Date(input.scheduledFor).toISOString() : null,
+      input.eventTypeKey ? String(input.eventTypeKey).trim() : null,
       input.startedAt ? new Date(input.startedAt).toISOString() : nowIso,
       input.autoEndAt ? new Date(input.autoEndAt).toISOString() : null,
       String(input.status || 'active'),
@@ -385,6 +411,12 @@ async function getSystemState() {
   const res = await db.query('SELECT * FROM bot_event_system_state WHERE id = 1 LIMIT 1');
   const row = res.rows[0] || null;
   if (!row) return null;
+  let weeklyByType = null;
+  if (row.weekly_completed_by_type && typeof row.weekly_completed_by_type === 'object') {
+    weeklyByType = row.weekly_completed_by_type;
+  } else if (typeof row.weekly_completed_by_type === 'string') {
+    try { weeklyByType = JSON.parse(row.weekly_completed_by_type); } catch (e) {}
+  }
   return {
     id: 1,
     scheduleChannelId: row.schedule_channel_id || null,
@@ -392,6 +424,7 @@ async function getSystemState() {
     operationsChannelId: row.operations_channel_id || null,
     operationsMessageId: row.operations_message_id || null,
     weeklyCompletedCount: Number(row.weekly_completed_count || 0),
+    weeklyCompletedByType: normalizeWeeklyByType(weeklyByType),
     lastWeekResetKey: row.last_week_reset_key || null,
     updatedAt: row.updated_at ? new Date(row.updated_at).toISOString() : null
   };
@@ -406,6 +439,9 @@ async function upsertSystemState(patch) {
     operationsChannelId: patch.operationsChannelId !== undefined ? patch.operationsChannelId : (current ? current.operationsChannelId : null),
     operationsMessageId: patch.operationsMessageId !== undefined ? patch.operationsMessageId : (current ? current.operationsMessageId : null),
     weeklyCompletedCount: patch.weeklyCompletedCount !== undefined ? Number(patch.weeklyCompletedCount || 0) : (current ? current.weeklyCompletedCount : 0),
+    weeklyCompletedByType: patch.weeklyCompletedByType !== undefined
+      ? normalizeWeeklyByType(patch.weeklyCompletedByType)
+      : normalizeWeeklyByType(current ? current.weeklyCompletedByType : null),
     lastWeekResetKey: patch.lastWeekResetKey !== undefined ? patch.lastWeekResetKey : (current ? current.lastWeekResetKey : null)
   };
 
@@ -413,14 +449,15 @@ async function upsertSystemState(patch) {
   await db.query(
     `INSERT INTO bot_event_system_state (
       id, schedule_channel_id, schedule_message_id, operations_channel_id,
-      operations_message_id, weekly_completed_count, last_week_reset_key, updated_at
-    ) VALUES (1,$1,$2,$3,$4,$5,$6,$7)
+      operations_message_id, weekly_completed_count, weekly_completed_by_type, last_week_reset_key, updated_at
+    ) VALUES (1,$1,$2,$3,$4,$5,$6::jsonb,$7,$8)
     ON CONFLICT (id) DO UPDATE SET
       schedule_channel_id = EXCLUDED.schedule_channel_id,
       schedule_message_id = EXCLUDED.schedule_message_id,
       operations_channel_id = EXCLUDED.operations_channel_id,
       operations_message_id = EXCLUDED.operations_message_id,
       weekly_completed_count = EXCLUDED.weekly_completed_count,
+      weekly_completed_by_type = EXCLUDED.weekly_completed_by_type,
       last_week_reset_key = EXCLUDED.last_week_reset_key,
       updated_at = EXCLUDED.updated_at`,
     [
@@ -429,6 +466,7 @@ async function upsertSystemState(patch) {
       next.operationsChannelId,
       next.operationsMessageId,
       next.weeklyCompletedCount,
+      JSON.stringify(next.weeklyCompletedByType),
       next.lastWeekResetKey,
       new Date().toISOString()
     ]
@@ -437,11 +475,14 @@ async function upsertSystemState(patch) {
   return getSystemState();
 }
 
-async function incrementWeeklyCounter() {
+async function incrementWeeklyCounter(eventTypeKey) {
   await ensureTables();
   const state = await getSystemState();
   const nextCount = Number((state && state.weeklyCompletedCount) || 0) + 1;
-  return upsertSystemState({ weeklyCompletedCount: nextCount });
+  const key = EVENT_TYPE_KEYS.includes(eventTypeKey) ? eventTypeKey : 'custom';
+  const byType = normalizeWeeklyByType(state ? state.weeklyCompletedByType : null);
+  byType[key] = Number(byType[key] || 0) + 1;
+  return upsertSystemState({ weeklyCompletedCount: nextCount, weeklyCompletedByType: byType });
 }
 
 module.exports = {

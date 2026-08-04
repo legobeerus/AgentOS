@@ -70,9 +70,11 @@ async function fireEvent(eventId) {
     guildId: event.guildId,
     eventTitle: event.title,
     hostsText: event.hostsText,
+    startedByUserId: event.createdBy || null,
     description: event.description,
     gameLink: '',
     vcLink: '',
+    eventTypeKey: 'custom',
     pingRoleId: event.pingRoleId || null,
     scheduledFor: event.nextRunAt,
     autoEndAt

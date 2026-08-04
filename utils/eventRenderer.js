@@ -2,11 +2,11 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('
 const config = require('../config');
 
 const PRESET_TYPES = [
-  { key: 'deployments', label: 'Deployments', defaultDescription: 'Deployment operation is now active. Review objectives and begin mission execution.' },
-  { key: 'combat_trainings', label: 'Combat Trainings', defaultDescription: 'Combat training is now active. Report in and prepare for instruction.' },
-  { key: 'mock_investigations', label: 'Mock Investigations', defaultDescription: 'Mock investigation is now active. Follow the case brief and assigned tasks.' },
-  { key: 'court_martials', label: 'Court Martials', defaultDescription: 'Court martial is now active. Maintain courtroom protocol and attendance.' },
-  { key: 'sting_operations', label: 'Sting Operations', defaultDescription: 'Sting operation is now active. Follow opsec and chain-of-command direction.' }
+  { key: 'deployments', label: 'Deployment', defaultDescription: 'Deployment operation is now active. Review objectives and begin mission execution.' },
+  { key: 'combat_trainings', label: 'Combat Training', defaultDescription: 'Combat training is now active. Report in and prepare for instruction.' },
+  { key: 'mock_investigations', label: 'Mock Investigation', defaultDescription: 'Mock investigation is now active. Follow the case brief and assigned tasks.' },
+  { key: 'court_martials', label: 'Court Martial', defaultDescription: 'Court martial is now active. Maintain courtroom protocol and attendance.' },
+  { key: 'sting_operations', label: 'Sting Operation', defaultDescription: 'Sting operation is now active. Follow opsec and chain-of-command direction.' }
 ];
 
 function toUnix(input) {
@@ -54,18 +54,26 @@ function buildScheduleComponents() {
   return [row];
 }
 
-function buildOperationsPanelEmbed(weeklyCount) {
+function buildOperationsPanelEmbed(weeklyCount, weeklyByType) {
   const intro = [
     'This channel is intended to announce operations events.',
     'Authorized hosts may start preset operations below.',
     'End events when complete so weekly tracking stays accurate.'
   ].join('\n');
 
+  const counts = weeklyByType && typeof weeklyByType === 'object' ? weeklyByType : {};
+  const lines = PRESET_TYPES.map((preset) => {
+    return `${preset.label}: ${Number(counts[preset.key] || 0)}`;
+  }).join('\n');
+
   return new EmbedBuilder()
     .setTitle('Welcome to Operations')
     .setColor(config.EMBED_COLOR || 0x00aff1)
     .setDescription(`\`\`\`text\n${intro}\n\`\`\``)
-    .addFields({ name: 'Weekly Events Completed', value: String(Number(weeklyCount || 0)), inline: true })
+    .addFields(
+      { name: 'Weekly Events Completed', value: String(Number(weeklyCount || 0)), inline: true },
+      { name: 'By Event Type', value: lines || 'No completed events yet.', inline: false }
+    )
     .setFooter({ text: 'Counter resets Monday 00:00 UTC' })
     .setTimestamp(new Date());
 }

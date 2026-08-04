@@ -8,6 +8,7 @@ const {
 const config = require('../config');
 const eventStore = require('./eventStore');
 const renderer = require('./eventRenderer');
+const { getState } = require('./adminState');
 
 function toRoleList(listLike) {
   if (Array.isArray(listLike)) return listLike.map((x) => String(x).trim()).filter(Boolean);
@@ -128,7 +129,7 @@ async function refreshOperationsPanelMessage(client) {
   const ch = await fetchTextChannel(client, state.operationsChannelId);
   if (!ch) return null;
 
-  const embed = renderer.buildOperationsPanelEmbed(state.weeklyCompletedCount || 0);
+  const embed = renderer.buildOperationsPanelEmbed(state.weeklyCompletedCount || 0, state.weeklyCompletedByType || {});
   const components = renderer.buildOperationsPanelComponents();
   const message = await upsertManagedMessage(ch, state.operationsMessageId, { embeds: [embed], components });
 
@@ -184,6 +185,7 @@ async function postLiveEvent(client, payload) {
     description: payload.description || '',
     gameLink: payload.gameLink || '',
     vcLink: payload.vcLink || '',
+    eventTypeKey: payload.eventTypeKey || null,
     pingRoleId: payload.pingRoleId || null,
     scheduledFor: payload.scheduledFor || null,
     autoEndAt: payload.autoEndAt || null,
@@ -205,7 +207,18 @@ async function postLiveEvent(client, payload) {
   await eventStore.updateLiveEvent(created.id, { channelId: ch.id, messageId: msg.id });
 
   const pingRoleId = created.pingRoleId || String(config.EVENT_DEFAULT_PING_ROLE_ID || '').trim() || null;
-  if (pingRoleId) {
+  const startedByUserId = String(payload.startedByUserId || payload.hostUserId || '').trim() || null;
+  let skipPing = false;
+  if (startedByUserId && String(config.EVENT_DEBUG_NO_PING_USER_ID || '').trim() === startedByUserId) {
+    try {
+      const state = await getState();
+      skipPing = !!(state && state.debugMode);
+    } catch (e) {
+      skipPing = false;
+    }
+  }
+
+  if (pingRoleId && !skipPing) {
     await ch.send({ content: `<@&${pingRoleId}>`, allowedMentions: { roles: [pingRoleId] } }).catch(() => null);
   }
 
@@ -245,7 +258,7 @@ async function endLiveEvent(client, liveEventId, actorUserId, reason) {
     console.warn('Failed to disable ended event buttons:', e && e.message ? e.message : e);
   }
 
-  await eventStore.incrementWeeklyCounter();
+  await eventStore.incrementWeeklyCounter(live.eventTypeKey || null);
   await refreshOperationsPanelMessage(client);
   return ended;
 }
@@ -258,6 +271,7 @@ async function maybeResetWeeklyCounter(client) {
 
   await eventStore.upsertSystemState({
     weeklyCompletedCount: 0,
+    weeklyCompletedByType: {},
     lastWeekResetKey: key
   });
   await refreshOperationsPanelMessage(client);
@@ -327,9 +341,11 @@ async function handlePresetModal(interaction, client) {
     eventTitle: preset.label,
     hostsText: `<@${interaction.user.id}>`,
     hostUserId: interaction.user.id,
+    startedByUserId: interaction.user.id,
     description: String(descriptionRaw).trim() || preset.defaultDescription,
     gameLink,
     vcLink,
+    eventTypeKey: preset.key,
     pingRoleId: String(config.EVENT_DEFAULT_PING_ROLE_ID || '').trim() || null,
     autoEndAt: null
   });
