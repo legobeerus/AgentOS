@@ -304,7 +304,10 @@ async function countScheduledEvents(guildId) {
   const res = await db.query(
     `SELECT COUNT(*)::int AS count
      FROM bot_events
-     WHERE guild_id = $1 AND status = 'scheduled'`,
+     WHERE guild_id = $1
+       AND status = 'scheduled'
+       AND next_run_at IS NOT NULL
+       AND next_run_at > NOW()`,
     [String(guildId)]
   );
   return Number(res.rows[0] && res.rows[0].count ? res.rows[0].count : 0);
@@ -315,7 +318,10 @@ async function listScheduledEvents(guildId) {
   const db = getPool();
   const res = await db.query(
     `SELECT * FROM bot_events
-     WHERE guild_id = $1 AND status = 'scheduled'
+     WHERE guild_id = $1
+       AND status = 'scheduled'
+       AND next_run_at IS NOT NULL
+       AND next_run_at > NOW()
      ORDER BY next_run_at ASC NULLS LAST, created_at ASC`,
     [String(guildId)]
   );

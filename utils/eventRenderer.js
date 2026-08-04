@@ -20,15 +20,24 @@ function safe(value, fallback) {
   return v || fallback;
 }
 
+function sanitizeStars(value, fallback) {
+  const base = safe(value, fallback);
+  // Trim edge stars so wrapping with bold markers does not produce malformed output.
+  return base.replace(/^\*+/, '').replace(/\*+$/, '').trim() || fallback;
+}
+
 function eventLine(event) {
   const ts = toUnix(event.nextRunAt || event.startAt);
   const when = ts ? `<t:${ts}:F> (<t:${ts}:R>)` : 'Unknown time';
   const recurrence = event.isRecurring ? ` | weekly ${String(event.recurringTimeUtc || '??:??')} UTC` : '';
+  const title = sanitizeStars(event.title, 'Untitled Event');
+  const hosts = sanitizeStars(event.hostsText, 'Not provided');
+  const description = sanitizeStars(event.description, 'No description provided');
   return [
-    `- ${safe(event.title, 'Untitled Event')}`,
-    `  Time: ${when}${recurrence}`,
-    `  Host(s): ${safe(event.hostsText, 'Not provided')}`,
-    `  Description: ${safe(event.description, 'No description provided')}`
+    `- **${title}**`,
+    `  **Time:** ${when}${recurrence}`,
+    `  **Host(s):** ${hosts}`,
+    `  **Description:** ${description}`
   ].join('\n');
 }
 

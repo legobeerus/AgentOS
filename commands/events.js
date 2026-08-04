@@ -101,10 +101,7 @@ module.exports = {
     .addSubcommand((sub) => sub
       .setName('remove')
       .setDescription('Remove a scheduled event')
-      .addStringOption((opt) => opt.setName('id').setDescription('Event ID').setRequired(true)))
-    .addSubcommand((sub) => sub
-      .setName('list')
-      .setDescription('List scheduled events and IDs')),
+      .addStringOption((opt) => opt.setName('id').setDescription('Event ID').setRequired(true))),
 
   guildOnly: String(config.EVENT_GUILD_ID || '').trim() || undefined,
 
@@ -299,23 +296,6 @@ module.exports = {
       await eventSystem.refreshScheduleMessage(interaction.client, interaction.guildId);
       await eventScheduler.resyncAll();
       await interaction.editReply({ content: `Scheduled event removed: ${id}` });
-      return;
-    }
-
-    if (sub === 'list') {
-      const list = await eventStore.listScheduledEvents(interaction.guildId);
-      if (!list.length) {
-        await interaction.editReply({ content: 'No scheduled events.' });
-        return;
-      }
-
-      const lines = list.slice(0, 20).map((ev) => {
-        const ts = ev.nextRunAt ? Math.floor(new Date(ev.nextRunAt).getTime() / 1000) : null;
-        const when = ts ? `<t:${ts}:F>` : 'Unknown time';
-        const recurring = ev.isRecurring ? ` | recurring ${ev.recurringTimeUtc} UTC` : '';
-        return `${ev.id} | ${ev.title} | ${when}${recurring}`;
-      });
-      await interaction.editReply({ content: `Scheduled events (${list.length}):\n${lines.join('\n')}`.slice(0, 2000) });
       return;
     }
 
