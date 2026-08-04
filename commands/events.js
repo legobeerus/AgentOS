@@ -18,19 +18,36 @@ function parseDateInput(raw) {
   const value = String(raw || '').trim();
   if (!value) return null;
 
-  if (/^\d{10}$/.test(value)) {
-    const dt = new Date(Number(value) * 1000);
+  // Discord timestamp mention format: <t:unix[:style]>
+  const discordTs = value.match(/^<t:(\d{1,13})(?::[tTdDfFR])?>$/);
+  if (discordTs) {
+    const unix = Number(discordTs[1]);
+    const dt = new Date(unix > 9999999999 ? unix : unix * 1000);
     return Number.isFinite(dt.getTime()) ? dt : null;
   }
 
-  if (/^\d{13}$/.test(value)) {
-    const dt = new Date(Number(value));
-    return Number.isFinite(dt.getTime()) ? dt : null;
+  // Simple format: DD/MM/YYYY, HH:mm (interpreted as UTC)
+  const simple = value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4}),\s*([01]?\d|2[0-3]):([0-5]\d)$/);
+  if (simple) {
+    const day = Number(simple[1]);
+    const month = Number(simple[2]);
+    const year = Number(simple[3]);
+    const hour = Number(simple[4]);
+    const minute = Number(simple[5]);
+
+    const dt = new Date(Date.UTC(year, month - 1, day, hour, minute, 0, 0));
+    // Reject invalid rollover dates such as 31/02/2026.
+    if (
+      dt.getUTCFullYear() !== year ||
+      (dt.getUTCMonth() + 1) !== month ||
+      dt.getUTCDate() !== day
+    ) {
+      return null;
+    }
+    return dt;
   }
 
-  const ms = Date.parse(value);
-  if (!Number.isFinite(ms)) return null;
-  return new Date(ms);
+  return null;
 }
 
 function requireCorrectGuild(interaction) {
@@ -56,7 +73,7 @@ module.exports = {
       .addStringOption((opt) => opt.setName('title').setDescription('Event title').setRequired(true))
       .addStringOption((opt) => opt.setName('hosts').setDescription('Host mentions or labels').setRequired(true))
       .addStringOption((opt) => opt.setName('description').setDescription('Event description').setRequired(true))
-      .addStringOption((opt) => opt.setName('start').setDescription('One-off start time (ISO, timestamp, or parseable date)').setRequired(false))
+      .addStringOption((opt) => opt.setName('start').setDescription('One-off start: <t:unix> or DD/MM/YYYY, HH:mm').setRequired(false))
       .addBooleanOption((opt) => opt.setName('recurring').setDescription('Make this event recurring weekly').setRequired(false))
       .addStringOption((opt) => {
         opt.setName('weekday').setDescription('Recurring weekday (required when recurring=true)').setRequired(false);
@@ -72,7 +89,7 @@ module.exports = {
       .addStringOption((opt) => opt.setName('title').setDescription('New title').setRequired(false))
       .addStringOption((opt) => opt.setName('hosts').setDescription('New host mentions or labels').setRequired(false))
       .addStringOption((opt) => opt.setName('description').setDescription('New description').setRequired(false))
-      .addStringOption((opt) => opt.setName('start').setDescription('New one-off start time').setRequired(false))
+      .addStringOption((opt) => opt.setName('start').setDescription('New one-off start: <t:unix> or DD/MM/YYYY, HH:mm').setRequired(false))
       .addBooleanOption((opt) => opt.setName('recurring').setDescription('Set recurring mode').setRequired(false))
       .addStringOption((opt) => {
         opt.setName('weekday').setDescription('Recurring weekday').setRequired(false);
@@ -168,7 +185,7 @@ module.exports = {
         }
         const parsed = parseDateInput(startRaw);
         if (!parsed) {
-          await interaction.editReply({ content: 'Invalid start time format.' });
+          await interaction.editReply({ content: 'Invalid start time. Use <t:unix> or DD/MM/YYYY, HH:mm.' });
           return;
         }
         if (parsed.getTime() <= Date.now()) {
@@ -246,7 +263,7 @@ module.exports = {
         const startInput = startRaw || event.nextRunAt || event.startAt;
         const parsed = parseDateInput(startInput);
         if (!parsed) {
-          await interaction.editReply({ content: 'A valid one-off start time is required.' });
+          await interaction.editReply({ content: 'A valid one-off start time is required. Use <t:unix> or DD/MM/YYYY, HH:mm.' });
           return;
         }
         if (parsed.getTime() <= Date.now()) {
