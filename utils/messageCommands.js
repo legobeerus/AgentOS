@@ -123,20 +123,27 @@ async function handleMessageCommands(message, client) {
     try {
       const adminWhitelist = config.ADMIN_WHITELIST || [];
       const adminLabel = adminWhitelist.length > 0 ? 'Admin (whitelist)' : 'Admin';
+      const eventSetupRoles = Array.isArray(config.EVENT_CREATOR_ROLE_IDS_LIST)
+        ? config.EVENT_CREATOR_ROLE_IDS_LIST
+        : [];
+      const eventSetupAuth = eventSetupRoles.length
+        ? `Role-gated (${eventSetupRoles.join(', ')})`
+        : 'Role-gated (EVENT_CREATOR_ROLE_IDS not configured)';
       const commands = [
         { name: '!ping', auth: 'Public' },
         { name: '!top / !tøp', auth: 'Public' },
         { name: '!help', auth: 'Public' },
         { name: '!changelog', auth: 'Public' },
         { name: '!errorindex', auth: 'Public' },
+        { name: '!events-setup', auth: eventSetupAuth },
         { name: '!admin', auth: adminLabel },
         { name: '!agentoslog', auth: adminLabel },
-        { name: '!roleId', auth: adminLabel },
+        { name: '!roleid', auth: adminLabel },
         { name: '!verifylist', auth: adminLabel }
       ];
 
       const embed = new EmbedBuilder()
-        .setTitle('Help — Ping Commands')
+        .setTitle('Help — Message Commands')
         .setColor(config.EMBED_COLOR || 0x00aff1)
         .setFooter({ text: `User: ${message.author.tag}` });
 

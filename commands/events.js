@@ -129,9 +129,6 @@ module.exports = {
     .setName('events')
     .setDescription('Manage scheduled events and operations setup')
     .addSubcommand((sub) => sub
-      .setName('setup')
-      .setDescription('Create or refresh managed schedule and operations messages'))
-    .addSubcommand((sub) => sub
       .setName('add')
       .setDescription('Add a scheduled event')
       .addStringOption((opt) => opt.setName('title').setDescription('Event title').setRequired(true))
@@ -196,12 +193,6 @@ module.exports = {
         return;
       }
       throw err;
-    }
-
-    if (sub === 'setup') {
-      await eventSystem.setupEventMessages(interaction.client, interaction.guildId);
-      await interaction.editReply({ content: 'Event schedule and operations panel messages are set up.' });
-      return;
     }
 
     if (sub === 'add') {
