@@ -2,11 +2,11 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('
 const config = require('../config');
 
 const PRESET_TYPES = [
-  { key: 'deployments', label: 'Deployment', defaultDescription: 'Deployment operation is now active. Review objectives and begin mission execution.' },
-  { key: 'combat_trainings', label: 'Combat Training', defaultDescription: 'Combat training is now active. Report in and prepare for instruction.' },
-  { key: 'mock_investigations', label: 'Mock Investigation', defaultDescription: 'Mock investigation is now active. Follow the case brief and assigned tasks.' },
-  { key: 'court_martials', label: 'Court Martial', defaultDescription: 'Court martial is now active. Maintain courtroom protocol and attendance.' },
-  { key: 'sting_operations', label: 'Sting Operation', defaultDescription: 'Sting operation is now active. Follow opsec and chain-of-command direction.' }
+  { key: 'deployments', label: 'Deployment', defaultDescription: 'A Deployment has been hosted. Listen to the host for further instructions.' },
+  { key: 'combat_trainings', label: 'Combat Training', defaultDescription: 'A Combat Training has been hosted. Join the provided server and VC and await further instructions.' },
+  { key: 'mock_investigations', label: 'Mock Investigation', defaultDescription: 'A Mock Investigation has been hosted. Await further instructions.' },
+  { key: 'court_martials', label: 'Court Martial', defaultDescription: 'A Court Martial has been hosted. Join the provided server and VC and await further instructions.' },
+  { key: 'sting_operations', label: 'Sting Operation', defaultDescription: 'A Sting Operation has been hosted. Await further instructions.' }
 ];
 
 function toUnix(input) {
