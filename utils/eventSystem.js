@@ -16,8 +16,20 @@ function toRoleList(listLike) {
 }
 
 function hasAnyRole(member, roleIds) {
-  if (!member || !member.roles || !member.roles.cache) return false;
-  return roleIds.some((roleId) => member.roles.cache.has(roleId));
+  if (!member || !member.roles) return false;
+
+  // GuildMember shape
+  if (member.roles.cache && typeof member.roles.cache.has === 'function') {
+    return roleIds.some((roleId) => member.roles.cache.has(roleId));
+  }
+
+  // APIInteractionGuildMember shape
+  if (Array.isArray(member.roles)) {
+    const set = new Set(member.roles.map((x) => String(x)));
+    return roleIds.some((roleId) => set.has(String(roleId)));
+  }
+
+  return false;
 }
 
 function isWhitelistedUser(userId) {
@@ -33,7 +45,7 @@ function canManageEvents(member, userId) {
 }
 
 function canHostEvents(member, userId) {
-  if (isWhitelistedUser(userId)) return true;
+  // Hosting is intentionally role-gated only.
   const hostRoles = toRoleList(config.EVENT_HOST_ROLE_IDS_LIST || config.EVENT_HOST_ROLE_IDS);
   if (hostRoles.length === 0) return false;
   return hasAnyRole(member, hostRoles);

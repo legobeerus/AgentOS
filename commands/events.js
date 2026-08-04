@@ -205,13 +205,6 @@ module.exports = {
     }
 
     if (sub === 'add') {
-      const count = await eventStore.countScheduledEvents(interaction.guildId);
-      const cap = Number(config.EVENT_SCHEDULE_MAX_ENTRIES || 20);
-      if (count >= cap) {
-        await interaction.editReply({ content: `Schedule is full (${count}/${cap}). Remove an event before adding another.` });
-        return;
-      }
-
       const title = interaction.options.getString('title', true);
       const hosts = interaction.options.getString('hosts', true);
       const description = interaction.options.getString('description', true);
@@ -228,6 +221,34 @@ module.exports = {
       let nextRunAt = null;
       let recurringWeekday = null;
       let recurringTimeUtc = null;
+
+      // If a non-recurring event has no start value, post it immediately to Operations.
+      if (!recurring && !startRaw) {
+        const live = await eventSystem.postLiveEvent(interaction.client, {
+          source: 'scheduled',
+          eventId: null,
+          guildId: interaction.guildId,
+          eventTitle: title,
+          hostsText: hosts,
+          startedByUserId: interaction.user.id,
+          description,
+          gameLink: gameLink || '',
+          vcLink: vcLink || '',
+          eventTypeKey: 'custom',
+          pingRoleId: customPingRole ? customPingRole.id : null,
+          scheduledFor: new Date().toISOString(),
+          autoEndAt: null
+        });
+        await interaction.editReply({ content: `No start provided, so the event was started immediately. Live event ID: ${live.id}` });
+        return;
+      }
+
+      const count = await eventStore.countScheduledEvents(interaction.guildId);
+      const cap = Number(config.EVENT_SCHEDULE_MAX_ENTRIES || 20);
+      if (count >= cap) {
+        await interaction.editReply({ content: `Schedule is full (${count}/${cap}). Remove an event before adding another.` });
+        return;
+      }
 
       if (recurring) {
         if (weekdayRaw === null || !timeUtcRaw) {
@@ -247,10 +268,6 @@ module.exports = {
         }
         nextRunAt = next.toISOString();
       } else {
-        if (!startRaw) {
-          await interaction.editReply({ content: 'One-off events require the start option.' });
-          return;
-        }
         const parsed = parseDateInput(startRaw);
         if (!parsed) {
           await interaction.editReply({ content: 'Invalid start time. Use <t:unix> or DD/MM/YYYY, HH:mm.' });
