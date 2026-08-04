@@ -61,6 +61,7 @@ async function ensureTables() {
           last_run_at TIMESTAMPTZ,
           ping_role_id TEXT,
           created_by TEXT,
+          created_by_username TEXT,
           status TEXT NOT NULL DEFAULT 'scheduled',
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -111,6 +112,7 @@ async function ensureTables() {
 
       await db.query(`ALTER TABLE bot_live_events ADD COLUMN IF NOT EXISTS event_type_key TEXT`);
       await db.query(`ALTER TABLE bot_event_system_state ADD COLUMN IF NOT EXISTS weekly_completed_by_type JSONB NOT NULL DEFAULT '{}'::jsonb`);
+      await db.query(`ALTER TABLE bot_events ADD COLUMN IF NOT EXISTS created_by_username TEXT`);
 
       await db.query(
         `INSERT INTO bot_event_system_state (id, weekly_completed_count, weekly_completed_by_type)
@@ -151,6 +153,7 @@ function mapEvent(row) {
     lastRunAt: row.last_run_at ? new Date(row.last_run_at).toISOString() : null,
     pingRoleId: row.ping_role_id || null,
     createdBy: row.created_by || null,
+    createdByUsername: row.created_by_username || null,
     status: row.status,
     createdAt: row.created_at ? new Date(row.created_at).toISOString() : null,
     updatedAt: row.updated_at ? new Date(row.updated_at).toISOString() : null
@@ -195,8 +198,8 @@ async function createEvent(input) {
     `INSERT INTO bot_events (
       id, guild_id, title, description, hosts_text, start_at, is_recurring,
       recurring_weekday, recurring_time_utc, next_run_at, last_run_at, ping_role_id,
-      created_by, status, created_at, updated_at
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+      created_by, created_by_username, status, created_at, updated_at
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
     RETURNING *`,
     [
       id,
@@ -212,6 +215,7 @@ async function createEvent(input) {
       input.lastRunAt ? new Date(input.lastRunAt).toISOString() : null,
       normalizeRoleId(input.pingRoleId),
       input.createdBy ? String(input.createdBy) : null,
+      input.createdByUsername ? String(input.createdByUsername).trim() : null,
       input.status ? String(input.status) : 'scheduled',
       nowIso,
       nowIso

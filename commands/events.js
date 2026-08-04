@@ -205,6 +205,7 @@ module.exports = {
         nextRunAt,
         pingRoleId: customPingRole ? customPingRole.id : null,
         createdBy: interaction.user.id,
+        createdByUsername: interaction.user.username || interaction.user.tag || null,
         status: 'scheduled'
       });
 
