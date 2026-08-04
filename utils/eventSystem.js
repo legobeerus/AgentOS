@@ -243,19 +243,22 @@ async function endLiveEvent(client, liveEventId, actorUserId, reason) {
     if (ch && live.messageId) {
       const msg = await ch.messages.fetch(live.messageId).catch(() => null);
       if (msg) {
-        const rows = [];
-        for (const comp of msg.components || []) {
-          const row = new ActionRowBuilder();
-          for (const child of comp.components || []) {
-            row.addComponents(ButtonBuilder.from(child).setDisabled(true));
+        const deleted = await msg.delete().then(() => true).catch(() => false);
+        if (!deleted) {
+          const rows = [];
+          for (const comp of msg.components || []) {
+            const row = new ActionRowBuilder();
+            for (const child of comp.components || []) {
+              row.addComponents(ButtonBuilder.from(child).setDisabled(true));
+            }
+            rows.push(row);
           }
-          rows.push(row);
+          await msg.edit({ components: rows }).catch(() => null);
         }
-        await msg.edit({ components: rows }).catch(() => null);
       }
     }
   } catch (e) {
-    console.warn('Failed to disable ended event buttons:', e && e.message ? e.message : e);
+    console.warn('Failed to clean up ended event message:', e && e.message ? e.message : e);
   }
 
   await eventStore.incrementWeeklyCounter(live.eventTypeKey || null);
