@@ -60,6 +60,70 @@ function dbNotConfiguredReply(interaction) {
   return interaction.editReply({ content: 'Events database is not configured. Set DATABASE_URL before using /events.' });
 }
 
+function uniquePush(target, value) {
+  const v = String(value || '').trim();
+  if (!v) return;
+  if (!target.includes(v)) target.push(v);
+}
+
+function extractMentionIds(text, regex) {
+  const ids = [];
+  if (!text) return ids;
+  let m;
+  while ((m = regex.exec(text)) !== null) {
+    if (m[1]) ids.push(String(m[1]));
+  }
+  return Array.from(new Set(ids));
+}
+
+async function resolveHostsDisplayText(interaction, hostsRaw) {
+  const text = String(hostsRaw || '').trim();
+  if (!text) return interaction.user.username || interaction.user.tag || 'Unknown';
+
+  const result = [];
+  const userIds = extractMentionIds(text, /<@!?(\d+)>/g);
+  const roleIds = extractMentionIds(text, /<@&(\d+)>/g);
+
+  for (const userId of userIds) {
+    let name = null;
+    try {
+      const member = interaction.guild ? await interaction.guild.members.fetch(userId).catch(() => null) : null;
+      if (member && member.user) name = member.user.username || member.displayName || null;
+    } catch (e) {}
+    if (!name) {
+      try {
+        const user = await interaction.client.users.fetch(userId).catch(() => null);
+        if (user) name = user.username || user.tag || null;
+      } catch (e) {}
+    }
+    uniquePush(result, name || userId);
+  }
+
+  for (const roleId of roleIds) {
+    let roleName = null;
+    try {
+      const role = interaction.guild ? await interaction.guild.roles.fetch(roleId).catch(() => null) : null;
+      if (role) roleName = role.name;
+    } catch (e) {}
+    uniquePush(result, roleName || roleId);
+  }
+
+  const plain = text
+    .replace(/<@!?(\d+)>/g, ' ')
+    .replace(/<@&(\d+)>/g, ' ')
+    .split(/[,\n|]+/)
+    .map((x) => x.trim())
+    .filter(Boolean);
+
+  for (const token of plain) uniquePush(result, token);
+
+  if (!result.length) {
+    uniquePush(result, interaction.user.username || interaction.user.tag || 'Unknown');
+  }
+
+  return result.join(', ').slice(0, 1000);
+}
+
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('events')
@@ -152,6 +216,7 @@ module.exports = {
       const timeUtcRaw = interaction.options.getString('time_utc');
       const startRaw = interaction.options.getString('start');
       const customPingRole = interaction.options.getRole('custom_ping_role');
+      const hostsDisplay = await resolveHostsDisplayText(interaction, hosts);
 
       let startAt = null;
       let nextRunAt = null;
@@ -205,7 +270,7 @@ module.exports = {
         nextRunAt,
         pingRoleId: customPingRole ? customPingRole.id : null,
         createdBy: interaction.user.id,
-        createdByUsername: interaction.user.username || interaction.user.tag || null,
+        createdByUsername: hostsDisplay,
         status: 'scheduled'
       });
 
@@ -234,7 +299,10 @@ module.exports = {
 
       const updates = {};
       if (title !== null) updates.title = title;
-      if (hosts !== null) updates.hostsText = hosts;
+      if (hosts !== null) {
+        updates.hostsText = hosts;
+        updates.createdByUsername = await resolveHostsDisplayText(interaction, hosts);
+      }
       if (description !== null) updates.description = description;
       if (customPingRole) updates.pingRoleId = customPingRole.id;
 

@@ -246,6 +246,7 @@ async function updateEvent(id, updates) {
   if (updates.nextRunAt !== undefined) push('next_run_at', updates.nextRunAt ? new Date(updates.nextRunAt).toISOString() : null);
   if (updates.lastRunAt !== undefined) push('last_run_at', updates.lastRunAt ? new Date(updates.lastRunAt).toISOString() : null);
   if (updates.pingRoleId !== undefined) push('ping_role_id', normalizeRoleId(updates.pingRoleId));
+  if (updates.createdByUsername !== undefined) push('created_by_username', updates.createdByUsername ? String(updates.createdByUsername).trim() : null);
   if (updates.status !== undefined) push('status', String(updates.status));
 
   push('updated_at', new Date().toISOString());
