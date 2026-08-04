@@ -135,7 +135,7 @@ async function handleMessageCommands(message, client) {
         { name: '!help', auth: 'Public' },
         { name: '!changelog', auth: 'Public' },
         { name: '!errorindex', auth: 'Public' },
-        { name: '!events-setup', auth: eventSetupAuth },
+        { name: '!events-setup', auth: 'Role-gated' },
         { name: '!admin', auth: adminLabel },
         { name: '!agentoslog', auth: adminLabel },
         { name: '!roleid', auth: adminLabel },
