@@ -145,6 +145,8 @@ module.exports = {
         return opt;
       })
       .addStringOption((opt) => opt.setName('time_utc').setDescription('Recurring UTC time HH:mm').setRequired(false))
+      .addStringOption((opt) => opt.setName('game_link').setDescription('Optional game link for the scheduled event').setRequired(false))
+      .addStringOption((opt) => opt.setName('vc_link').setDescription('Optional VC link for the scheduled event').setRequired(false))
       .addRoleOption((opt) => opt.setName('custom_ping_role').setDescription('Optional ping role override').setRequired(false)))
     .addSubcommand((sub) => sub
       .setName('edit')
@@ -161,6 +163,8 @@ module.exports = {
         return opt;
       })
       .addStringOption((opt) => opt.setName('time_utc').setDescription('Recurring UTC time HH:mm').setRequired(false))
+      .addStringOption((opt) => opt.setName('game_link').setDescription('Optional game link for the scheduled event').setRequired(false))
+      .addStringOption((opt) => opt.setName('vc_link').setDescription('Optional VC link for the scheduled event').setRequired(false))
       .addRoleOption((opt) => opt.setName('custom_ping_role').setDescription('Optional ping role override').setRequired(false)))
     .addSubcommand((sub) => sub
       .setName('remove')
@@ -215,6 +219,8 @@ module.exports = {
       const weekdayRaw = interaction.options.getString('weekday');
       const timeUtcRaw = interaction.options.getString('time_utc');
       const startRaw = interaction.options.getString('start');
+      const gameLink = interaction.options.getString('game_link');
+      const vcLink = interaction.options.getString('vc_link');
       const customPingRole = interaction.options.getRole('custom_ping_role');
       const hostsDisplay = await resolveHostsDisplayText(interaction, hosts);
 
@@ -263,6 +269,8 @@ module.exports = {
         title,
         description,
         hostsText: hosts,
+        gameLink: gameLink || '',
+        vcLink: vcLink || '',
         startAt,
         isRecurring: recurring,
         recurringWeekday,
@@ -295,6 +303,8 @@ module.exports = {
       const weekdayRaw = interaction.options.getString('weekday');
       const timeUtcRaw = interaction.options.getString('time_utc');
       const startRaw = interaction.options.getString('start');
+      const gameLink = interaction.options.getString('game_link');
+      const vcLink = interaction.options.getString('vc_link');
       const customPingRole = interaction.options.getRole('custom_ping_role');
 
       const updates = {};
@@ -304,6 +314,8 @@ module.exports = {
         updates.createdByUsername = await resolveHostsDisplayText(interaction, hosts);
       }
       if (description !== null) updates.description = description;
+      if (gameLink !== null) updates.gameLink = gameLink;
+      if (vcLink !== null) updates.vcLink = vcLink;
       if (customPingRole) updates.pingRoleId = customPingRole.id;
 
       const willRecurring = recurringOpt === null ? event.isRecurring : recurringOpt;

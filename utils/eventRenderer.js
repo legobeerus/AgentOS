@@ -34,7 +34,7 @@ function eventLine(event) {
   const hosts = sanitizeStars(event.hostsText, 'Not provided');
   const description = sanitizeStars(event.description, 'No description provided');
   return [
-    `- **${title}**`,
+    `**${title}**`,
     `  **Time:** ${when}${recurrence}`,
     `  **Host(s):** ${hosts}`,
     `  **Description:** ${description}`
@@ -98,15 +98,23 @@ function buildOperationsPanelComponents() {
 }
 
 function buildLiveEventEmbed(payload) {
+  const fields = [
+    { name: 'Host', value: safe(payload.hostsText, payload.hostUserId ? `<@${payload.hostUserId}>` : 'Not provided'), inline: false },
+    { name: 'Description', value: safe(payload.description, 'No description provided'), inline: false }
+  ];
+
+  if (String(payload.gameLink || '').trim()) {
+    fields.push({ name: 'Game Link', value: String(payload.gameLink).trim(), inline: false });
+  }
+
+  if (String(payload.vcLink || '').trim()) {
+    fields.push({ name: 'Voice Channel Link', value: String(payload.vcLink).trim(), inline: false });
+  }
+
   const embed = new EmbedBuilder()
     .setTitle(safe(payload.eventTitle, 'Operations Event'))
     .setColor(config.EMBED_COLOR || 0x00aff1)
-    .addFields(
-      { name: 'Host', value: safe(payload.hostsText, payload.hostUserId ? `<@${payload.hostUserId}>` : 'Not provided'), inline: false },
-      { name: 'Description', value: safe(payload.description, 'No description provided'), inline: false },
-      { name: 'Game Link', value: safe(payload.gameLink, 'Not provided'), inline: false },
-      { name: 'Voice Channel Link', value: safe(payload.vcLink, 'Not provided'), inline: false }
-    )
+    .addFields(fields)
     .setTimestamp(new Date());
 
   if (payload.scheduledFor) {

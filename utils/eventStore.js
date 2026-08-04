@@ -53,6 +53,8 @@ async function ensureTables() {
           title TEXT NOT NULL,
           description TEXT,
           hosts_text TEXT NOT NULL,
+          game_link TEXT,
+          vc_link TEXT,
           start_at TIMESTAMPTZ,
           is_recurring BOOLEAN NOT NULL DEFAULT false,
           recurring_weekday SMALLINT,
@@ -113,6 +115,8 @@ async function ensureTables() {
       await db.query(`ALTER TABLE bot_live_events ADD COLUMN IF NOT EXISTS event_type_key TEXT`);
       await db.query(`ALTER TABLE bot_event_system_state ADD COLUMN IF NOT EXISTS weekly_completed_by_type JSONB NOT NULL DEFAULT '{}'::jsonb`);
       await db.query(`ALTER TABLE bot_events ADD COLUMN IF NOT EXISTS created_by_username TEXT`);
+      await db.query(`ALTER TABLE bot_events ADD COLUMN IF NOT EXISTS game_link TEXT`);
+      await db.query(`ALTER TABLE bot_events ADD COLUMN IF NOT EXISTS vc_link TEXT`);
 
       await db.query(
         `INSERT INTO bot_event_system_state (id, weekly_completed_count, weekly_completed_by_type)
@@ -145,6 +149,8 @@ function mapEvent(row) {
     title: row.title,
     description: row.description || '',
     hostsText: row.hosts_text || '',
+    gameLink: row.game_link || '',
+    vcLink: row.vc_link || '',
     startAt: row.start_at ? new Date(row.start_at).toISOString() : null,
     isRecurring: !!row.is_recurring,
     recurringWeekday: row.recurring_weekday === null || row.recurring_weekday === undefined ? null : Number(row.recurring_weekday),
@@ -196,10 +202,10 @@ async function createEvent(input) {
   const nowIso = new Date().toISOString();
   const row = await db.query(
     `INSERT INTO bot_events (
-      id, guild_id, title, description, hosts_text, start_at, is_recurring,
+      id, guild_id, title, description, hosts_text, game_link, vc_link, start_at, is_recurring,
       recurring_weekday, recurring_time_utc, next_run_at, last_run_at, ping_role_id,
       created_by, created_by_username, status, created_at, updated_at
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
     RETURNING *`,
     [
       id,
@@ -207,6 +213,8 @@ async function createEvent(input) {
       String(input.title || '').trim(),
       String(input.description || '').trim(),
       String(input.hostsText || '').trim(),
+      String(input.gameLink || '').trim(),
+      String(input.vcLink || '').trim(),
       input.startAt ? new Date(input.startAt).toISOString() : null,
       !!input.isRecurring,
       input.recurringWeekday === undefined || input.recurringWeekday === null ? null : Number(input.recurringWeekday),
@@ -239,6 +247,8 @@ async function updateEvent(id, updates) {
   if (updates.title !== undefined) push('title', String(updates.title || '').trim());
   if (updates.description !== undefined) push('description', String(updates.description || '').trim());
   if (updates.hostsText !== undefined) push('hosts_text', String(updates.hostsText || '').trim());
+  if (updates.gameLink !== undefined) push('game_link', String(updates.gameLink || '').trim());
+  if (updates.vcLink !== undefined) push('vc_link', String(updates.vcLink || '').trim());
   if (updates.startAt !== undefined) push('start_at', updates.startAt ? new Date(updates.startAt).toISOString() : null);
   if (updates.isRecurring !== undefined) push('is_recurring', !!updates.isRecurring);
   if (updates.recurringWeekday !== undefined) push('recurring_weekday', updates.recurringWeekday === null ? null : Number(updates.recurringWeekday));
