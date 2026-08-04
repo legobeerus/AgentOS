@@ -6,6 +6,7 @@ const agentosStore = require('./agentosStore');
 const { getChangelog, setChangelog } = require("./changelogStore");
 const { getState, setState } = require("./adminState");
 const verificationStore = require('./verificationStore');
+const eventSystem = require('./eventSystem');
 const topTexts = require('../data/top-texts.json');
 
 let lastTopTextIndex = -1;
@@ -183,6 +184,31 @@ async function handleMessageCommands(message, client) {
     } catch (e) {
       console.error('Failed to send admin menu:', e);
     }
+  }
+
+  if (lower.includes('!events-setup')) {
+    try {
+      if (!message.guild) {
+        await message.reply('This command can only run in a server.');
+        return;
+      }
+
+      const allowed = eventSystem.canManageEvents(message.member, message.author.id);
+      if (!allowed) {
+        await message.reply({ content: 'You are not authorized to use this command.' });
+        return;
+      }
+
+      await eventSystem.setupEventMessages(client, message.guild.id);
+      await message.reply('Event schedule and operations panel have been set up or refreshed.');
+    } catch (err) {
+      console.error('Failed to run !events-setup:', err);
+      const msg = (err && err.code === 'events_db_not_configured')
+        ? 'Events database is not configured. Set DATABASE_URL first.'
+        : 'Failed to set up event messages.';
+      try { await message.reply(msg); } catch (e) {}
+    }
+    return;
   }
 
   if (lower.includes("!changelog")) {

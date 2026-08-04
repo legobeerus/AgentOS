@@ -33,6 +33,7 @@ function buildAosBody({ submitter, username, profile, victims, charges, summary,
   const webViewUrl = buildAosWebUrlForUsername(username);
   return [
     '# <:osi:1448992108500357150> **AOS Order** <:osi:1448992108500357150>',
+    `<@&${config.AOS_COMPLETE_PING_ROLE_ID}>`,
     webViewUrl ? `[**View in browser**](${webViewUrl})` : '*Error - Unable to generate web view link*',
     '',
     `**Submitter:** ${submitter}`,

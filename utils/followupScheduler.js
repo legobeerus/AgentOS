@@ -15,7 +15,8 @@ async function sendAndCleanup(entry) {
   try {
     const ch = await clientRef.channels.fetch(entry.threadId).catch(() => null);
     if (ch && ch.isTextBased && ch.isTextBased()) {
-      await ch.send(entry.content).catch(() => null);
+      const allowed = Array.isArray(entry.allowedMentions) ? entry.allowedMentions : [];
+      await ch.send({ content: entry.content, allowedMentions: { roles: allowed } }).catch(() => null);
     }
   } catch (e) {
     console.error('followupScheduler send failed:', e);

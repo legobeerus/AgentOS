@@ -28,6 +28,7 @@ const { startInactivityScheduler } = require("./utils/inactivityScheduler");
 const { startFollowupScheduler } = require("./utils/followupScheduler");
 const probationWatcher = require('./utils/probationWatcher');
 const verifyReminderScheduler = require('./utils/verifyReminderScheduler');
+const { startEventScheduler } = require('./utils/eventScheduler');
 const config = require('./config');
 
 function buildAosWebUrlForUsername(username) {
@@ -159,6 +160,8 @@ client.once("ready", () => {
   try { probationWatcher.init(client); } catch (e) { console.error('Failed to init probationWatcher:', e); }
   // Start verification reminder scheduler
   try { verifyReminderScheduler.initScheduler(client); } catch (e) { console.error('Failed to init verifyReminderScheduler:', e); }
+  // Start events scheduler and weekly maintenance ticks
+  try { startEventScheduler(client); } catch (e) { console.error('Failed to init eventScheduler:', e); }
 });
 
 // Guild member join/leave hooks for verification reminders

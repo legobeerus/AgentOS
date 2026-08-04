@@ -14,6 +14,7 @@ const { getChangelog, setChangelog } = require('./changelogStore');
 const { getState, setState } = require('./adminState');
 const pausedCommands = require('./pausedCommands');
 const arrestStore = require('./arrestStore');
+const eventSystem = require('./eventSystem');
 
 /**
  * Main interaction handler that routes to appropriate handlers
@@ -30,6 +31,16 @@ async function handleInteraction(interaction, client) {
 
     // Handle button interactions
     if (interaction.isButton()) {
+      if (typeof interaction.customId === 'string' && interaction.customId.startsWith('event_preset:')) {
+        await eventSystem.handlePresetButton(interaction, client);
+        return;
+      }
+
+      if (typeof interaction.customId === 'string' && interaction.customId.startsWith('event_live_')) {
+        await eventSystem.handleLiveEventButton(interaction, client);
+        return;
+      }
+
       if (interaction.customId === "approve_request") {
         await handleApproveButton(interaction);
         return;
@@ -425,6 +436,16 @@ async function handleInteraction(interaction, client) {
 
     // Handle modal submissions
     if (interaction.isModalSubmit()) {
+      if (interaction.customId.startsWith('event_preset_modal:')) {
+        await eventSystem.handlePresetModal(interaction, client);
+        return;
+      }
+
+      if (interaction.customId.startsWith('event_live_edit_modal:')) {
+        await eventSystem.handleLiveEventEditModal(interaction, client);
+        return;
+      }
+
       if (interaction.customId.startsWith('inactivity_modal_')) {
         await handleInactivityModal(interaction);
         return;

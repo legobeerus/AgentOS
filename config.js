@@ -10,6 +10,8 @@ module.exports = {
   TARGET_CHANNEL_ID: cleanId(process.env.TARGET_CHANNEL_ID) || "1449832209316839455",
   // Role to ping when posting approved cases
   PING_ROLE_ID: cleanId(process.env.PING_ROLE_ID) || "1041577710067138561",
+  // Role to ping when a scheduled follow-up fires (dedicated; optional)
+  FOLLOWUP_PING_ROLE_ID: cleanId(process.env.FOLLOWUP_PING_ROLE_ID) || "1449861438012133566",
 
   VOTING_CHANNEL_ID: process.env.VOTING_CHANNEL_ID || "1467678462302093334",
   RESULT_CHANNEL_ID: process.env.RESULT_CHANNEL_ID || "1320064034963325068",
@@ -32,6 +34,18 @@ module.exports = {
 
   // Guild ID allowed to use blacklist view commands
   BLACKLIST_GUILD_ID: process.env.BLACKLIST_GUILD_ID || "1041577710067138560",
+
+  // Event hosting system configuration
+  EVENT_GUILD_ID: cleanId(process.env.EVENT_GUILD_ID) || "1041577710067138560",
+  EVENT_SCHEDULE_CHANNEL_ID: cleanId(process.env.EVENT_SCHEDULE_CHANNEL_ID) || "1507477905951690854",
+  EVENT_OPERATIONS_CHANNEL_ID: cleanId(process.env.EVENT_OPERATIONS_CHANNEL_ID) || "1490285605085515896",
+  EVENT_PANEL_URL: process.env.EVENT_PANEL_URL || "https://legobeerus.github.io/event-panel.html",
+  EVENT_CREATOR_ROLE_IDS: process.env.EVENT_CREATOR_ROLE_IDS || "1449861438012133566,1515073280883687475",
+  EVENT_HOST_ROLE_IDS: process.env.EVENT_HOST_ROLE_IDS || "1449861438012133566,1515073017804361728,1515073280883687475",
+  EVENT_DEFAULT_PING_ROLE_ID: cleanId(process.env.EVENT_DEFAULT_PING_ROLE_ID) || "1041577710067138561",
+  EVENT_TIMEZONE: process.env.EVENT_TIMEZONE || 'UTC',
+  EVENT_SCHEDULE_MAX_ENTRIES: process.env.EVENT_SCHEDULE_MAX_ENTRIES !== undefined ? Number(process.env.EVENT_SCHEDULE_MAX_ENTRIES) : 20,
+  EVENT_RECURRING_AUTO_END_HOURS: process.env.EVENT_RECURRING_AUTO_END_HOURS !== undefined ? Number(process.env.EVENT_RECURRING_AUTO_END_HOURS) : 4,
 
   // Trello ingest/watch channel and list for message-to-Trello ingestion
   TRELLO_INGEST_CHANNEL_ID: process.env.TRELLO_INGEST_CHANNEL_ID || "1221224045429915759",
@@ -70,6 +84,17 @@ module.exports = {
     // Text marker in pass/fail column that excludes a user from quota and Agent of the Week
     GAME_QUOTA_IMMUNE_TEXT: process.env.GAME_QUOTA_IMMUNE_TEXT || 'IMMUNE',
     GAME_LOG_STRIKE_COL: process.env.GAME_LOG_STRIKE_COL !== undefined ? Number(process.env.GAME_LOG_STRIKE_COL) : 6,
+    // Tracking tab for quota strike/pass streak automation
+    GAME_QUOTA_TRACKING_RANGE: process.env.GAME_QUOTA_TRACKING_RANGE || 'AgentOS Backend!A3:G1000',
+    GAME_QUOTA_TRACKING_USERNAME_COL: process.env.GAME_QUOTA_TRACKING_USERNAME_COL !== undefined ? Number(process.env.GAME_QUOTA_TRACKING_USERNAME_COL) : 0,
+    GAME_QUOTA_TRACKING_STRIKES_COL: process.env.GAME_QUOTA_TRACKING_STRIKES_COL !== undefined ? Number(process.env.GAME_QUOTA_TRACKING_STRIKES_COL) : 1,
+    GAME_QUOTA_TRACKING_PASS_STREAK_COL: process.env.GAME_QUOTA_TRACKING_PASS_STREAK_COL !== undefined ? Number(process.env.GAME_QUOTA_TRACKING_PASS_STREAK_COL) : 2,
+    GAME_QUOTA_TRACKING_LAST_CYCLE_COL: process.env.GAME_QUOTA_TRACKING_LAST_CYCLE_COL !== undefined ? Number(process.env.GAME_QUOTA_TRACKING_LAST_CYCLE_COL) : 3,
+    GAME_QUOTA_TRACKING_LAST_OUTCOME_COL: process.env.GAME_QUOTA_TRACKING_LAST_OUTCOME_COL !== undefined ? Number(process.env.GAME_QUOTA_TRACKING_LAST_OUTCOME_COL) : 4,
+    GAME_QUOTA_TRACKING_LAST_UPDATED_COL: process.env.GAME_QUOTA_TRACKING_LAST_UPDATED_COL !== undefined ? Number(process.env.GAME_QUOTA_TRACKING_LAST_UPDATED_COL) : 5,
+    GAME_QUOTA_TRACKING_NOTES_COL: process.env.GAME_QUOTA_TRACKING_NOTES_COL !== undefined ? Number(process.env.GAME_QUOTA_TRACKING_NOTES_COL) : 6,
+    // Complete quota for N weeks in a row to remove one strike
+    GAME_QUOTA_PASS_WEEKS_FOR_REMOVAL: process.env.GAME_QUOTA_PASS_WEEKS_FOR_REMOVAL !== undefined ? Number(process.env.GAME_QUOTA_PASS_WEEKS_FOR_REMOVAL) : 2,
     // Probation detection: comma-separated rank names to consider probationary
     PROBATION_RANK_NAMES: process.env.PROBATION_RANK_NAMES || 'Special Agent-in-Training',
     // Comma-separated role IDs that should trigger an alert if a probationary agent has them
@@ -253,3 +278,7 @@ const _rawAosApproveRoles = process.env.AOS_APPROVE_ROLE_IDS || module.exports.A
 module.exports.AOS_APPROVE_ROLE_IDS_LIST = String(_rawAosApproveRoles).split(",").map(s => cleanId(s)).map(s => s.trim()).filter(Boolean);
 const _rawAosCompleteRoles = process.env.AOS_COMPLETE_ROLE_IDS || module.exports.AOS_COMPLETE_ROLE_IDS || "";
 module.exports.AOS_COMPLETE_ROLE_IDS_LIST = String(_rawAosCompleteRoles).split(",").map(s => cleanId(s)).map(s => s.trim()).filter(Boolean);
+const _rawEventCreatorRoles = process.env.EVENT_CREATOR_ROLE_IDS || module.exports.EVENT_CREATOR_ROLE_IDS || "";
+module.exports.EVENT_CREATOR_ROLE_IDS_LIST = String(_rawEventCreatorRoles).split(",").map(s => cleanId(s)).map(s => s.trim()).filter(Boolean);
+const _rawEventHostRoles = process.env.EVENT_HOST_ROLE_IDS || module.exports.EVENT_HOST_ROLE_IDS || "";
+module.exports.EVENT_HOST_ROLE_IDS_LIST = String(_rawEventHostRoles).split(",").map(s => cleanId(s)).map(s => s.trim()).filter(Boolean);
