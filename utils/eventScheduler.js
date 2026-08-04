@@ -90,11 +90,7 @@ async function fireEvent(eventId) {
     const updated = await eventStore.getEventById(event.id);
     if (updated) await scheduleEventTimer(updated);
   } else {
-    await eventStore.updateEvent(event.id, {
-      lastRunAt: event.nextRunAt,
-      nextRunAt: null,
-      status: 'dispatched'
-    });
+    await eventStore.removeEventById(event.id);
     clearEventTimer(event.id);
   }
 
@@ -120,6 +116,15 @@ async function runMaintenanceTick() {
     }
   } catch (e) {
     console.error('eventScheduler auto-end tick failed:', e);
+  }
+
+  try {
+    await eventStore.purgeExpiredOneOffEvents(
+      new Date(),
+      Number(config.EVENT_EXPIRED_SCHEDULED_GRACE_MINUTES || 5)
+    );
+  } catch (e) {
+    console.error('eventScheduler expired-event purge failed:', e);
   }
 }
 

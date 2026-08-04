@@ -48,6 +48,8 @@ module.exports = {
   EVENT_TIMEZONE: process.env.EVENT_TIMEZONE || 'UTC',
   EVENT_SCHEDULE_MAX_ENTRIES: process.env.EVENT_SCHEDULE_MAX_ENTRIES !== undefined ? Number(process.env.EVENT_SCHEDULE_MAX_ENTRIES) : 20,
   EVENT_RECURRING_AUTO_END_HOURS: process.env.EVENT_RECURRING_AUTO_END_HOURS !== undefined ? Number(process.env.EVENT_RECURRING_AUTO_END_HOURS) : 4,
+  // Grace before purging stale one-off scheduled events that are still marked scheduled but already in the past.
+  EVENT_EXPIRED_SCHEDULED_GRACE_MINUTES: process.env.EVENT_EXPIRED_SCHEDULED_GRACE_MINUTES !== undefined ? Number(process.env.EVENT_EXPIRED_SCHEDULED_GRACE_MINUTES) : 5,
 
   // Trello ingest/watch channel and list for message-to-Trello ingestion
   TRELLO_INGEST_CHANNEL_ID: process.env.TRELLO_INGEST_CHANNEL_ID || "1221224045429915759",

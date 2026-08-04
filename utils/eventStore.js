@@ -272,6 +272,32 @@ async function removeEvent(id, guildId) {
   return res.rowCount > 0;
 }
 
+async function removeEventById(id) {
+  await ensureTables();
+  const db = getPool();
+  const res = await db.query('DELETE FROM bot_events WHERE id = $1', [String(id)]);
+  return res.rowCount > 0;
+}
+
+async function purgeExpiredOneOffEvents(now = new Date(), scheduledGraceMinutes = 5) {
+  await ensureTables();
+  const db = getPool();
+  const nowIso = new Date(now).toISOString();
+  const graceMs = Math.max(0, Number(scheduledGraceMinutes) || 0) * 60 * 1000;
+  const scheduledCutoffIso = new Date(new Date(now).getTime() - graceMs).toISOString();
+  const res = await db.query(
+    `DELETE FROM bot_events
+     WHERE is_recurring = false
+       AND (
+         (status <> 'scheduled' AND next_run_at <= $1)
+         OR
+         (status = 'scheduled' AND next_run_at <= $2)
+       )`,
+    [nowIso, scheduledCutoffIso]
+  );
+  return Number(res.rowCount || 0);
+}
+
 async function countScheduledEvents(guildId) {
   await ensureTables();
   const db = getPool();
@@ -491,6 +517,8 @@ module.exports = {
   updateEvent,
   getEventById,
   removeEvent,
+  removeEventById,
+  purgeExpiredOneOffEvents,
   countScheduledEvents,
   listScheduledEvents,
   listEventsForScheduling,
