@@ -41,7 +41,13 @@ module.exports = {
   EVENT_OPERATIONS_CHANNEL_ID: cleanId(process.env.EVENT_OPERATIONS_CHANNEL_ID) || "1490285605085515896",
   EVENT_PANEL_URL: process.env.EVENT_PANEL_URL || "https://legobeerus.github.io/event-panel.html",
   EVENT_CREATOR_ROLE_IDS: process.env.EVENT_CREATOR_ROLE_IDS || "1449861438012133566,1515073280883687475",
-  EVENT_HOST_ROLE_IDS: process.env.EVENT_HOST_ROLE_IDS || "1449861438012133566,1515073017804361728,1515073280883687475",
+  EVENT_HOST_ROLE_IDS: process.env.EVENT_HOST_ROLE_IDS || "1449861438012133566,1515073280883687475",
+  // Optional: role IDs that can host only Court Martial preset events.
+  EVENT_COURT_MARTIAL_HOST_ROLE_IDS: process.env.EVENT_COURT_MARTIAL_HOST_ROLE_IDS || "1515073017804361728",
+  // Optional JSON map of preset key -> comma-separated or array role IDs.
+  // Example:
+  // {"court_martials":"123,456","deployments":["789"]}
+  EVENT_PRESET_HOST_ROLE_IDS: process.env.EVENT_PRESET_HOST_ROLE_IDS || "",
   EVENT_DEFAULT_PING_ROLE_ID: cleanId(process.env.EVENT_DEFAULT_PING_ROLE_ID) || "1041577710067138561",
   // When admin debug mode is enabled, skip event ping messages for events started by this user ID.
   EVENT_DEBUG_NO_PING_USER_ID: cleanId(process.env.EVENT_DEBUG_NO_PING_USER_ID) || "716248402513494027",
@@ -286,3 +292,35 @@ const _rawEventCreatorRoles = process.env.EVENT_CREATOR_ROLE_IDS || module.expor
 module.exports.EVENT_CREATOR_ROLE_IDS_LIST = String(_rawEventCreatorRoles).split(",").map(s => cleanId(s)).map(s => s.trim()).filter(Boolean);
 const _rawEventHostRoles = process.env.EVENT_HOST_ROLE_IDS || module.exports.EVENT_HOST_ROLE_IDS || "";
 module.exports.EVENT_HOST_ROLE_IDS_LIST = String(_rawEventHostRoles).split(",").map(s => cleanId(s)).map(s => s.trim()).filter(Boolean);
+const _rawCourtMartialHostRoles = process.env.EVENT_COURT_MARTIAL_HOST_ROLE_IDS || module.exports.EVENT_COURT_MARTIAL_HOST_ROLE_IDS || "";
+module.exports.EVENT_COURT_MARTIAL_HOST_ROLE_IDS_LIST = String(_rawCourtMartialHostRoles).split(",").map(s => cleanId(s)).map(s => s.trim()).filter(Boolean);
+
+function _normalizeRoleList(input) {
+  if (Array.isArray(input)) return input.map(s => cleanId(s)).map(s => String(s || '').trim()).filter(Boolean);
+  return String(input || '').split(',').map(s => cleanId(s)).map(s => String(s || '').trim()).filter(Boolean);
+}
+
+function _parsePresetRoleMap(raw) {
+  const source = String(raw || '').trim();
+  if (!source) return {};
+  try {
+    const parsed = JSON.parse(source);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+    const out = {};
+    for (const [key, value] of Object.entries(parsed)) {
+      const roleIds = _normalizeRoleList(value);
+      if (roleIds.length) out[String(key).trim()] = roleIds;
+    }
+    return out;
+  } catch (e) {
+    return {};
+  }
+}
+
+const _presetMapFromEnv = _parsePresetRoleMap(process.env.EVENT_PRESET_HOST_ROLE_IDS || module.exports.EVENT_PRESET_HOST_ROLE_IDS || "");
+if (module.exports.EVENT_COURT_MARTIAL_HOST_ROLE_IDS_LIST.length) {
+  const existing = Array.isArray(_presetMapFromEnv.court_martials) ? _presetMapFromEnv.court_martials : [];
+  const merged = Array.from(new Set([...existing, ...module.exports.EVENT_COURT_MARTIAL_HOST_ROLE_IDS_LIST]));
+  _presetMapFromEnv.court_martials = merged;
+}
+module.exports.EVENT_PRESET_HOST_ROLE_IDS_MAP = _presetMapFromEnv;

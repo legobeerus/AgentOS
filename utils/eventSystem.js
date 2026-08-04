@@ -51,6 +51,51 @@ function canHostEvents(member, userId) {
   return hasAnyRole(member, hostRoles);
 }
 
+function getPresetHostRoles(presetKey) {
+  const key = String(presetKey || '').trim();
+  if (!key) return [];
+
+  const map = config.EVENT_PRESET_HOST_ROLE_IDS_MAP && typeof config.EVENT_PRESET_HOST_ROLE_IDS_MAP === 'object'
+    ? config.EVENT_PRESET_HOST_ROLE_IDS_MAP
+    : {};
+
+  const fromMap = toRoleList(map[key]);
+  const courtOnly = key === 'court_martials'
+    ? toRoleList(config.EVENT_COURT_MARTIAL_HOST_ROLE_IDS_LIST || config.EVENT_COURT_MARTIAL_HOST_ROLE_IDS)
+    : [];
+
+  return Array.from(new Set([...fromMap, ...courtOnly]));
+}
+
+function canHostPreset(member, userId, presetKey) {
+  if (canHostEvents(member, userId)) return true;
+  const presetRoles = getPresetHostRoles(presetKey);
+  if (presetRoles.length === 0) return false;
+  return hasAnyRole(member, presetRoles);
+}
+
+async function canHostEventsForInteraction(interaction, presetKey) {
+  if (!interaction || !interaction.user) return false;
+
+  const targetGuild = String(config.EVENT_GUILD_ID || '').trim();
+  if (targetGuild && String(interaction.guildId || '') !== targetGuild) return false;
+
+  // Prefer a fresh guild-member fetch so permissions cannot be bypassed by stale/partial interaction payloads.
+  let memberForCheck = interaction.member || null;
+  try {
+    if (interaction.guild && interaction.user && interaction.user.id) {
+      const fetched = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
+      if (fetched) memberForCheck = fetched;
+    }
+  } catch (e) {}
+
+  if (presetKey) {
+    return canHostPreset(memberForCheck, interaction.user.id, presetKey);
+  }
+
+  return canHostEvents(memberForCheck, interaction.user.id);
+}
+
 function parseTimeUtc(value) {
   const raw = String(value || '').trim();
   if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(raw)) return null;
@@ -301,7 +346,7 @@ async function handlePresetButton(interaction, client) {
     return;
   }
 
-  if (!canHostEvents(interaction.member, interaction.user.id)) {
+  if (!await canHostEventsForInteraction(interaction, preset.key)) {
     await interaction.reply({ content: 'You do not have permission to host operations events.', ephemeral: true });
     return;
   }
@@ -340,7 +385,7 @@ async function handlePresetModal(interaction, client) {
     return;
   }
 
-  if (!canHostEvents(interaction.member, interaction.user.id)) {
+  if (!await canHostEventsForInteraction(interaction, preset.key)) {
     await interaction.reply({ content: 'You do not have permission to host operations events.', ephemeral: true });
     return;
   }
@@ -380,7 +425,13 @@ async function handleLiveEventButton(interaction, client) {
     return;
   }
 
-  if (!canHostEvents(interaction.member, interaction.user.id)) {
+  const live = await eventStore.getLiveEventById(liveId);
+  if (!live || live.status !== 'active') {
+    await interaction.reply({ content: 'Active event not found.', ephemeral: true });
+    return;
+  }
+
+  if (!await canHostEventsForInteraction(interaction, live.eventTypeKey || null)) {
     await interaction.reply({ content: 'You do not have permission for this action.', ephemeral: true });
     return;
   }
@@ -393,12 +444,6 @@ async function handleLiveEventButton(interaction, client) {
   }
 
   if (action === 'edit') {
-    const live = await eventStore.getLiveEventById(liveId);
-    if (!live || live.status !== 'active') {
-      await interaction.reply({ content: 'Active event not found.', ephemeral: true });
-      return;
-    }
-
     const modal = new ModalBuilder().setCustomId(`event_live_edit_modal:${liveId}`).setTitle('Edit Event Info');
     const description = new TextInputBuilder()
       .setCustomId('description')
@@ -433,17 +478,18 @@ async function handleLiveEventButton(interaction, client) {
 
 async function handleLiveEventEditModal(interaction) {
   const liveId = String(interaction.customId || '').split(':')[1] || '';
-  if (!canHostEvents(interaction.member, interaction.user.id)) {
+  const live = await eventStore.getLiveEventById(liveId);
+  if (!live || live.status !== 'active') {
+    await interaction.reply({ content: 'Active event not found.', ephemeral: true });
+    return;
+  }
+
+  if (!await canHostEventsForInteraction(interaction, live.eventTypeKey || null)) {
     await interaction.reply({ content: 'You do not have permission for this action.', ephemeral: true });
     return;
   }
 
   await interaction.deferReply({ ephemeral: true });
-  const live = await eventStore.getLiveEventById(liveId);
-  if (!live || live.status !== 'active') {
-    await interaction.editReply({ content: 'Active event not found.' });
-    return;
-  }
 
   const description = interaction.fields.getTextInputValue('description') || '';
   const gameLink = interaction.fields.getTextInputValue('game_link') || '';
@@ -478,6 +524,7 @@ async function handleLiveEventEditModal(interaction) {
 module.exports = {
   canManageEvents,
   canHostEvents,
+  canHostPreset,
   parseTimeUtc,
   computeNextWeeklyRunAt,
   weekResetKey,
