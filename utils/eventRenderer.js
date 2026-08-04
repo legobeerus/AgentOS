@@ -70,10 +70,7 @@ function buildOperationsPanelEmbed(weeklyCount, weeklyByType) {
     .setTitle('Welcome to Operations')
     .setColor(config.EMBED_COLOR || 0x00aff1)
     .setDescription(`\`\`\`text\n${intro}\n\`\`\``)
-    .addFields(
-      { name: 'Weekly Events Completed', value: String(Number(weeklyCount || 0)), inline: true },
-      { name: 'By Event Type', value: lines || 'No completed events yet.', inline: false }
-    )
+    .addFields({ name: 'Weekly Events Completed', value: lines || 'No completed events yet.', inline: false })
     .setFooter({ text: 'Counter resets Monday 00:00 UTC' })
     .setTimestamp(new Date());
 }
