@@ -88,7 +88,7 @@ module.exports = {
   // Comma-separated list of rank names (case-insensitive) to exclude from quota checks
   GAME_QUOTA_EXCLUDE_RANKS: process.env.GAME_QUOTA_EXCLUDE_RANKS || "Special Agent-in-Training,Director of Investigations,Deputy Director of Investigations,Section Chief,Overseer",
   // Channel to post quota check reports
-    GAME_QUOTA_CHANNEL_ID: cleanId(process.env.GAME_QUOTA_CHANNEL_ID) || "1060495855817334887",
+    GAME_QUOTA_CHANNEL_ID: cleanId(process.env.GAME_QUOTA_CHANNEL_ID) || "1290094295956848700",
     // Zero-based index of pass/fail status column in TIME_LOG_SHEET_RANGE (checkbox/IF TRUE/FALSE/IMMUNE)
     GAME_QUOTA_PASS_COL: process.env.GAME_QUOTA_PASS_COL !== undefined ? Number(process.env.GAME_QUOTA_PASS_COL) : 5,
     // Text marker in pass/fail column that excludes a user from quota and Agent of the Week
