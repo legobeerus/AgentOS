@@ -66,6 +66,10 @@ module.exports = {
 
   // Database URL for blacklist roster
   DATABASE_URL: process.env.DATABASE_URL || undefined,
+  // Optional: GitHub repo to pull latest commit from (format: owner/repo)
+  GITHUB_REPO: process.env.GITHUB_REPO || "legobeerus/AgentOS",
+  // Optional: GitHub token to increase API rate limits (optional)
+  GITHUB_TOKEN: process.env.GITHUB_TOKEN || undefined,
   
   // Optional: Google Sheets lookup for background checks
   // Set GOOGLE_SHEET_ID and GOOGLE_SHEETS_API_KEY in your environment to enable
