@@ -29,17 +29,17 @@ async function _fetchLatestVersionFromGitHub() {
 
   try {
     const url = `https://api.github.com/repos/${repo}/commits?per_page=1`;
-    const headers = { 'Accept': 'application/vnd.github+json' };
+    const headers = {
+      'Accept': 'application/vnd.github+json',
+      'User-Agent': 'AgentOS-Changelog'
+    };
     const token = process.env.GITHUB_TOKEN || config.GITHUB_TOKEN;
     if (token) headers['Authorization'] = `token ${token}`;
     const res = await axios.get(url, { headers, timeout: 5000 });
     if (!res.data || !Array.isArray(res.data) || res.data.length === 0) return null;
     const commit = res.data[0];
     const msg = (commit && commit.commit && commit.commit.message) ? String(commit.commit.message).split('\n')[0] : '';
-    // Extract version at start of the commit message: allow optional leading 'v'
     const m = msg.match(/^\s*v?(\d+(?:\.\d+)*)/);
-    if (m && m[1]) return m[1];
-    // If we found a version, write cache
     const found = (m && m[1]) ? m[1] : null;
     if (found) {
       const payload = JSON.stringify({ version: found, ts: Date.now() });
