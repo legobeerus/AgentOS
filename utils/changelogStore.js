@@ -65,13 +65,23 @@ async function getChangelog() {
   return { version, additions: row.additions || '', notes: row.notes || '', updatedAt: row.updated_at ? row.updated_at.toISOString() : null };
 }
 
+async function resolveVersionForSave(version) {
+  const trimmed = typeof version === 'string' ? version.trim() : '';
+  if (trimmed) return trimmed;
+  const latest = await _fetchLatestVersionFromGitHub();
+  if (latest) return latest;
+  const current = await getChangelog();
+  return current.version || '';
+}
+
 async function setChangelog({ version, additions, notes }) {
+  const resolvedVersion = await resolveVersionForSave(version);
   const res = await pool.query(
     `UPDATE bot_changelog SET version = $1, additions = $2, notes = $3, updated_at = NOW() WHERE id = $4 RETURNING version, additions, notes, updated_at`,
-    [version || '', additions || '', notes || '', 1]
+    [resolvedVersion, additions || '', notes || '', 1]
   );
   const row = res.rows[0];
   return { version: row.version, additions: row.additions, notes: row.notes, updatedAt: row.updated_at ? row.updated_at.toISOString() : null };
 }
 
-module.exports = { getChangelog, setChangelog };
+module.exports = { getChangelog, setChangelog, resolveVersionForSave };
