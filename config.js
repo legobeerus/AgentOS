@@ -41,9 +41,9 @@ module.exports = {
   EVENT_OPERATIONS_CHANNEL_ID: cleanId(process.env.EVENT_OPERATIONS_CHANNEL_ID) || "1490285605085515896",
   EVENT_PANEL_URL: process.env.EVENT_PANEL_URL || "https://legobeerus.github.io/event-panel.html",
   EVENT_CREATOR_ROLE_IDS: process.env.EVENT_CREATOR_ROLE_IDS || "1449861438012133566,1515073280883687475",
-  EVENT_HOST_ROLE_IDS: process.env.EVENT_HOST_ROLE_IDS || "1449861438012133566,1515073280883687475",
+  EVENT_HOST_ROLE_IDS: process.env.EVENT_HOST_ROLE_IDS || "1449861438012133566,1515073017804361728",
   // Optional: role IDs that can host only Court Martial preset events.
-  EVENT_COURT_MARTIAL_HOST_ROLE_IDS: process.env.EVENT_COURT_MARTIAL_HOST_ROLE_IDS || "1515073017804361728",
+  EVENT_COURT_MARTIAL_HOST_ROLE_IDS: process.env.EVENT_COURT_MARTIAL_HOST_ROLE_IDS || "1515073280883687475",
   // Optional JSON map of preset key -> comma-separated or array role IDs.
   // Example:
   // {"court_martials":"123,456","deployments":["789"]}
