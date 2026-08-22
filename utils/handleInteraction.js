@@ -123,9 +123,16 @@ async function handleInteraction(interaction, client) {
       }
 
       if (interaction.customId === 'admin_edit_changelog') {
-        // show modal to collect version, additions, notes
+        // show modal to collect version, additions, notes; version is optional and defaults to the latest detected version
+        const cl = await getChangelog();
         const modal = new ModalBuilder().setCustomId('admin_changelog_modal').setTitle('Edit Changelog');
-        const versionInput = new TextInputBuilder().setCustomId('version').setLabel('Version').setStyle(TextInputStyle.Short).setRequired(true);
+        const versionInput = new TextInputBuilder()
+          .setCustomId('version')
+          .setLabel('Version (optional)')
+          .setStyle(TextInputStyle.Short)
+          .setPlaceholder('Leave blank to keep latest detected version')
+          .setRequired(false)
+          .setValue(cl.version || '');
         const additionsInput = new TextInputBuilder().setCustomId('additions').setLabel('Additions (comma-separated or text)').setStyle(TextInputStyle.Paragraph).setRequired(false);
         const notesInput = new TextInputBuilder().setCustomId('notes').setLabel('Notes').setStyle(TextInputStyle.Paragraph).setRequired(false);
 

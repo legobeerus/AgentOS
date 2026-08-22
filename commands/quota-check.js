@@ -396,9 +396,17 @@ module.exports = {
             const existingCycle = normalizeCell(existingRow[lastCycleCol]);
             const strikeNotes = normalizeCell(existingRow[notesCol]);
             const parsedNotes = parseQuotaStrikeNotes(strikeNotes);
-            const quotaStrikesForCalc = (parsedNotes.ok && parsedNotes.hasNotes)
-              ? Math.max(0, Number(parsedNotes.quotaStrikes) || 0)
-              : Math.max(0, existingStrikes);
+            let quotaStrikesForCalc;
+            if (parsedNotes.hasNotes && parsedNotes.ok) {
+              // Notes exist and are valid: use parsed quota strikes only (don't fall back to existingStrikes)
+              quotaStrikesForCalc = Math.max(0, Number(parsedNotes.quotaStrikes) || 0);
+            } else if (!parsedNotes.hasNotes) {
+              // No notes: use existing strikes as fallback
+              quotaStrikesForCalc = Math.max(0, existingStrikes);
+            } else {
+              // Invalid notes: set to 0 to prevent strike removals
+              quotaStrikesForCalc = 0;
+            }
             const notesFormatInvalid = !!strikeNotes && !parsedNotes.ok;
             if (notesFormatInvalid) invalidStrikeNoteUsers.push(c.name);
 

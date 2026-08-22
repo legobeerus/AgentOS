@@ -41,9 +41,9 @@ module.exports = {
   EVENT_OPERATIONS_CHANNEL_ID: cleanId(process.env.EVENT_OPERATIONS_CHANNEL_ID) || "1490285605085515896",
   EVENT_PANEL_URL: process.env.EVENT_PANEL_URL || "https://legobeerus.github.io/event-panel.html",
   EVENT_CREATOR_ROLE_IDS: process.env.EVENT_CREATOR_ROLE_IDS || "1449861438012133566,1515073280883687475",
-  EVENT_HOST_ROLE_IDS: process.env.EVENT_HOST_ROLE_IDS || "1449861438012133566,1515073280883687475",
+  EVENT_HOST_ROLE_IDS: process.env.EVENT_HOST_ROLE_IDS || "1449861438012133566,1515073017804361728",
   // Optional: role IDs that can host only Court Martial preset events.
-  EVENT_COURT_MARTIAL_HOST_ROLE_IDS: process.env.EVENT_COURT_MARTIAL_HOST_ROLE_IDS || "1515073017804361728",
+  EVENT_COURT_MARTIAL_HOST_ROLE_IDS: process.env.EVENT_COURT_MARTIAL_HOST_ROLE_IDS || "1515073280883687475",
   // Optional JSON map of preset key -> comma-separated or array role IDs.
   // Example:
   // {"court_martials":"123,456","deployments":["789"]}
@@ -66,6 +66,10 @@ module.exports = {
 
   // Database URL for blacklist roster
   DATABASE_URL: process.env.DATABASE_URL || undefined,
+  // Optional: GitHub repo to pull latest commit from (format: owner/repo)
+  GITHUB_REPO: process.env.GITHUB_REPO || "legobeerus/AgentOS",
+  // Optional: GitHub token to increase API rate limits (optional)
+  GITHUB_TOKEN: process.env.GITHUB_TOKEN || undefined,
   
   // Optional: Google Sheets lookup for background checks
   // Set GOOGLE_SHEET_ID and GOOGLE_SHEETS_API_KEY in your environment to enable
@@ -88,7 +92,7 @@ module.exports = {
   // Comma-separated list of rank names (case-insensitive) to exclude from quota checks
   GAME_QUOTA_EXCLUDE_RANKS: process.env.GAME_QUOTA_EXCLUDE_RANKS || "Special Agent-in-Training,Director of Investigations,Deputy Director of Investigations,Section Chief,Overseer",
   // Channel to post quota check reports
-    GAME_QUOTA_CHANNEL_ID: cleanId(process.env.GAME_QUOTA_CHANNEL_ID) || "1060495855817334887",
+    GAME_QUOTA_CHANNEL_ID: cleanId(process.env.GAME_QUOTA_CHANNEL_ID) || "1290094295956848700",
     // Zero-based index of pass/fail status column in TIME_LOG_SHEET_RANGE (checkbox/IF TRUE/FALSE/IMMUNE)
     GAME_QUOTA_PASS_COL: process.env.GAME_QUOTA_PASS_COL !== undefined ? Number(process.env.GAME_QUOTA_PASS_COL) : 5,
     // Text marker in pass/fail column that excludes a user from quota and Agent of the Week

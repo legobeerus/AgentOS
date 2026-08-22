@@ -261,7 +261,7 @@ async function postLiveEvent(client, payload) {
   const components = renderer.buildLiveEventComponents(created.id);
 
   const msg = await ch.send({ embeds: [embed], components });
-  await eventStore.updateLiveEvent(created.id, { channelId: ch.id, messageId: msg.id });
+  const liveEventPatch = { channelId: ch.id, messageId: msg.id };
 
   const pingRoleId = created.pingRoleId || String(config.EVENT_DEFAULT_PING_ROLE_ID || '').trim() || null;
   const startedByUserId = String(payload.startedByUserId || payload.hostUserId || '').trim() || null;
@@ -276,8 +276,13 @@ async function postLiveEvent(client, payload) {
   }
 
   if (pingRoleId && !skipPing) {
-    await ch.send({ content: `<@&${pingRoleId}>`, allowedMentions: { roles: [pingRoleId] } }).catch(() => null);
+    const pingMessage = await ch.send({ content: `<@&${pingRoleId}>`, allowedMentions: { roles: [pingRoleId] } }).catch(() => null);
+    if (pingMessage) {
+      liveEventPatch.pingMessageId = pingMessage.id;
+    }
   }
+
+  await eventStore.updateLiveEvent(created.id, liveEventPatch);
 
   return eventStore.getLiveEventById(created.id);
 }
@@ -297,20 +302,29 @@ async function endLiveEvent(client, liveEventId, actorUserId, reason) {
 
   try {
     const ch = await fetchTextChannel(client, live.channelId);
-    if (ch && live.messageId) {
-      const msg = await ch.messages.fetch(live.messageId).catch(() => null);
-      if (msg) {
-        const deleted = await msg.delete().then(() => true).catch(() => false);
-        if (!deleted) {
-          const rows = [];
-          for (const comp of msg.components || []) {
-            const row = new ActionRowBuilder();
-            for (const child of comp.components || []) {
-              row.addComponents(ButtonBuilder.from(child).setDisabled(true));
+    if (ch) {
+      if (live.messageId) {
+        const msg = await ch.messages.fetch(live.messageId).catch(() => null);
+        if (msg) {
+          const deleted = await msg.delete().then(() => true).catch(() => false);
+          if (!deleted) {
+            const rows = [];
+            for (const comp of msg.components || []) {
+              const row = new ActionRowBuilder();
+              for (const child of comp.components || []) {
+                row.addComponents(ButtonBuilder.from(child).setDisabled(true));
+              }
+              rows.push(row);
             }
-            rows.push(row);
+            await msg.edit({ components: rows }).catch(() => null);
           }
-          await msg.edit({ components: rows }).catch(() => null);
+        }
+      }
+
+      if (live.pingMessageId) {
+        const pingMsg = await ch.messages.fetch(live.pingMessageId).catch(() => null);
+        if (pingMsg) {
+          await pingMsg.delete().catch(() => null);
         }
       }
     }

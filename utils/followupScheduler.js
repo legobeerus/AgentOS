@@ -1,7 +1,8 @@
-const { listFollowups, removeFollowup } = require('./followupStore');
+const { listFollowups, removeFollowup, updateFollowup } = require('./followupStore');
 
 let clientRef = null;
 const timers = new Map();
+const RETRY_MS = Number(process.env.FOLLOWUP_RETRY_MS || 60 * 60 * 1000); // default 1 hour
 
 function clearTimer(id) {
   const t = timers.get(id);
@@ -12,17 +13,46 @@ function clearTimer(id) {
 }
 
 async function sendAndCleanup(entry) {
+  let sent = false;
   try {
     const ch = await clientRef.channels.fetch(entry.threadId).catch(() => null);
-    if (ch && ch.isTextBased && ch.isTextBased()) {
-      const allowed = Array.isArray(entry.allowedMentions) ? entry.allowedMentions : [];
-      await ch.send({ content: entry.content, allowedMentions: { roles: allowed } }).catch(() => null);
+    if (ch && typeof ch.send === 'function') {
+        const followupPingRole = config.FOLLOWUP_PING_ROLE_ID;
+        const allowed = followupPingRole ? [followupPingRole] : [];
+      try {
+          if (allowed.length) {
+            await ch.send({ content: entry.content, allowedMentions: { roles: allowed } });
+          } else {
+            await ch.send({ content: entry.content });
+          }
+        sent = true;
+      } catch (e) {
+        console.error('followupScheduler: send error for entry', entry.id, e);
+      }
+    } else {
+      console.warn('followupScheduler: channel not found or not sendable for entry', entry.id, entry.threadId);
     }
   } catch (e) {
-    console.error('followupScheduler send failed:', e);
+    console.error('followupScheduler unexpected error for entry', entry.id, e);
   }
-  try { await removeFollowup(entry.id); } catch (e) {}
-  clearTimer(entry.id);
+
+  if (sent) {
+    try { await removeFollowup(entry.id); } catch (e) { console.error('followupScheduler failed to remove sent entry', entry.id, e); }
+    clearTimer(entry.id);
+  } else {
+    // Don't delete the persisted followup on transient failures. Persist a retry time and reschedule.
+    try {
+      const next = new Date(Date.now() + RETRY_MS).toISOString();
+      await updateFollowup(entry.id, { sendAt: next }).catch(() => null);
+      entry.sendAt = next;
+      scheduleEntry(entry);
+      console.info('followupScheduler: rescheduled entry', entry.id, 'for', next);
+    } catch (e) {
+      console.error('followupScheduler failed to persist retry for entry', entry.id, e);
+      // As a fallback, clear timer to avoid tight retry loop
+      clearTimer(entry.id);
+    }
+  }
 }
 
 function scheduleEntry(entry) {
