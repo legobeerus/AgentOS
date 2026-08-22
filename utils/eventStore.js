@@ -78,6 +78,7 @@ async function ensureTables() {
           guild_id TEXT NOT NULL,
           channel_id TEXT,
           message_id TEXT,
+          ping_message_id TEXT,
           event_title TEXT NOT NULL,
           hosts_text TEXT,
           host_user_id TEXT,
@@ -113,6 +114,7 @@ async function ensureTables() {
       );
 
       await db.query(`ALTER TABLE bot_live_events ADD COLUMN IF NOT EXISTS event_type_key TEXT`);
+  await db.query(`ALTER TABLE bot_live_events ADD COLUMN IF NOT EXISTS ping_message_id TEXT`);
       await db.query(`ALTER TABLE bot_event_system_state ADD COLUMN IF NOT EXISTS weekly_completed_by_type JSONB NOT NULL DEFAULT '{}'::jsonb`);
       await db.query(`ALTER TABLE bot_events ADD COLUMN IF NOT EXISTS created_by_username TEXT`);
       await db.query(`ALTER TABLE bot_events ADD COLUMN IF NOT EXISTS game_link TEXT`);
@@ -175,6 +177,7 @@ function mapLiveEvent(row) {
     guildId: row.guild_id,
     channelId: row.channel_id || null,
     messageId: row.message_id || null,
+    pingMessageId: row.ping_message_id || null,
     eventTitle: row.event_title,
     hostsText: row.hosts_text || '',
     hostUserId: row.host_user_id || null,
@@ -361,10 +364,10 @@ async function createLiveEvent(input) {
   const nowIso = new Date().toISOString();
   const res = await db.query(
     `INSERT INTO bot_live_events (
-      id, source, event_id, guild_id, channel_id, message_id, event_title, hosts_text,
+      id, source, event_id, guild_id, channel_id, message_id, ping_message_id, event_title, hosts_text,
       host_user_id, description, game_link, vc_link, ping_role_id, scheduled_for,
       event_type_key, started_at, auto_end_at, status, created_at, updated_at
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
     RETURNING *`,
     [
       id,
@@ -373,6 +376,7 @@ async function createLiveEvent(input) {
       String(input.guildId),
       input.channelId ? String(input.channelId) : null,
       input.messageId ? String(input.messageId) : null,
+      input.pingMessageId ? String(input.pingMessageId) : null,
       String(input.eventTitle || '').trim(),
       String(input.hostsText || '').trim(),
       input.hostUserId ? String(input.hostUserId) : null,
@@ -406,6 +410,7 @@ async function updateLiveEvent(id, updates) {
 
   if (updates.channelId !== undefined) push('channel_id', updates.channelId ? String(updates.channelId) : null);
   if (updates.messageId !== undefined) push('message_id', updates.messageId ? String(updates.messageId) : null);
+  if (updates.pingMessageId !== undefined) push('ping_message_id', updates.pingMessageId ? String(updates.pingMessageId) : null);
   if (updates.description !== undefined) push('description', String(updates.description || '').trim());
   if (updates.gameLink !== undefined) push('game_link', String(updates.gameLink || '').trim());
   if (updates.vcLink !== undefined) push('vc_link', String(updates.vcLink || '').trim());
